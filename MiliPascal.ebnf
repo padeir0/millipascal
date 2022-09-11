@@ -1,0 +1,90 @@
+-- Lexer:
+type := byte|word|dword|qword.
+id := [a-zA-Z_][a-zA-Z0-9_]*.
+int := [0-9]+.
+char := '(ascii|\\')'.
+string := "(ascii*|\\")".
+
+true := 'true'.
+false := 'false'.
+
+keywords := const|mem|res|set|def
+	  |vars|proc|begin|end
+	  |while|if|else|elseif
+	  |copy|to|or|and|not
+	  |byte|word|dword|qword
+          |true|false.
+operators := , | : | \( | \) | = | == | != | > | >= | < | <= | + | - | * | / | % | \[ | \] | { | }. 
+-- Parser:
+
+Module := {Symbol}.
+Symbol := Procedure
+        | Memory
+        | Const.
+
+Const := 'const' id Terminal.
+
+Memory := 'mem' id (Reserve | Declare).
+Reserve := 'res' int type 'set' Terminal.
+Declare := 'def' TermList.
+
+Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
+DeclList := Decl {',' Decl} [','].
+Decl := id [':' type].
+
+Args := '(' [DeclList] ')'.
+Rets := '(' [DeclList] ')'.
+Vars := 'vars' DeclList.
+
+Code := If
+      | While
+      | Return
+      | Copy
+      | Set
+      | Expr.
+
+Block := 'begin' {Code} 'end'.
+
+While := 'while' Expr Block 'while'.
+
+If   := 'if' Expr Block [Else] 'if'.
+Else := 'else' Block
+      | 'elseif' Expr Block.
+
+Copy := 'copy' TermList 'to' id.
+TermList := Terminal{',' Terminal}.
+
+Set := 'set' Assignees '=' ExprList.
+Assignees := Assignee {',' Assignee}.
+Assignee := id [MemAccess].
+
+Return := 'return' [ExprList].
+
+ExprList := Expr {',' Expr} [','].
+Expr := And {'or' And}.
+And := Comp {'and' Comp}.
+Comp := Sum {compOp Sum}.
+compOp := '==' | '!=' | '>' | '>=' | '<' | '<='.
+Sum := Mult {sumOp Mult}.
+sumOp := '+' | '-'.
+Mult := UnarySuffix {multOp UnarySuffix}.
+multOp := '*' | '/' | '%'.
+UnarySuffix := UnaryPrefix {Suffix}.
+UnaryPrefix := {Prefix} Factor.
+
+Prefix := 'not' | '+' | '-'.
+Suffix  := MemAccess
+	| Conversion
+	| Call.
+MemAccess := '[' Expr ']'.
+Conversion := ':' type.
+Call := '{' [ExprList] '}'.
+
+Factor := Terminal
+	| NestedExpr.
+NestedExpr := '(' Expr ')'.
+Terminal := id
+          | string
+          | char
+          | true | false
+          | int.
