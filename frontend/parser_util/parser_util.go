@@ -11,7 +11,7 @@ import (
 
 func Track(st *Lexer, s string) {
 	if IsTracking {
-		fmt.Printf("%v: %v\n", s, ast.FmtNode(st.Word))
+		fmt.Printf("%v: %v\n", s, st.Word.String())
 	}
 }
 

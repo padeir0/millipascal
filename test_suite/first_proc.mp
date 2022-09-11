@@ -1,6 +1,6 @@
 proc P
 	(arg1, arg2, arg3)
-	(ret1, ret2, ret3)
+	qword, qword, qword
 vars a, b, c
 begin
 	set a = arg1

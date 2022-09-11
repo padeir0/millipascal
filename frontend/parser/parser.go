@@ -120,6 +120,7 @@ func declare(s *Lexer) (*ast.Node, *errors.CompilerError){
 
 // Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
 func procDef(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "Procedure")
 	kw, err := Expect(s, T.PROC)
 	if err != nil {
 		return nil, err
@@ -130,15 +131,13 @@ func procDef(s *Lexer) (*ast.Node, *errors.CompilerError) {
 		return nil, err
 	}
 	if s.Word.Lex == T.LEFTPAREN {
-		args, err = procDecls(s)
+		args, err = procArgs(s)
 		if err != nil {
 			return nil, err
 		}
-		if s.Word.Lex == T.LEFTPAREN {
-			rets, err = procDecls(s)
-			if err != nil {
-				return nil, err
-			}
+		rets, err = procRets(s)
+		if err != nil {
+			return nil, err
 		}
 	}
 	if s.Word.Lex == T.VARS {
@@ -160,8 +159,8 @@ func procDef(s *Lexer) (*ast.Node, *errors.CompilerError) {
 }
 
 // Args := '(' [DeclList] ')'.
-// Rets := '(' [DeclList] ')'.
-func procDecls(s *Lexer) (*ast.Node, *errors.CompilerError) {
+func procArgs(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "Args")
 	_, err := Expect(s, T.LEFTPAREN)
 	if err != nil {
 		return nil, err
@@ -186,8 +185,34 @@ func procDecls(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	return nil, nil
 }
 
+// Rets := type {',' type}.
+func procRets(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "Rets")
+	rets, err := RepeatList(s, _type, isComma)
+	if err != nil {
+		return nil, err
+	}
+	if rets == nil {
+		return nil, nil
+	}
+	return &ast.Node {
+		Lex:    T.PROCDECLS,
+		Leaves: rets,
+	}, nil
+}
+
+func _type(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "type")
+	switch s.Word.Lex {
+	case T.WORD, T.BYTE, T.DWORD, T.QWORD:
+		return Consume(s)
+	}
+	return nil, nil
+}
+
 // Vars := 'vars' DeclList.
 func procVars(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "Vars")
 	_, err := Expect(s, T.VARS)
 	if err != nil {
 		return nil, err
@@ -197,6 +222,7 @@ func procVars(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // DeclList := Decl {',' Decl} [','].
 func declList(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "DeclList")
 	nodes, err := RepeatList(s, decl, isComma)
 	if err != nil {
 		return nil, err
@@ -211,13 +237,14 @@ func declList(s *Lexer) (*ast.Node, *errors.CompilerError) {
 		}
 	}
 	return &ast.Node{
-		Lex:    T.PARAMS,
+		Lex:    T.PROCDECLS,
 		Leaves: nodes,
 	}, nil
 }
 
 // Decl := id [':' type].
 func decl(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "Decl")
 	if s.Word.Lex != T.IDENTIFIER {
 		return nil, nil
 	}
@@ -242,6 +269,7 @@ func decl(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // IdList = ident {"," ident} [","].
 func idList(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "IdList")
 	nodes, err := RepeatList(s, ident, isComma)
 	if err != nil {
 		return nil, err
@@ -277,7 +305,7 @@ Code := If
       | Expr.
 */
 func code(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "Line")
+	Track(s, "code")
 	switch s.Word.Lex {
 	case T.EOF:
 		return nil, nil
@@ -392,6 +420,7 @@ func termList(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // Return := 'return' [ExprList].
 func _return(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "return")
 	kw, err := Consume(s)
 	if err != nil {
 		return nil, err
@@ -408,37 +437,37 @@ func _return(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // Expr = And {"or" And}.
 func expr(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "expr")
+	Track(s, "Expr")
 	return RepeatBinary(s, boolAnd, "expression", orOp)
 }
 
 // And = Comp {"and" Comp}.
 func boolAnd(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "boolOr")
+	Track(s, "And")
 	return RepeatBinary(s, comparative, "expression", andOp)
 }
 
 // Comp = Sum {compOp Sum}.
 func comparative(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "comparative")
+	Track(s, "Comp")
 	return RepeatBinary(s, additive, "expression", compOp)
 }
 
 // Sum = Mult {sumOp Mult}.
 func additive(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "additive")
+	Track(s, "Sum")
 	return RepeatBinary(s, multiplicative, "expression", sumOp)
 }
 
 // Mult = Unary {multOp Unary}.
 func multiplicative(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "multiplicative")
+	Track(s, "Mult")
 	return RepeatBinary(s, unarySuffix, "expression", multOp)
 }
 
 // Unary = unaryPrefix {Suffix}.
 func unarySuffix(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	Track(s, "unary")
+	Track(s, "unary suffix")
 
 	pref, err := unaryPrefix(s)
 	if err != nil {
@@ -463,6 +492,7 @@ func unarySuffix(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // Prefix = "not" | "+" | "-".
 func unaryPrefix(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "unaryPrefix")
 	preFirst, preLast, err := RepeatUnaryLeft(s, prefixOp)
 	if err != nil {
 		return nil, err
@@ -492,7 +522,7 @@ func suffix(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	switch s.Word.Lex {
 	case T.LEFTBRACKET:
 		return arrayAccess(s)
-	case T.LEFTBRACE:
+	case T.LEFTPAREN:
 		return call(s)
 	case T.COLON:
 		return typeConversion(s)
@@ -520,7 +550,7 @@ func arrayAccess(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // Call = "(" [ExprList] ")".
 func call(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	_, err := Expect(s, T.LEFTBRACE)
+	_, err := Expect(s, T.LEFTPAREN)
 	if err != nil {
 		return nil, err
 	}
@@ -529,8 +559,14 @@ func call(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
+	if explist == nil {
+		explist = &ast.Node{
+			Lex: T.EXPRLIST,
+			Leaves: []*ast.Node{},
+		}
+	}
 
-	_, err = Expect(s, T.RIGHTBRACE)
+	_, err = Expect(s, T.RIGHTPAREN)
 	if err != nil {
 		return nil, err
 	}
@@ -598,6 +634,7 @@ func factor(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // Block := 'begin' {Code} 'end'.
 func block(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "block")
 	_, err := Expect(s, T.BEGIN)
 	if err != nil {
 		return nil, err
@@ -617,6 +654,7 @@ func block(s *Lexer) (*ast.Node, *errors.CompilerError) {
 }
 
 func constDef(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "const")
 	kw, err := Expect(s, T.CONST)
 	if err != nil {
 		return nil, err
@@ -634,11 +672,13 @@ func constDef(s *Lexer) (*ast.Node, *errors.CompilerError) {
 }
 
 func terminal(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "terminal")
 	return Expect(s, T.INT, T.IDENTIFIER, T.STRING, T.CHAR)
 }
 
 // If := 'if' Expr Block [Else] 'if'.
 func _if(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "if")
 	keyword, err := Expect(s, T.IF)
 	if err != nil {
 		return nil, err
@@ -674,6 +714,7 @@ func _if(s *Lexer) (*ast.Node, *errors.CompilerError) {
          | 'elseif' Expr Block.
 */
 func _else(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "else")
 	switch s.Word.Lex {
 	case T.ELSE:
 		kw, err := Consume(s)
@@ -705,6 +746,7 @@ func _else(s *Lexer) (*ast.Node, *errors.CompilerError) {
 
 // While = 'while' Expr Block 'while'.
 func _while(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	Track(s, "while")
 	keyword, err := Expect(s, T.WHILE)
 	if err != nil {
 		return nil, err

@@ -36,7 +36,7 @@ func getSymbol(n *ast.Node) *ast.Symbol {
 			Name: getSymbolName(n),
 			Proc: &ast.Proc{
 				Args:  []*ast.Decl{},
-				Rets:  []*ast.Decl{},
+				Rets:  []ast.Type{},
 				Vars:  []*ast.Decl{},
 				Names: map[string]*ast.Decl{},
 				Code:  n.Leaves[4],

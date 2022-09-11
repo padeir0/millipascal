@@ -68,7 +68,7 @@ func checkMemDef(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 func checkMemDefTerm(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
 	case T.INT:
-		if sy.Mem.Type != ast.Word {
+		if sy.Mem.Type != ast.QWord {
 			return msg.ErrorInvalidInitForMemType(M, sy, n)
 		}
 		sy.Mem.Size += 1
@@ -124,24 +124,44 @@ func checkConst(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 }
 
 func checkProc(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
-	decls, err := checkProcDecls(M, sy, sy.N.Leaves[1])
-	if err != nil {
-		return err
-	}
-	sy.Proc.Args = decls
+	nArgs := sy.N.Leaves[1]
+	nRets := sy.N.Leaves[2]
+	nVars := sy.N.Leaves[3]
 
-	decls, err = checkProcDecls(M, sy, sy.N.Leaves[2])
-	if err != nil {
-		return err
+	if nArgs != nil {
+		args, err := checkProcDecls(M, sy, nArgs)
+		if err != nil {
+			return err
+		}
+		sy.Proc.Args = args
 	}
-	sy.Proc.Rets = decls
 
-	decls, err = checkProcDecls(M, sy, sy.N.Leaves[3])
-	if err != nil {
-		return err
+	if nRets != nil {
+		rets, err := checkProcRets(M, sy, nRets)
+		if err != nil {
+			return err
+		}
+		sy.Proc.Rets = rets
 	}
-	sy.Proc.Vars = decls
+
+	if nVars != nil {
+		vars, err := checkProcDecls(M, sy, nVars)
+		if err != nil {
+			return err
+		}
+		sy.Proc.Vars = vars
+	}
 	return nil
+}
+
+func checkProcRets(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]ast.Type, *errors.CompilerError) {
+	types := []ast.Type{}
+	for _, tNode := range n.Leaves {
+		t := getType(tNode)
+		types = append(types, t)
+		tNode.T = t
+	}
+	return types, nil
 }
 
 func checkProcDecls(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]*ast.Decl, *errors.CompilerError) {
@@ -151,11 +171,13 @@ func checkProcDecls(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]*ast.Decl, *e
 		if len(decl.Leaves) == 0 {
 			d = &ast.Decl{
 				Name: decl.Text,
-				Type: ast.Word,
+				N: decl,
+				Type: ast.QWord,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ast.Decl{
 				Name: decl.Leaves[0].Text,
+				N: decl,
 				Type: getType(decl.Leaves[1]),
 			}
 		}
@@ -181,7 +203,7 @@ func getType(n *ast.Node) ast.Type {
 	case T.QWORD:
 		return ast.QWord
 	}
-	panic("getType: what")
+	panic("getType: what: "+ast.FmtNode(n))
 }
 
 func checkBlock(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
@@ -290,7 +312,7 @@ func checkReturn(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 		if err != nil {
 			return err
 		}
-		if sy.Proc.Rets[i].Type != ret.T {
+		if sy.Proc.Rets[i] != ret.T {
 			return msg.ErrorUnmatchingReturns(M, sy, ret, i)
 		}
 	}
@@ -333,7 +355,7 @@ func checkTerms(M *ast.Module, sy *ast.Symbol, memSy *ast.Symbol, n *ast.Node) *
 	for _, term := range n.Leaves {
 		switch term.Lex {
 		case T.INT:
-			if memSy.Mem.Type != ast.Word {
+			if memSy.Mem.Type != ast.QWord {
 				return msg.ErrorInvalidCopyForMemType(M, memSy, term)
 			}
 			total += 1
@@ -400,14 +422,48 @@ func checkExprList(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerE
 	return nil
 }
 
+func checkAssignees(M *ast.Module, sy *ast.Symbol, left *ast.Node) *errors.CompilerError {
+	for _, assignee := range left.Leaves {
+		switch assignee.Lex {
+		case T.IDENTIFIER:
+			err := checkIdAssignee(M, sy, assignee)
+			if err != nil {
+				return err
+			}
+		case T.LEFTBRACKET:
+			err := checkMemAccessAssignee(M, sy, assignee)
+			if err != nil {
+				return err
+			}
+		default:
+			return msg.ErrorNotAssignable(M, assignee)
+		}
+	}
+	return nil
+}
+
+func checkIdAssignee(M *ast.Module, sy *ast.Symbol, assignee *ast.Node) *errors.CompilerError {
+	local, ok := sy.Proc.Names[assignee.Text]
+	if ok {
+		assignee.T = local.Type
+		return nil
+	}
+	global, ok := M.Globals[assignee.Text]
+	if ok {
+		return msg.ErrorCannotAssignGlobal(M, global, assignee)
+	}
+	return msg.ErrorNameNotDefined(M, sy, assignee)
+}
+
+
 func checkMultiAssignment(M *ast.Module, left *ast.Node, n *ast.Node) *errors.CompilerError {
-	procName := n.Leaves[0].Text
+	procName := n.Leaves[1].Text
 	proc := M.Globals[procName]
-	if len(proc.Proc.Args) != len(left.Leaves) {
-		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n)
+	if len(proc.Proc.Rets) != len(left.Leaves) {
+		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n.Leaves[1], left)
 	}
 	for i, assignee := range left.Leaves {
-		if assignee.T != proc.Proc.Args[i].Type {
+		if assignee.T != proc.Proc.Rets[i] {
 			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, left, i)
 		}
 	}
@@ -467,7 +523,7 @@ func checkMemAccess(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compiler
 }
 
 func checkCall(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	proc := n.Leaves[0]
+	proc := n.Leaves[1]
 	local, ok := sy.Proc.Names[proc.Text]
 	if ok {
 		return msg.ErrorExpectedProcedureGotLocal(M, local, proc)
@@ -483,7 +539,7 @@ func checkCall(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError
 }
 
 func checkCallProc(M *ast.Module, sy, proc *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	exprs := n.Leaves[1]
+	exprs := n.Leaves[0]
 	if len(exprs.Leaves) != len(proc.Proc.Args) {
 		return msg.ErrorInvalidNumberOfArgs(M, proc, n)
 	}
@@ -497,7 +553,7 @@ func checkCallProc(M *ast.Module, sy, proc *ast.Symbol, n *ast.Node) *errors.Com
 		}
 	}
 	if len(proc.Proc.Rets) == 1 {
-		n.T = proc.Proc.Rets[0].Type
+		n.T = proc.Proc.Rets[0]
 	} else {
 		n.T = ast.MultiRet
 	}
@@ -523,11 +579,11 @@ func checkExprID(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 func termToType(tp T.TkType) ast.Type {
 	switch tp {
 	case T.INT:
-		return ast.Word
+		return ast.QWord
 	case T.TRUE:
-		return ast.Word
+		return ast.QWord
 	case T.FALSE:
-		return ast.Word
+		return ast.QWord
 	case T.CHAR:
 		return ast.Byte
 	}
@@ -601,33 +657,6 @@ func unaryOp(M *ast.Module, sy *ast.Symbol, op *ast.Node) *errors.CompilerError 
 
 	op.T = operand.T
 	return nil
-}
-
-func checkAssignees(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	for _, assignee := range n.Leaves {
-		switch assignee.Lex {
-		case T.IDENTIFIER:
-			return checkIdAssignee(M, sy, assignee)
-		case T.LEFTBRACKET:
-			return checkMemAccessAssignee(M, sy, assignee)
-		default:
-			return msg.ErrorNotAssignable(M, assignee)
-		}
-	}
-	return nil
-}
-
-func checkIdAssignee(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	local, ok := sy.Proc.Names[n.Text]
-	if ok {
-		n.T = local.Type
-		return nil
-	}
-	global, ok := M.Globals[n.Text]
-	if ok {
-		return msg.ErrorCannotAssignGlobal(M, global, n)
-	}
-	return msg.ErrorNameNotDefined(M, sy, n)
 }
 
 func checkMemAccessAssignee(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {

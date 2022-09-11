@@ -65,7 +65,7 @@ const (
 	// special
 	BLOCK
 	SYMBOLS
-	PARAMS
+	PROCDECLS
 	IDLIST
 	TERMLIST
 	ARRAYACCESS
@@ -136,7 +136,7 @@ var tktostr = map[TkType]string{
 	// special
 	BLOCK:       "BLOCK",
 	SYMBOLS:     "SYMBOLS",
-	PARAMS:      "PARAMS",
+	PROCDECLS:      "PARAMS",
 	IDLIST:      "IDLIST",
 	ARRAYACCESS: "ARRAYACCESS",
 	CALL:        "CALL",
@@ -219,7 +219,7 @@ var tktosrc = map[TkType]string{
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
-	PARAMS:      "parameters",
+	PROCDECLS:      "parameters",
 	IDLIST:      "id list",
 	ARRAYACCESS: "array access",
 	CALL:        "procedure call",

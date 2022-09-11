@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 )
 
-var IsTracking bool
+const IsTracking bool = false
 
 func NewLexerError(st *Lexer, t et.ErrType, message string) *errors.CompilerError {
 	loc := GetSourceLocation(st)
@@ -441,6 +441,14 @@ func identifier(st *Lexer) (*ast.Node, *errors.CompilerError) {
 		tp = T.COPY
 	case "to":
 		tp = T.TO
+	case "byte":
+		tp = T.BYTE
+	case "word":
+		tp = T.WORD
+	case "dword":
+		tp = T.DWORD
+	case "qword":
+		tp = T.QWORD
 	}
 	return GenNode(st, tp), nil
 }

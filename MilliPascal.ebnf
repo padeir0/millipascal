@@ -14,7 +14,7 @@ keywords := const|mem|res|set|def
 	  |copy|to|or|and|not
 	  |byte|word|dword|qword
           |true|false.
-operators := , | : | \( | \) | = | == | != | > | >= | < | <= | + | - | * | / | % | \[ | \] | { | }. 
+operators := , | : | \( | \) | = | == | != | > | >= | < | <= | + | - | * | / | % | \[ | \]. 
 
 
 -- Parser:
@@ -31,12 +31,12 @@ Reserve := 'res' int type 'set' Terminal.
 Declare := 'def' TermList.
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
+Args := '(' [DeclList] ')'.
+Vars := 'vars' DeclList.
+Rets := type {',' type}.
+
 DeclList := Decl {',' Decl} [','].
 Decl := id [':' type].
-
-Args := '(' [DeclList] ')'.
-Rets := '(' [DeclList] ')'.
-Vars := 'vars' DeclList.
 
 Code := If
       | While
@@ -80,7 +80,7 @@ Suffix  := MemAccess
 	| Call.
 MemAccess := '[' Expr ']'.
 Conversion := ':' type.
-Call := '{' [ExprList] '}'.
+Call := '(' [ExprList] ')'.
 
 Factor := Terminal
 	| NestedExpr.

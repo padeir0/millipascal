@@ -154,7 +154,7 @@ func ErrorInvalidNumberOfReturns(M *ast.Module, proc *ast.Symbol, n *ast.Node) *
 func ErrorUnmatchingReturns(M *ast.Module, proc *ast.Symbol, retN *ast.Node, i int) *errors.CompilerError {
 	ret := proc.Proc.Rets[i]
 	info := NewNodeInfo(retN, "mismatched type in return, has type: " + retN.T.String())
-	source := NewNodeInfo(ret.N, "expected type: " + ret.Type.String())
+	source := NewNodeInfo(proc.N, "expected type: " + ret.String())
 	return NewSemanticError(M, et.MismatchedReturnType, info, source)
 }
 
@@ -187,9 +187,10 @@ func ErrorCantUseStringInExpr(M *ast.Module, n *ast.Node) *errors.CompilerError 
 	return NewSemanticError(M, et.InvalidUseOfString, info)
 }
 
-func ErrorMismatchedMultiRetAssignment(M *ast.Module, proc *ast.Symbol, n *ast.Node) *errors.CompilerError {
+func ErrorMismatchedMultiRetAssignment(M *ast.Module, proc *ast.Symbol, n *ast.Node, left *ast.Node) *errors.CompilerError {
+	has := strconv.Itoa(len(left.Leaves))
 	expected := strconv.Itoa(len(proc.Proc.Rets))
-	info := NewNodeInfo(n, "invalid number of assignments for this procedure")
+	info := NewNodeInfo(n, "invalid number of assignments: "+ has)
 	source := NewNodeInfo(proc.N, "expected: " + expected)
 	return NewSemanticError(M, et.MismatchedMultiRetAssignment, info, source)
 }
@@ -197,7 +198,7 @@ func ErrorMismatchedMultiRetAssignment(M *ast.Module, proc *ast.Symbol, n *ast.N
 func ErrorMismatchedTypesInMultiAssignment(M *ast.Module, proc *ast.Symbol, assignee *ast.Node, i int) *errors.CompilerError {
 	ret := proc.Proc.Rets[i]
 	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: " + assignee.T.String())
-	source := NewNodeInfo(ret.N, "expected type: " + ret.Type.String())
+	source := NewNodeInfo(proc.N, "expected type: " + ret.String())
 	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, info, source)
 }
 
@@ -215,8 +216,8 @@ func ErrorInvalidCopyForMemType(M *ast.Module, memSy *ast.Symbol, n *ast.Node) *
 }
 
 func ErrorMismatchedTypesInAssignment(M *ast.Module, assignee *ast.Node, value *ast.Node) *errors.CompilerError {
-	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: " + value.T.String())
-	source := NewNodeInfo(value, "expected type: " + assignee.T.String())
+	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: " + assignee.T.String())
+	source := NewNodeInfo(value, "expected type: " + value.T.String())
 	return NewSemanticError(M, et.MismatchedTypeInAssign, info, source)
 }
 

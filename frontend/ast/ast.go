@@ -150,7 +150,7 @@ func (v *Symbol) String() string {
 
 type Proc struct {
 	Args []*Decl
-	Rets []*Decl
+	Rets []Type
 	Vars []*Decl
 
 	Names map[string]*Decl
