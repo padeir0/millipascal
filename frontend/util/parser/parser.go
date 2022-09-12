@@ -1,11 +1,11 @@
-package parser_util
+package parser
 
 import (
 	. "mpc/frontend/lexer"
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
-	T "mpc/frontend/lexType"
+	et "mpc/frontend/enums/errType"
+	T "mpc/frontend/enums/lexType"
 	"fmt"
 )
 

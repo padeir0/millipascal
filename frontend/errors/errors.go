@@ -1,7 +1,7 @@
 package errors
 
 import (
-	"mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 	"fmt"
 	"io/ioutil"
 )
@@ -45,7 +45,7 @@ func (sl *SourceLocation) String() string {
 
 type CompilerError struct {
 	Stage PipelineStage
-	Type  ErrType.ErrType
+	Type  et.ErrType
 	Debug string
 
 	Info []Excerpt

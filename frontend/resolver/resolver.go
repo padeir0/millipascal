@@ -3,7 +3,7 @@ package resolver
 import (
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 	"mpc/frontend/parser"
 	"mpc/frontend/lexer"
 	"io/ioutil"

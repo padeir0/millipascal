@@ -3,7 +3,7 @@ package frontend
 import (
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 	parser "mpc/frontend/parser"
 	lexer "mpc/frontend/lexer"
 	resolver "mpc/frontend/resolver"

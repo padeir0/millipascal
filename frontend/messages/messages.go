@@ -3,8 +3,8 @@ package messages
 import (
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	. "mpc/frontend/errors_util"
-	et "mpc/frontend/ErrType"
+	. "mpc/frontend/util/errors"
+	et "mpc/frontend/enums/errType"
 	"strconv"
 )
 

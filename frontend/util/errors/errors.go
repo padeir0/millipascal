@@ -1,8 +1,8 @@
-package errors_util
+package errors
 
 import (
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 	"mpc/frontend/ast"
 )
 

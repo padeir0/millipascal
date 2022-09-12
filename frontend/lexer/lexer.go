@@ -2,10 +2,10 @@ package lexer
 
 import (
 	"mpc/frontend/ast"
-	T "mpc/frontend/lexType"
+	T "mpc/frontend/enums/lexType"
 
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 
 	"fmt"
 	"strings"

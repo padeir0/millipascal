@@ -3,7 +3,9 @@ package typechecker
 import (
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	T "mpc/frontend/lexType"
+	T "mpc/frontend/enums/Type"
+	ST "mpc/frontend/enums/symbolType"
+	lex "mpc/frontend/enums/lexType"
 	msg "mpc/frontend/messages"
 	"strconv"
 )
@@ -16,7 +18,7 @@ func Check(M *ast.Module) *errors.CompilerError {
 		}
 	}
 	for _, sy := range M.Globals {
-		if sy.T == ast.SProc {
+		if sy.T == ST.Proc {
 			err := checkBlock(M, sy, sy.N.Leaves[4])
 			if err != nil {
 				return err
@@ -29,11 +31,11 @@ func Check(M *ast.Module) *errors.CompilerError {
 func checkSymbol(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 	var err *errors.CompilerError
 	switch sy.T {
-	case ast.SProc:
+	case ST.Proc:
 		err = checkProc(M, sy)
-	case ast.SConst:
+	case ST.Const:
 		err = checkConst(M, sy)
-	case ast.SMem:
+	case ST.Mem:
 		err = checkMem(M, sy)
 	}
 	return err
@@ -41,7 +43,7 @@ func checkSymbol(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 
 func checkMem(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 	res := sy.N.Leaves[1]
-	if res.Lex == T.RES {
+	if res.Lex == lex.RES {
 		err := checkMemRes(M, sy, res)
 		if err != nil {
 			return err
@@ -67,18 +69,18 @@ func checkMemDef(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 
 func checkMemDefTerm(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
-	case T.INT:
-		if sy.Mem.Type != ast.QWord {
+	case lex.INT:
+		if sy.Mem.Type != T.QWord {
 			return msg.ErrorInvalidInitForMemType(M, sy, n)
 		}
 		sy.Mem.Size += 1
-	case T.CHAR:
-		if sy.Mem.Type != ast.Byte {
+	case lex.CHAR:
+		if sy.Mem.Type != T.Byte {
 			return msg.ErrorInvalidInitForMemType(M, sy, n)
 		}
 		sy.Mem.Size += 1
-	case T.STRING:
-		if sy.Mem.Type != ast.Byte {
+	case lex.STRING:
+		if sy.Mem.Type != T.Byte {
 			return msg.ErrorInvalidInitForMemType(M, sy, n)
 		}
 		sy.Mem.Size += len(n.Text)
@@ -103,10 +105,10 @@ func checkMemRes(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 
 func checkMemResTerm(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
-	case T.INT:
+	case lex.INT:
 		sy.Mem.Init = []*ast.Node{n}
 		return nil
-	case T.CHAR:
+	case lex.CHAR:
 		sy.Mem.Init = []*ast.Node{n}
 		return nil
 	default:
@@ -117,7 +119,7 @@ func checkMemResTerm(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compile
 func checkConst(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 	lit := sy.N.Leaves[0]
 	switch lit.Lex {
-	case T.STRING, T.IDENTIFIER:
+	case lex.STRING, lex.IDENTIFIER:
 		return msg.ErrorConstOnlyWithIntOrChar(M, sy)
 	}
 	return nil
@@ -154,8 +156,8 @@ func checkProc(M *ast.Module, sy *ast.Symbol) *errors.CompilerError {
 	return nil
 }
 
-func checkProcRets(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]ast.Type, *errors.CompilerError) {
-	types := []ast.Type{}
+func checkProcRets(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]T.Type, *errors.CompilerError) {
+	types := []T.Type{}
 	for _, tNode := range n.Leaves {
 		t := getType(tNode)
 		types = append(types, t)
@@ -172,7 +174,7 @@ func checkProcDecls(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]*ast.Decl, *e
 			d = &ast.Decl{
 				Name: decl.Text,
 				N: decl,
-				Type: ast.QWord,
+				Type: T.QWord,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ast.Decl{
@@ -192,16 +194,16 @@ func checkProcDecls(M *ast.Module, sy *ast.Symbol, n *ast.Node) ([]*ast.Decl, *e
 	return decls, nil
 }
 
-func getType(n *ast.Node) ast.Type {
+func getType(n *ast.Node) T.Type {
 	switch n.Lex {
-	case T.BYTE:
-		return ast.Byte
-	case T.WORD:
-		return ast.Word
-	case T.DWORD:
-		return ast.DWord
-	case T.QWORD:
-		return ast.QWord
+	case lex.BYTE:
+		return T.Byte
+	case lex.WORD:
+		return T.Word
+	case lex.DWORD:
+		return T.DWord
+	case lex.QWORD:
+		return T.QWord
 	}
 	panic("getType: what: "+ast.FmtNode(n))
 }
@@ -218,17 +220,17 @@ func checkBlock(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErro
 
 func checkStatement(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
-	case T.EOF:
+	case lex.EOF:
 		return nil
-	case T.IF:
+	case lex.IF:
 		return checkIf(M, sy, n)
-	case T.WHILE:
+	case lex.WHILE:
 		return checkWhile(M, sy, n)
-	case T.RETURN:
+	case lex.RETURN:
 		return checkReturn(M, sy, n)
-	case T.COPY:
+	case lex.COPY:
 		return checkCopy(M, sy, n)
-	case T.SET:
+	case lex.SET:
 		return checkAssignment(M, sy, n)
 	default:
 		return checkExpr(M, sy, n)
@@ -261,12 +263,12 @@ func checkIf(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 
 func checkElse(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
-	case T.ELSE:
+	case lex.ELSE:
 		err := checkBlock(M, sy, n.Leaves[0])
 		if err != nil {
 			return err
 		}
-	case T.ELSEIF:
+	case lex.ELSEIF:
 		err := checkExpr(M, sy, n.Leaves[0])
 		if err != nil {
 			return err
@@ -343,7 +345,7 @@ func checkCopyID(M *ast.Module, sy *ast.Symbol, n *ast.Node) (*ast.Symbol, *erro
 		return nil, msg.ErrorNameNotDefined(M, sy, n)
 	}
 
-	if global.T != ast.SMem {
+	if global.T != ST.Mem {
 		return nil, msg.ErrorCanOnlyCopyToMemory(M, global, n)
 	}
 
@@ -354,18 +356,18 @@ func checkTerms(M *ast.Module, sy *ast.Symbol, memSy *ast.Symbol, n *ast.Node) *
 	total := 0
 	for _, term := range n.Leaves {
 		switch term.Lex {
-		case T.INT:
-			if memSy.Mem.Type != ast.QWord {
+		case lex.INT:
+			if memSy.Mem.Type != T.QWord {
 				return msg.ErrorInvalidCopyForMemType(M, memSy, term)
 			}
 			total += 1
-		case T.CHAR:
-			if sy.Mem.Type != ast.Byte {
+		case lex.CHAR:
+			if sy.Mem.Type != T.Byte {
 				return msg.ErrorInvalidCopyForMemType(M, memSy, term)
 			}
 			total += 1
-		case T.STRING:
-			if sy.Mem.Type != ast.Byte {
+		case lex.STRING:
+			if sy.Mem.Type != T.Byte {
 				return msg.ErrorInvalidCopyForMemType(M, memSy, term)
 			}
 			total += len(n.Text)
@@ -393,7 +395,7 @@ func checkAssignment(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compile
 
 	if len(right.Leaves) == 1 {
 		exp := right.Leaves[0]
-		if exp.T == ast.MultiRet {
+		if exp.T == T.MultiRet {
 			err := checkMultiAssignment(M, left, exp)
 			if err != nil {
 				return err
@@ -425,12 +427,12 @@ func checkExprList(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerE
 func checkAssignees(M *ast.Module, sy *ast.Symbol, left *ast.Node) *errors.CompilerError {
 	for _, assignee := range left.Leaves {
 		switch assignee.Lex {
-		case T.IDENTIFIER:
+		case lex.IDENTIFIER:
 			err := checkIdAssignee(M, sy, assignee)
 			if err != nil {
 				return err
 			}
-		case T.LEFTBRACKET:
+		case lex.LEFTBRACKET:
 			err := checkMemAccessAssignee(M, sy, assignee)
 			if err != nil {
 				return err
@@ -472,31 +474,31 @@ func checkMultiAssignment(M *ast.Module, left *ast.Node, n *ast.Node) *errors.Co
 
 func checkExpr(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	switch n.Lex {
-	case T.STRING:
+	case lex.STRING:
 		return msg.ErrorCantUseStringInExpr(M, n)
-	case T.IDENTIFIER:
+	case lex.IDENTIFIER:
 		return checkExprID(M, sy, n)
-	case T.INT, T.FALSE, T.TRUE, T.CHAR:
+	case lex.INT, lex.FALSE, lex.TRUE, lex.CHAR:
 		n.T = termToType(n.Lex)
 		return nil
-	case T.PLUS, T.MINUS:
+	case lex.PLUS, lex.MINUS:
 		return plusMinus(M, sy, n)
-	case T.MULTIPLICATION, T.DIVISION, T.REMAINDER,
-		T.EQUALS, T.DIFFERENT,
-		T.MORE, T.MOREEQ, T.LESS, T.LESSEQ,
-		T.AND, T.OR:
+	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
+		lex.EQUALS, lex.DIFFERENT,
+		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
+		lex.AND, lex.OR:
 		return binaryOp(M, sy, n)
-	case T.COLON:
+	case lex.COLON:
 		err := checkExpr(M, sy, n.Leaves[0])
 		if err != nil {
 			return err
 		}
 		n.T = getType(n.Leaves[1])
-	case T.CALL:
+	case lex.CALL:
 		return checkCall(M, sy, n)
-	case T.LEFTBRACKET:
+	case lex.LEFTBRACKET:
 		return checkMemAccess(M, sy, n)
-	case T.NOT:
+	case lex.NOT:
 		return unaryOp(M, sy, n)
 	}
 	return nil
@@ -510,7 +512,7 @@ func checkMemAccess(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compiler
 	}
 	global, ok := M.Globals[mem.Text]
 	if ok {
-		if global.T != ast.SMem{
+		if global.T != ST.Mem{
 			return msg.ErrorExpectedMem(M, global, mem)
 		}
 		err := checkExpr(M, sy, n.Leaves[1])
@@ -530,7 +532,7 @@ func checkCall(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError
 	}
 	global, ok := M.Globals[proc.Text]
 	if ok {
-		if global.T != ast.SProc {
+		if global.T != ST.Proc {
 			return msg.ErrorExpectedProcedure(M, global, proc)
 		}
 		return checkCallProc(M, sy, global, n)
@@ -555,7 +557,7 @@ func checkCallProc(M *ast.Module, sy, proc *ast.Symbol, n *ast.Node) *errors.Com
 	if len(proc.Proc.Rets) == 1 {
 		n.T = proc.Proc.Rets[0]
 	} else {
-		n.T = ast.MultiRet
+		n.T = T.MultiRet
 	}
 	return nil
 }
@@ -568,7 +570,7 @@ func checkExprID(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 	}
 	global, ok := M.Globals[n.Text]
 	if ok {
-		if global.T != ast.SConst {
+		if global.T != ST.Const {
 			return msg.ErrorExpectedConst(M, global, n)
 		}
 		n.T = global.N.T
@@ -576,18 +578,18 @@ func checkExprID(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 	return msg.ErrorNameNotDefined(M, sy, n)
 }
 
-func termToType(tp T.TkType) ast.Type {
+func termToType(tp lex.TkType) T.Type {
 	switch tp {
-	case T.INT:
-		return ast.QWord
-	case T.TRUE:
-		return ast.QWord
-	case T.FALSE:
-		return ast.QWord
-	case T.CHAR:
-		return ast.Byte
+	case lex.INT:
+		return T.QWord
+	case lex.TRUE:
+		return T.QWord
+	case lex.FALSE:
+		return T.QWord
+	case lex.CHAR:
+		return T.Byte
 	}
-	return ast.InvalidType
+	return T.Invalid
 }
 
 func plusMinus(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
@@ -631,10 +633,10 @@ func binaryOp(M *ast.Module, sy *ast.Symbol, op *ast.Node) *errors.CompilerError
 }
 
 func checkExprType(M *ast.Module, n *ast.Node) *errors.CompilerError {
-	if n.T == ast.MultiRet {
+	if n.T == T.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
-	if n.T == ast.InvalidType {
+	if n.T == T.Invalid {
 		return msg.ErrorInvalidType(M, n)
 	}
 	return nil
@@ -661,7 +663,7 @@ func unaryOp(M *ast.Module, sy *ast.Symbol, op *ast.Node) *errors.CompilerError 
 
 func checkMemAccessAssignee(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	id := n.Leaves[0]
-	if id.Lex != T.IDENTIFIER {
+	if id.Lex != lex.IDENTIFIER {
 		return msg.ErrorBadIndex(M, id)
 	}
 
@@ -675,7 +677,7 @@ func checkMemAccessAssignee(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.
 		return msg.ErrorNameNotDefined(M, sy, n)
 	}
 
-	if global.T != ast.SMem {
+	if global.T != ST.Mem {
 		return msg.ErrorCanOnlyIndexMemory(M, global, n)
 	}
 

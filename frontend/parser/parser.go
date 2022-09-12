@@ -2,11 +2,11 @@ package parser
 
 import (
 	"mpc/frontend/ast"
-	T "mpc/frontend/lexType"
+	T "mpc/frontend/enums/lexType"
 	"mpc/frontend/errors"
-	et "mpc/frontend/ErrType"
+	et "mpc/frontend/enums/errType"
 	. "mpc/frontend/lexer"
-	. "mpc/frontend/parser_util"
+	. "mpc/frontend/util/parser"
 )
 
 func Parse(s string) (*ast.Node, *errors.CompilerError) {

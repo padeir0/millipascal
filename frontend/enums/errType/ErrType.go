@@ -1,4 +1,4 @@
-package ErrType
+package errType
 
 import (
 	"fmt"

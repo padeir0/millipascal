@@ -3,7 +3,9 @@ package nameresolution
 import (
 	"mpc/frontend/ast"
 	"mpc/frontend/errors"
-	"mpc/frontend/lexType"
+	lex "mpc/frontend/enums/lexType"
+	T "mpc/frontend/enums/Type"
+	ST "mpc/frontend/enums/symbolType"
 	msg "mpc/frontend/messages"
 )
 
@@ -30,33 +32,33 @@ func declareSymbol(M *ast.Module, n *ast.Node) *errors.CompilerError {
 
 func getSymbol(n *ast.Node) *ast.Symbol {
 	switch n.Lex {
-	case T.PROC:
+	case lex.PROC:
 		return &ast.Symbol{
-			T:    ast.SProc,
+			T:    ST.Proc,
 			Name: getSymbolName(n),
 			Proc: &ast.Proc{
 				Args:  []*ast.Decl{},
-				Rets:  []ast.Type{},
+				Rets:  []T.Type{},
 				Vars:  []*ast.Decl{},
 				Names: map[string]*ast.Decl{},
-				Code:  n.Leaves[4],
+				N:  n.Leaves[4],
 			},
 			N: n,
 		}
-	case T.MEM:
+	case lex.MEM:
 		return &ast.Symbol{
-			T:    ast.SMem,
+			T:    ST.Mem,
 			Name: getSymbolName(n),
 			Mem: &ast.Mem{
 				Size: -1,
-				Type: ast.InvalidType,
+				Type: T.Invalid,
 				Init: []*ast.Node{},
 			},
 			N: n,
 		}
-	case T.CONST:
+	case lex.CONST:
 		return &ast.Symbol{
-			T:    ast.SConst,
+			T:    ST.Const,
 			Name: getSymbolName(n),
 			N:    n,
 		}
