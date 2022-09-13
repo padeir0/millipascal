@@ -680,29 +680,32 @@ func terminal(s *Lexer) (*ast.Node, *errors.CompilerError) {
 func _if(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	Track(s, "if")
 	keyword, err := Expect(s, T.IF)
-	if err != nil {
-		return nil, err
-	}
-	exp, err := ExpectProd(s, expr, "expression")
+	var exp, bl, else_, elseif_ *ast.Node
+
+	exp, err = ExpectProd(s, expr, "expression")
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := ExpectProd(s, block, "block")
+	bl, err = ExpectProd(s, block, "block")
 	if err != nil {
 		return nil, err
 	}
 
-	if s.Word.Lex == T.ELSE || s.Word.Lex == T.ELSEIF {
-		else_, err := _else(s)
+	if s.Word.Lex == T.ELSEIF {
+		elseif_, err = elseifchain(s)
 		if err != nil {
 			return nil, err
 		}
-		keyword.Leaves = []*ast.Node{exp, block, else_}
-		return keyword, nil
-
 	}
-	keyword.Leaves = []*ast.Node{exp, block}
+
+	if s.Word.Lex == T.ELSE {
+		else_, err = _else(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	keyword.Leaves = []*ast.Node{exp, bl, elseif_, else_}
 	_, err = Expect(s, T.IF)
 	if err != nil {
 		return nil, err
@@ -710,38 +713,50 @@ func _if(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	return keyword, nil
 }
 
-/* Else := 'else' Block
-         | 'elseif' Expr Block.
-*/
+// Else := 'else' Block.
 func _else(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	Track(s, "else")
-	switch s.Word.Lex {
-	case T.ELSE:
-		kw, err := Consume(s)
-		if err != nil {
-			return nil, err
-		}
-		bl, err := block(s)
-		if err != nil {
-			return nil, err
-		}
-		kw.Leaves = []*ast.Node{bl}
-	case T.ELSEIF:
-		kw, err := Consume(s)
-		if err != nil {
-			return nil, err
-		}
-		exp, err := ExpectProd(s, expr, "expression")
-		if err != nil {
-			return nil, err
-		}
-		bl, err := block(s)
-		if err != nil {
-			return nil, err
-		}
-		kw.Leaves = []*ast.Node{exp, bl}
+	kw, err := Consume(s)
+	if err != nil {
+		return nil, err
 	}
-	return nil, Check(s, T.ELSE, T.ELSEIF)
+	bl, err := block(s)
+	if err != nil {
+		return nil, err
+	}
+	kw.Leaves = []*ast.Node{bl}
+	return kw, nil
+}
+
+func elseifchain(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	elses, err := Repeat(s, _elseif)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.Node {
+		Lex: T.ELSEIFCHAIN,
+		Leaves: elses,
+	}, nil
+}
+
+func _elseif(s *Lexer) (*ast.Node, *errors.CompilerError) {
+	if s.Word.Lex != T.ELSEIF {
+		return nil, nil
+	}
+	kw, err := Consume(s)
+	if err != nil {
+		return nil, err
+	}
+	exp, err := ExpectProd(s, expr, "expression")
+	if err != nil {
+		return nil, err
+	}
+	bl, err := block(s)
+	if err != nil {
+		return nil, err
+	}
+	kw.Leaves = []*ast.Node{exp, bl}
+	return kw, nil
 }
 
 // While = 'while' Expr Block 'while'.

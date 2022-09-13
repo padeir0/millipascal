@@ -154,6 +154,12 @@ func (b *BasicBlock) Branch(cond *Operand, True *BasicBlock, False *BasicBlock) 
 	}
 }
 
+func (b *BasicBlock) Return() {
+	b.Out = Flow{
+		T:     FT.Return,
+	}
+}
+
 func (b *BasicBlock) HasFlow() bool {
 	return b.Out.T != FT.InvalidFlow
 }
@@ -188,6 +194,7 @@ func (f *Flow) String() string {
 
 type Operand struct {
 	T OT.OperandType
+	Type T.Type
 	Label string
 	Num int
 }

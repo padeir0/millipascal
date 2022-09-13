@@ -38,12 +38,16 @@ func (i InstrType) String() string {
 		return "not"
 	case Call:
 		return "call"
-	case Load:
-		return "load"
-	case Store:
-		return "store"
+	case MemLoad:
+		return "mem_load"
+	case MemStore:
+		return "mem_store"
+	case LocalStore:
+		return "local_store"
 	case Convert:
 		return "convert"
+	case BoundsCheck:
+		return "bounds_check"
 	}
 	panic("Unstringified InstrType")
 }
@@ -71,10 +75,15 @@ const (
 
 	Convert
 
-	Load
-	Store
+	LocalStore
+	MemLoad
+	MemStore
 
 	BoundsCheck
 
 	Call
+	StoreRet
+	LoadRet
+	StoreArg
+	LoadArg
 )

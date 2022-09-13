@@ -238,6 +238,62 @@ func checkStatement(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compiler
 }
 
 func checkIf(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
+	exp := n.Leaves[0]
+	block := n.Leaves[1]
+	elseifchain := n.Leaves[2]
+	else_ := n.Leaves[3]
+
+	err := checkExpr(M, sy, exp)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, exp)
+	if err != nil {
+		return err
+	}
+
+	err = checkBlock(M, sy, block)
+	if err != nil {
+		return err
+	}
+
+	if elseifchain != nil {
+		err = checkElseIfChain(M, sy, elseifchain)
+		if err != nil {
+			return err
+		}
+	}
+
+	if else_ != nil {
+		err = checkElse(M, sy, else_)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func checkElse(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
+	err := checkBlock(M, sy, n.Leaves[0])
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkElseIfChain(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
+	for _, elseif := range n.Leaves {
+		err := checkElseIf(M, sy, elseif)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkElseIf(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	err := checkExpr(M, sy, n.Leaves[0])
 	if err != nil {
 		return err
@@ -251,38 +307,6 @@ func checkIf(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
 	err = checkBlock(M, sy, n.Leaves[1])
 	if err != nil {
 		return err
-	}
-	if len(n.Leaves) == 3 {
-		err = checkElse(M, sy, n.Leaves[2])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func checkElse(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	switch n.Lex {
-	case lex.ELSE:
-		err := checkBlock(M, sy, n.Leaves[0])
-		if err != nil {
-			return err
-		}
-	case lex.ELSEIF:
-		err := checkExpr(M, sy, n.Leaves[0])
-		if err != nil {
-			return err
-		}
-
-		err = checkExprType(M, n.Leaves[0])
-		if err != nil {
-			return err
-		}
-
-		err = checkBlock(M, sy, n.Leaves[1])
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -393,13 +417,11 @@ func checkAssignment(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compile
 		return err
 	}
 
-	if len(right.Leaves) == 1 {
-		exp := right.Leaves[0]
-		if exp.T == T.MultiRet {
-			err := checkMultiAssignment(M, left, exp)
-			if err != nil {
-				return err
-			}
+	if len(right.Leaves) == 1 &&
+		right.Leaves[0].T == T.MultiRet  {
+		err := checkMultiAssignment(M, left, right.Leaves[0])
+		if err != nil {
+			return err
 		}
 	} else if len(right.Leaves) != len(left.Leaves) {
 		return msg.ErrorMismatchedAssignment(M, n)
@@ -489,11 +511,11 @@ func checkExpr(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError
 		lex.AND, lex.OR:
 		return binaryOp(M, sy, n)
 	case lex.COLON:
-		err := checkExpr(M, sy, n.Leaves[0])
+		err := checkExpr(M, sy, n.Leaves[1])
 		if err != nil {
 			return err
 		}
-		n.T = getType(n.Leaves[1])
+		n.T = getType(n.Leaves[0])
 	case lex.CALL:
 		return checkCall(M, sy, n)
 	case lex.LEFTBRACKET:
@@ -505,23 +527,24 @@ func checkExpr(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError
 }
 
 func checkMemAccess(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	mem := n.Leaves[0]
+	mem := n.Leaves[1]
 	local, ok := sy.Proc.Names[mem.Text]
 	if ok {
 		return msg.ErrorExpectedMemGotLocal(M, local, mem)
 	}
 	global, ok := M.Globals[mem.Text]
-	if ok {
-		if global.T != ST.Mem{
-			return msg.ErrorExpectedMem(M, global, mem)
-		}
-		err := checkExpr(M, sy, n.Leaves[1])
-		if err != nil {
-			return err
-		}
-		n.T = global.Mem.Type
+	if !ok {
+		return msg.ErrorNameNotDefined(M, sy, mem)
 	}
-	return msg.ErrorNameNotDefined(M, sy, mem)
+	if global.T != ST.Mem {
+		return msg.ErrorExpectedMem(M, global, mem)
+	}
+	err := checkExpr(M, sy, n.Leaves[0])
+	if err != nil {
+		return err
+	}
+	n.T = global.Mem.Type
+	return nil
 }
 
 func checkCall(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
@@ -667,12 +690,12 @@ func checkMemAccessAssignee(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.
 		return msg.ErrorBadIndex(M, id)
 	}
 
-	local, ok := sy.Proc.Names[n.Text]
+	local, ok := sy.Proc.Names[id.Text]
 	if ok {
 		return msg.ErrorCannotIndexLocal(M, local, n)
 	}
 
-	global, ok := M.Globals[n.Text]
+	global, ok := M.Globals[id.Text]
 	if !ok {
 		return msg.ErrorNameNotDefined(M, sy, n)
 	}

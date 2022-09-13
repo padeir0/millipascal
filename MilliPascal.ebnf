@@ -49,9 +49,9 @@ Block := 'begin' {Code} 'end'.
 
 While := 'while' Expr Block 'while'.
 
-If   := 'if' Expr Block [Else] 'if'.
+If   := 'if' Expr Block {ElseIf} [Else] 'if'.
+ElseIf := 'elseif' Expr Block.
 Else := 'else' Block
-      | 'elseif' Expr Block.
 
 Copy := 'copy' TermList 'to' id.
 TermList := Terminal{',' Terminal}.

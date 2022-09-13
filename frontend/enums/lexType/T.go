@@ -72,6 +72,7 @@ const (
 	CALL
 	EXPRLIST
 	ASSIGNEES
+	ELSEIFCHAIN
 
 	EOF
 )
@@ -136,13 +137,13 @@ var tktostr = map[TkType]string{
 	// special
 	BLOCK:       "BLOCK",
 	SYMBOLS:     "SYMBOLS",
-	PROCDECLS:      "PARAMS",
+	PROCDECLS:   "PARAMS",
 	IDLIST:      "IDLIST",
 	ARRAYACCESS: "ARRAYACCESS",
 	CALL:        "CALL",
 	EXPRLIST:    "EXPRLIST",
 	ASSIGNEES:   "ASSIGNEES",
-
+	ELSEIFCHAIN: "ELSEIFCHAIN",
 
 	EOF: "EOF",
 }
@@ -219,12 +220,13 @@ var tktosrc = map[TkType]string{
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
-	PROCDECLS:      "parameters",
+	PROCDECLS:   "parameters",
 	IDLIST:      "id list",
 	ARRAYACCESS: "array access",
 	CALL:        "procedure call",
 	EXPRLIST:    "expression list",
 	ASSIGNEES:   "assignees",
+	ELSEIFCHAIN: "else if chain",
 
 	EOF: "EOF",
 }
