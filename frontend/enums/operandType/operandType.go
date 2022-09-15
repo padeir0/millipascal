@@ -9,4 +9,5 @@ const (
 	Temp
 	Local
 	Lit
+	Register
 )

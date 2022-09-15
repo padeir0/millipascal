@@ -9,6 +9,7 @@ import (
 	resolver "mpc/frontend/resolver"
 	nameresolution "mpc/frontend/nameresolution"
 	typechecker "mpc/frontend/typechecker"
+	gen "mpc/frontend/gen"
 	"io/ioutil"
 )
 
@@ -66,6 +67,11 @@ func module(M *ast.Module) *errors.CompilerError {
 	}
 
 	err = typechecker.Check(M)
+	if err != nil {
+		return err
+	}
+
+	err = gen.Generate(M)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"fmt"
 	"strings"
+	"strconv"
 )
 
 type Node struct {
@@ -82,6 +83,18 @@ func (M *Module) StrGlobals() string {
 	return strings.Join(output, ", ")
 }
 
+func (M *Module) StringifyCode() string {
+	output := ""
+	for _, sy := range M.Globals {
+		if sy.T == ST.Proc {
+			output += sy.Proc.Name + ":\n"+
+				"env: " + sy.Proc.StrArgs() + "\n" + 
+				FmtBasicBlock(sy.Proc.Code)
+		}
+	}
+	return output
+}
+
 type Symbol struct {
 	T ST.SymbolType
 	Name string
@@ -115,10 +128,22 @@ type Proc struct {
 	Code *BasicBlock
 }
 
+func (p *Proc) StrArgs() string {
+	output := []string{}
+	for _, decl := range p.Names {
+		output = append(output, decl.String())
+	}
+	return strings.Join(output, ", ")
+}
+
 type Decl struct {
 	Name string
 	Type T.Type
 	N *Node
+}
+
+func (d *Decl) String() string {
+	return d.Name + ":" + d.Type.String()
 }
 
 type Mem struct {
@@ -173,6 +198,40 @@ func (b *BasicBlock) String() string {
 	return output
 }
 
+func FmtBasicBlock(bb *BasicBlock) string {
+	bblist := flattenGraph(bb)
+	output := ""
+	for _, b := range bblist {
+		output += b.String() + "\n"
+	}
+	return output
+}
+
+func flattenGraph(bb *BasicBlock) []*BasicBlock {
+	BBset := map[*BasicBlock]struct{}{}
+	flattenHelper(bb, &BBset)
+
+	output := make([]*BasicBlock, len(BBset))
+	i := 0
+	for b := range BBset {
+		output[i] = b
+		i++
+	}
+	return output
+}
+
+func flattenHelper(bb *BasicBlock, BBset *map[*BasicBlock]struct{}) {
+	(*BBset)[bb] = struct{}{}
+	_, ok := (*BBset)[bb.Out.True]
+	if bb.Out.True != nil && !ok {
+		flattenHelper(bb.Out.True, BBset)
+	}
+	_, ok = (*BBset)[bb.Out.False]
+	if bb.Out.False != nil && !ok {
+		flattenHelper(bb.Out.False, BBset)
+	}
+}
+
 type Flow struct {
 	T     FT.FlowType
 	V     *Operand
@@ -185,7 +244,7 @@ func (f *Flow) String() string {
 	case FT.Jmp:
 		return "jmp " + f.True.Label
 	case FT.If:
-		return "if "+f.V.String()+"?"+f.True.Label+":"+f.False.Label
+		return "if "+f.V.String()+"? "+f.True.Label+" : "+f.False.Label
 	case FT.Return:
 		return "ret"
 	}
@@ -202,7 +261,7 @@ type Operand struct {
 func (o *Operand) String() string {
 	switch o.T {
 	case OT.Temp:
-		return "%"+o.Label
+		return o.Label+"'"+strconv.Itoa(o.Num)
 	default:
 		return o.Label
 	}
@@ -243,11 +302,11 @@ func (i *Instr) StrOps() string {
 }
 
 func (i *Instr) StrDests() string {
-	if len(i.Operands) == 0 {
+	if len(i.Destination) == 0 {
 		return ""
 	}
-	output := i.Operands[0].String()
-	for _, v := range i.Operands[1:] {
+	output := i.Destination[0].String()
+	for _, v := range i.Destination[1:] {
 		output += ", " + v.String()
 	}
 	return output

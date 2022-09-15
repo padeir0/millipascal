@@ -68,12 +68,14 @@ func normalMode(s string) {
 	case *frontendOnly:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
-		Stdout(m.String())
+		Stdout(m.String() + "\n")
+		Stdout(m.StringifyCode())
 		Stdout("\n")
 	default:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
-		Stdout(m.String())
+		Stdout(m.String() + "\n")
+		Stdout(m.StringifyCode())
 		Stdout("\n")
 	}
 }

@@ -1,5 +1,7 @@
 package instrtype
 
+import "strconv"
+
 type InstrType int
 
 func (i InstrType) String() string {
@@ -38,6 +40,14 @@ func (i InstrType) String() string {
 		return "not"
 	case Call:
 		return "call"
+	case StoreRet:
+		return "store_ret"
+	case LoadRet:
+		return "load_ret"
+	case StoreArg:
+		return "store_arg"
+	case LoadArg:
+		return "load_arg"
 	case MemLoad:
 		return "mem_load"
 	case MemStore:
@@ -49,7 +59,7 @@ func (i InstrType) String() string {
 	case BoundsCheck:
 		return "bounds_check"
 	}
-	panic("Unstringified InstrType")
+	panic("Unstringified InstrType: " + strconv.Itoa(int(i)))
 }
 
 const (

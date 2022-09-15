@@ -31,17 +31,19 @@ func declareSymbol(M *ast.Module, n *ast.Node) *errors.CompilerError {
 }
 
 func getSymbol(n *ast.Node) *ast.Symbol {
+	name := getSymbolName(n)
 	switch n.Lex {
 	case lex.PROC:
 		return &ast.Symbol{
 			T:    ST.Proc,
-			Name: getSymbolName(n),
+			Name: name,
 			Proc: &ast.Proc{
+				Name: name,
 				Args:  []*ast.Decl{},
 				Rets:  []T.Type{},
 				Vars:  []*ast.Decl{},
 				Names: map[string]*ast.Decl{},
-				N:  n.Leaves[4],
+				N:  n,
 			},
 			N: n,
 		}

@@ -42,7 +42,7 @@ func (c *context) AllocTemp(t T.Type) *ast.Operand {
 	op := &ast.Operand{
 		T:   OT.Temp,
 		Type: t,
-		Num: c.LabelCounter,
+		Num: c.TempCounter,
 	}
 	c.TempCounter++
 	return op
@@ -62,6 +62,10 @@ func Generate(M *ast.Module) *errors.CompilerError {
 
 func genProc(M *ast.Module, proc *ast.Proc) *errors.CompilerError {
 	c := newContext(proc)
+	start := c.NewBlock()
+	proc.Code = start
+	c.CurrBlock = start
+
 	body := proc.N.Leaves[4]
 	return genBlock(M, c, body)
 }
@@ -111,7 +115,7 @@ func genIf(M *ast.Module, c *context, if_ *ast.Node) *errors.CompilerError {
 
 	c.CurrBlock = falsebl
 	if elseifchain != nil {
-		err := genElseIfChain(M, c, elseifchain)
+		err := genElseIfChain(M, c, elseifchain, outbl)
 		if err != nil {
 			return err
 		}
@@ -128,8 +132,7 @@ func genIf(M *ast.Module, c *context, if_ *ast.Node) *errors.CompilerError {
 	return nil
 }
 
-func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node) *errors.CompilerError {
-	outbl   := c.NewBlock()
+func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast.BasicBlock) *errors.CompilerError {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
@@ -147,7 +150,6 @@ func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node) *errors.Co
 		c.CurrBlock.Jmp(outbl)
 		c.CurrBlock = falsebl
 	}
-	c.CurrBlock = outbl
 	return nil
 }
 
@@ -155,6 +157,8 @@ func genWhile(M *ast.Module, c *context, while *ast.Node) *errors.CompilerError 
 	loop_start := c.NewBlock()
 	loop_body := c.NewBlock()
 	loop_end := c.NewBlock()
+
+	c.CurrBlock.Jmp(loop_start)
 	c.CurrBlock = loop_start
 
 	op := genExpr(M, c, while.Leaves[0])
@@ -495,6 +499,10 @@ func genBinaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
 
 func lexToBinaryOp(op lex.TkType) IT.InstrType {
 	switch op {
+	case lex.MINUS:
+		return IT.Sub
+	case lex.PLUS:
+		return IT.Add
 	case lex.MULTIPLICATION:
 		return IT.Mult
 	case lex.DIVISION:
@@ -518,7 +526,7 @@ func lexToBinaryOp(op lex.TkType) IT.InstrType {
 	case lex.OR:
 		return IT.Or
 	}
-	panic("lexToBinaryOp: unexpected binOp")
+	panic("lexToBinaryOp: unexpected binOp: "+lex.FmtTypes(op))
 }
 
 func genUnaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
