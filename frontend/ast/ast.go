@@ -199,7 +199,7 @@ func (b *BasicBlock) String() string {
 }
 
 func FmtBasicBlock(bb *BasicBlock) string {
-	bblist := flattenGraph(bb)
+	bblist := FlattenGraph(bb)
 	output := ""
 	for _, b := range bblist {
 		output += b.String() + "\n"
@@ -207,7 +207,7 @@ func FmtBasicBlock(bb *BasicBlock) string {
 	return output
 }
 
-func flattenGraph(bb *BasicBlock) []*BasicBlock {
+func FlattenGraph(bb *BasicBlock) []*BasicBlock {
 	BBset := map[*BasicBlock]struct{}{}
 	flattenHelper(bb, &BBset)
 
@@ -261,7 +261,11 @@ type Operand struct {
 func (o *Operand) String() string {
 	switch o.T {
 	case OT.Temp:
-		return o.Label+"'"+strconv.Itoa(o.Num)
+		return "'"+strconv.Itoa(o.Num)
+	case OT.Register:
+		return "'r"+strconv.Itoa(o.Num)
+	case OT.Spill:
+		return "'s"+strconv.Itoa(o.Num)
 	default:
 		return o.Label
 	}

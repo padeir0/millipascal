@@ -7,7 +7,6 @@ import (
 	lex "mpc/frontend/enums/lexType"
 	OT "mpc/frontend/enums/operandType"
 	ST "mpc/frontend/enums/symbolType"
-	"mpc/frontend/errors"
 	"strconv"
 )
 
@@ -48,7 +47,7 @@ func (c *context) AllocTemp(t T.Type) *ast.Operand {
 	return op
 }
 
-func Generate(M *ast.Module) *errors.CompilerError {
+func Generate(M *ast.Module)  {
 	for _, sy := range M.Globals {
 		switch sy.T {
 		case ST.Proc:
@@ -57,44 +56,42 @@ func Generate(M *ast.Module) *errors.CompilerError {
 			genMem(M, sy.Mem)
 		}
 	}
-	return nil
 }
 
-func genProc(M *ast.Module, proc *ast.Proc) *errors.CompilerError {
+func genProc(M *ast.Module, proc *ast.Proc)  {
 	c := newContext(proc)
 	start := c.NewBlock()
 	proc.Code = start
 	c.CurrBlock = start
 
 	body := proc.N.Leaves[4]
-	return genBlock(M, c, body)
+	genBlock(M, c, body)
+	if !proc.Code.HasFlow() {
+		proc.Code.Return()
+	}
+	return 
 }
 
-func genBlock(M *ast.Module, c *context, body *ast.Node) *errors.CompilerError {
+func genBlock(M *ast.Module, c *context, body *ast.Node)  {
 	for _, code := range body.Leaves {
-		var err *errors.CompilerError
 		switch code.Lex {
 		case lex.IF:
-			err = genIf(M, c, code)
+			genIf(M, c, code)
 		case lex.WHILE:
-			err = genWhile(M, c, code)
+			genWhile(M, c, code)
 		case lex.RETURN:
-			err = genReturn(M, c, code)
+			genReturn(M, c, code)
 		case lex.COPY:
-			err = genCopy(M, c, code)
+			genCopy(M, c, code)
 		case lex.SET:
-			err = genSet(M, c, code)
+			genSet(M, c, code)
 		default:
 			genExpr(M, c, code)
 		}
-		if err != nil {
-			return err
-		}
 	}
-	return nil
 }
 
-func genIf(M *ast.Module, c *context, if_ *ast.Node) *errors.CompilerError {
+func genIf(M *ast.Module, c *context, if_ *ast.Node)  {
 	exp := if_.Leaves[0]
 	block := if_.Leaves[1]
 	elseifchain := if_.Leaves[2]
@@ -107,32 +104,21 @@ func genIf(M *ast.Module, c *context, if_ *ast.Node) *errors.CompilerError {
 	c.CurrBlock.Branch(op, truebl, falsebl)
 
 	c.CurrBlock = truebl
-	err := genBlock(M, c, block)
-	if err != nil {
-		return err
-	}
+	genBlock(M, c, block)
 	c.CurrBlock.Jmp(outbl)
 
 	c.CurrBlock = falsebl
 	if elseifchain != nil {
-		err := genElseIfChain(M, c, elseifchain, outbl)
-		if err != nil {
-			return err
-		}
+		genElseIfChain(M, c, elseifchain, outbl)
 	}
 	if else_ != nil {
-		err := genBlock(M, c, else_.Leaves[0])
-		if err != nil {
-			return err
-		}
+		genBlock(M, c, else_.Leaves[0])
 	}
 	c.CurrBlock.Jmp(outbl)
 	c.CurrBlock = outbl
-
-	return nil
 }
 
-func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast.BasicBlock) *errors.CompilerError {
+func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast.BasicBlock)  {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
@@ -143,17 +129,13 @@ func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast
 		c.CurrBlock.Branch(op, truebl, falsebl)
 
 		c.CurrBlock = truebl
-		err := genBlock(M, c, block)
-		if err != nil {
-			return err
-		}
+		genBlock(M, c, block)
 		c.CurrBlock.Jmp(outbl)
 		c.CurrBlock = falsebl
 	}
-	return nil
 }
 
-func genWhile(M *ast.Module, c *context, while *ast.Node) *errors.CompilerError {
+func genWhile(M *ast.Module, c *context, while *ast.Node)  {
 	loop_start := c.NewBlock()
 	loop_body := c.NewBlock()
 	loop_end := c.NewBlock()
@@ -165,18 +147,14 @@ func genWhile(M *ast.Module, c *context, while *ast.Node) *errors.CompilerError 
 	c.CurrBlock.Branch(op, loop_body, loop_end)
 
 	c.CurrBlock = loop_body
-	err := genBlock(M, c, while.Leaves[1])
-	if err != nil {
-		return err
-	}
+	genBlock(M, c, while.Leaves[1])
 	c.CurrBlock.Jmp(loop_start)
 
 	c.CurrBlock = loop_end
 
-	return nil
 }
 
-func genReturn(M *ast.Module, c *context, return_ *ast.Node) *errors.CompilerError {
+func genReturn(M *ast.Module, c *context, return_ *ast.Node)  {
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
 		storeRet := &ast.Instr {
@@ -187,36 +165,32 @@ func genReturn(M *ast.Module, c *context, return_ *ast.Node) *errors.CompilerErr
 		c.CurrBlock.AddInstr(storeRet)
 	}
 	c.CurrBlock.Return()
-	return nil
 }
 
-func genCopy(M *ast.Module, c *context, body *ast.Node) *errors.CompilerError {
-	return nil
+func genCopy(M *ast.Module, c *context, body *ast.Node)  {
 }
 
-func genSet(M *ast.Module, c *context, set *ast.Node) *errors.CompilerError {
+func genSet(M *ast.Module, c *context, set *ast.Node)  {
 	assignees := set.Leaves[0]
 	exprlist := set.Leaves[1]
 
 	if len(assignees.Leaves) > 1 && len(exprlist.Leaves) > 1 {
-		return genMultiAssign(M, c, assignees, exprlist)
+		genMultiAssign(M, c, assignees, exprlist)
+		return
 	}
 
 	if len(assignees.Leaves) > 1 && len(exprlist.Leaves) == 1 {
-		return genMultiProcAssign(M, c, assignees, exprlist.Leaves[0])
+		genMultiProcAssign(M, c, assignees, exprlist.Leaves[0])
+		return
 	}
 
 	if len(assignees.Leaves) == 1 && len(exprlist.Leaves) == 1 {
-		err := genSingleAssign(M, c, assignees.Leaves[0], exprlist.Leaves[0])
-		if err != nil {
-			return err
-		}
+		genSingleAssign(M, c, assignees.Leaves[0], exprlist.Leaves[0])
+		return
 	}
-
-	return nil
 }
 
-func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node) *errors.CompilerError {
+func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
 	if call.Lex != lex.CALL {
 		panic("must be CALL:\n" + ast.FmtNode(call))
 	}
@@ -252,7 +226,6 @@ func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node) *e
 			continue
 		}
 	}
-	return nil
 }
 
 func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
@@ -266,8 +239,8 @@ func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
 }
 
 func genCallAssignMem(M *ast.Module, c *context, ass *ast.Node) {
-	destOp := genExprID(M, c, ass.Leaves[0]) // CHECK
-	indexOp := genExpr(M, c, ass.Leaves[1])
+	destOp := genExprID(M, c, ass.Leaves[1]) // CHECK
+	indexOp := genExpr(M, c, ass.Leaves[0])
 	temp := c.AllocTemp(ass.T)
 	loadRet := &ast.Instr{
 		T: IT.LoadRet,
@@ -278,32 +251,30 @@ func genCallAssignMem(M *ast.Module, c *context, ass *ast.Node) {
 	memLoad := &ast.Instr{
 		T: IT.MemStore,
 		Type: ass.T,
-		Operands: []*ast.Operand{temp},
-		Destination: []*ast.Operand{destOp, indexOp},
+		Operands: []*ast.Operand{temp, indexOp},
+		Destination: []*ast.Operand{destOp},
 	}
 	c.CurrBlock.AddInstr(memLoad)
 }
 	
-func genMultiAssign(M *ast.Module, c *context, assignees, exprlist *ast.Node) *errors.CompilerError {
+func genMultiAssign(M *ast.Module, c *context, assignees, exprlist *ast.Node)  {
 	for i := range assignees.Leaves {
 		ass := assignees.Leaves[i]
 		exp := exprlist.Leaves[i]
-		err := genSingleAssign(M, c, ass, exp)
-		if err != nil {
-			return err
-		}
+		genSingleAssign(M, c, ass, exp)
 	}
-	return nil
 }
 
-func genSingleAssign(M *ast.Module, c *context, assignee, expr *ast.Node) *errors.CompilerError {
+func genSingleAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	if assignee.Lex == lex.IDENTIFIER {
-		return genNormalAssign(M, c, assignee, expr)
+		genNormalAssign(M, c, assignee, expr)
+		return
 	}
-	return genMemAssign(M, c, assignee, expr)
+	genMemAssign(M, c, assignee, expr)
+	return
 }
 
-func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node) *errors.CompilerError {
+func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
 	store := &ast.Instr {
@@ -313,10 +284,9 @@ func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node) *error
 		Destination: []*ast.Operand{op},
 	}
 	c.CurrBlock.AddInstr(store)
-	return nil
 }
 
-func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node) *errors.CompilerError {
+func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	assID := assignee.Leaves[0]
 	indexExp := assignee.Leaves[1]
 
@@ -324,13 +294,12 @@ func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node) *errors.C
 	idOp := genExprID(M, c, assID)
 	expOp := genExpr(M, c, expr)
 	store := &ast.Instr {
-		T: IT.LocalStore,
+		T: IT.MemStore,
 		Type: expOp.Type,
-		Operands: []*ast.Operand{expOp},
-		Destination: []*ast.Operand{idOp, indexOp},
+		Operands: []*ast.Operand{expOp, indexOp},
+		Destination: []*ast.Operand{idOp},
 	}
 	c.CurrBlock.AddInstr(store)
-	return nil
 }
 
 func genExpr(M *ast.Module, c *context, exp *ast.Node) *ast.Operand {
@@ -555,6 +524,5 @@ func lexToUnaryOp(op lex.TkType) IT.InstrType {
 	panic("lexToUnaryOp: unexpected binOp")
 }
 
-func genMem(M *ast.Module, mem *ast.Mem) *errors.CompilerError {
-	return nil
+func genMem(M *ast.Module, mem *ast.Mem) {
 }

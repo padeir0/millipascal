@@ -3,6 +3,7 @@ package main
 import (
 	"mpc/frontend"
 	"mpc/frontend/ast"
+	"mpc/backend"
 	"mpc/testing"
 	. "mpc/util"
 	"flag"
@@ -74,6 +75,8 @@ func normalMode(s string) {
 	default:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
+		asm := backend.Generate(m)
+		Stdout(asm)
 		Stdout(m.String() + "\n")
 		Stdout(m.StringifyCode())
 		Stdout("\n")

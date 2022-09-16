@@ -54,6 +54,8 @@ func (i InstrType) String() string {
 		return "mem_store"
 	case LocalStore:
 		return "local_store"
+	case Spill:
+		return "spill"
 	case Convert:
 		return "convert"
 	case BoundsCheck:
@@ -88,6 +90,7 @@ const (
 	LocalStore
 	MemLoad
 	MemStore
+	Spill
 
 	BoundsCheck
 
