@@ -38,28 +38,38 @@ func (i InstrType) String() string {
 		return "and"
 	case Not:
 		return "not"
-	case Call:
-		return "call"
-	case StoreRet:
-		return "store_ret"
-	case LoadRet:
-		return "load_ret"
-	case StoreArg:
-		return "store_arg"
-	case LoadArg:
-		return "load_arg"
-	case MemLoad:
-		return "mem_load"
-	case MemStore:
-		return "mem_store"
-	case LocalStore:
-		return "local_store"
-	case Spill:
-		return "spill"
 	case Convert:
 		return "convert"
+
+	case Call:
+		return "call"
+
+	case LoadLocal:
+		return "load_local"
+	case StoreLocal:
+		return "store_local"
+
+	case LoadMem:
+		return "load_mem"
+	case StoreMem:
+		return "store_mem"
+
+	case LoadSpill:
+		return "load_spill"
+	case StoreSpill:
+		return "store_spill"
+
 	case BoundsCheck:
-		return "bounds_check"
+		return "bound_scheck"
+
+	case PushRet:
+		return "push_ret"
+	case PopRet:
+		return "pop_ret"
+	case PushArg:
+		return "push_arg"
+	case PopArg:
+		return "pop_arg"
 	}
 	panic("Unstringified InstrType: " + strconv.Itoa(int(i)))
 }
@@ -87,16 +97,21 @@ const (
 
 	Convert
 
-	LocalStore
-	MemLoad
-	MemStore
-	Spill
+	Call
+
+	LoadLocal
+	StoreLocal
+
+	LoadMem
+	StoreMem
+
+	LoadSpill
+	StoreSpill
 
 	BoundsCheck
 
-	Call
-	StoreRet
-	LoadRet
-	StoreArg
-	LoadArg
+	PushRet
+	PopRet
+	PushArg
+	PopArg
 )

@@ -158,7 +158,7 @@ func genReturn(M *ast.Module, c *context, return_ *ast.Node)  {
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
 		storeRet := &ast.Instr {
-			T: IT.StoreRet,
+			T: IT.PushRet,
 			Type: op.Type,
 			Operands: []*ast.Operand{op},
 		}
@@ -202,7 +202,7 @@ func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
 		storeArg := &ast.Instr{
-			T: IT.StoreArg,
+			T: IT.PushArg,
 			Type: arg.T,
 			Operands: []*ast.Operand{res},
 		}
@@ -231,7 +231,7 @@ func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
 func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
 	dest := genExprID(M, c, ass)
 	loadRet := &ast.Instr{
-		T: IT.LoadRet,
+		T: IT.PopRet,
 		Type: ass.T,
 		Destination: []*ast.Operand{dest},
 	}
@@ -243,13 +243,13 @@ func genCallAssignMem(M *ast.Module, c *context, ass *ast.Node) {
 	indexOp := genExpr(M, c, ass.Leaves[0])
 	temp := c.AllocTemp(ass.T)
 	loadRet := &ast.Instr{
-		T: IT.LoadRet,
+		T: IT.PopRet,
 		Type: ass.T,
 		Destination: []*ast.Operand{temp},
 	}
 	c.CurrBlock.AddInstr(loadRet)
 	memLoad := &ast.Instr{
-		T: IT.MemStore,
+		T: IT.StoreMem,
 		Type: ass.T,
 		Operands: []*ast.Operand{temp, indexOp},
 		Destination: []*ast.Operand{destOp},
@@ -278,7 +278,7 @@ func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
 	store := &ast.Instr {
-		T: IT.LocalStore,
+		T: IT.StoreLocal,
 		Type: op.Type,
 		Operands: []*ast.Operand{exp},
 		Destination: []*ast.Operand{op},
@@ -294,7 +294,7 @@ func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	idOp := genExprID(M, c, assID)
 	expOp := genExpr(M, c, expr)
 	store := &ast.Instr {
-		T: IT.MemStore,
+		T: IT.StoreMem,
 		Type: expOp.Type,
 		Operands: []*ast.Operand{expOp, indexOp},
 		Destination: []*ast.Operand{idOp},
@@ -337,7 +337,7 @@ func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
 		storeArg := &ast.Instr{
-			T: IT.StoreArg,
+			T: IT.PushArg,
 			Type: arg.T,
 			Operands: []*ast.Operand{res},
 		}
@@ -352,7 +352,7 @@ func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
 
 	ret := c.AllocTemp(call.T)
 	loadRet := &ast.Instr{
-		T: IT.LoadRet,
+		T: IT.PopRet,
 		Type: call.T,
 		Destination: []*ast.Operand{ret},
 	}
@@ -376,7 +376,7 @@ func genMemAccess(M *ast.Module, c *context, memAccess *ast.Node) *ast.Operand {
 
 	temp := c.AllocTemp(mem.T)
 	load := &ast.Instr {
-		T: IT.MemLoad,
+		T: IT.LoadMem,
 		Type: mem.T,
 		Operands:    []*ast.Operand{memOp, expOp},
 		Destination: []*ast.Operand{temp},

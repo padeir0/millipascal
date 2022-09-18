@@ -126,6 +126,7 @@ type Proc struct {
 	Names map[string]*Decl
 	N *Node
 	Code *BasicBlock
+	SpillRegionSize int
 }
 
 func (p *Proc) StrArgs() string {

@@ -7,6 +7,6 @@ import (
 )
 
 func Generate(M *ast.Module) string {
-	regalloc.Allocate(M, 3)// len(codegen.X64Registers))
+	regalloc.Allocate(M, 2)// len(codegen.X64Registers))
 	return codegen.Generate(M)
 }
