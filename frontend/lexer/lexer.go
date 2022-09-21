@@ -437,10 +437,6 @@ func identifier(st *Lexer) (*ast.Node, *errors.CompilerError) {
 		tp = T.BEGIN
 	case "end":
 		tp = T.END
-	case "copy":
-		tp = T.COPY
-	case "to":
-		tp = T.TO
 	case "byte":
 		tp = T.BYTE
 	case "word":

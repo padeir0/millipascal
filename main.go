@@ -76,9 +76,9 @@ func normalMode(s string) {
 		m, err := frontend.All(s)
 		OkOrBurst(err)
 		asm := backend.Generate(m)
-		Stdout(asm)
-		Stdout(m.String() + "\n")
 		Stdout(m.StringifyCode())
+		Stdout("\n--------------------------ASM-------------------------------\n")
+		Stdout(asm)
 		Stdout("\n")
 	}
 }
@@ -115,12 +115,12 @@ func printResults(results []*testing.TestResult) {
 func Test(folder string, tester testing.Tester) []*testing.TestResult {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
-		Stdout("here")
 		Fatal(err.Error())
 	}
 	results := []*testing.TestResult{}
 	for _, v := range entries {
 		fullpath := folder + "/" + v.Name()
+		Stdout(fullpath + "\n")
 		if v.IsDir() {
 			res := Test(fullpath, tester)
 			results = append(results, res...)

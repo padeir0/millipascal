@@ -228,8 +228,6 @@ func checkStatement(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.Compiler
 		return checkWhile(M, sy, n)
 	case lex.RETURN:
 		return checkReturn(M, sy, n)
-	case lex.COPY:
-		return checkCopy(M, sy, n)
 	case lex.SET:
 		return checkAssignment(M, sy, n)
 	default:
@@ -343,37 +341,6 @@ func checkReturn(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerErr
 		}
 	}
 	return nil
-}
-
-func checkCopy(M *ast.Module, sy *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	memSy, err := checkCopyID(M, sy, n.Leaves[1])
-	if err != nil {
-		return err
-	}
-
-	err = checkTerms(M, sy, memSy, n.Leaves[0])
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func checkCopyID(M *ast.Module, sy *ast.Symbol, n *ast.Node) (*ast.Symbol, *errors.CompilerError) {
-	local, ok := sy.Proc.Names[n.Text]
-	if ok {
-		return nil, msg.ErrorCannotCopyToLocal(M, local, n)
-	}
-
-	global, ok := M.Globals[n.Text]
-	if !ok {
-		return nil, msg.ErrorNameNotDefined(M, sy, n)
-	}
-
-	if global.T != ST.Mem {
-		return nil, msg.ErrorCanOnlyCopyToMemory(M, global, n)
-	}
-
-	return global, nil
 }
 
 func checkTerms(M *ast.Module, sy *ast.Symbol, memSy *ast.Symbol, n *ast.Node) *errors.CompilerError {

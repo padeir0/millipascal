@@ -41,7 +41,6 @@ Decl := id [':' type].
 Code := If
       | While
       | Return
-      | Copy
       | Set
       | Expr.
 
@@ -52,9 +51,6 @@ While := 'while' Expr Block 'while'.
 If   := 'if' Expr Block {ElseIf} [Else] 'if'.
 ElseIf := 'elseif' Expr Block.
 Else := 'else' Block
-
-Copy := 'copy' TermList 'to' id.
-TermList := Terminal{',' Terminal}.
 
 Set := 'set' Assignees '=' ExprList.
 Assignees := Assignee {',' Assignee}.

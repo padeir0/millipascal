@@ -315,8 +315,6 @@ func code(s *Lexer) (*ast.Node, *errors.CompilerError) {
 		return _while(s)
 	case T.RETURN:
 		return _return(s)
-	case T.COPY:
-		return _copy(s)
 	case T.SET:
 		return _set(s)
 	default:
@@ -377,28 +375,6 @@ func assignee(s *Lexer) (*ast.Node, *errors.CompilerError) {
 		return n, nil
 	}
 	return id, nil
-}
-
-// Copy := 'copy' TermList 'to' id.
-func _copy(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	kw, err := Expect(s, T.COPY)
-	if err != nil {
-		return nil, err
-	}
-	terms, err := termList(s)
-	if err != nil {
-		return nil, err
-	}
-	_, err = Expect(s, T.TO)
-	if err != nil {
-		return nil, err
-	}
-	id, err := Expect(s, T.IDENTIFIER)
-	if err != nil {
-		return nil, err
-	}
-	kw.Leaves = []*ast.Node{terms, id}
-	return kw, nil
 }
 
 func termList(s *Lexer) (*ast.Node, *errors.CompilerError) {

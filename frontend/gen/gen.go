@@ -81,8 +81,6 @@ func genBlock(M *ast.Module, c *context, body *ast.Node)  {
 			genWhile(M, c, code)
 		case lex.RETURN:
 			genReturn(M, c, code)
-		case lex.COPY:
-			genCopy(M, c, code)
 		case lex.SET:
 			genSet(M, c, code)
 		default:
@@ -167,9 +165,6 @@ func genReturn(M *ast.Module, c *context, return_ *ast.Node)  {
 	c.CurrBlock.Return()
 }
 
-func genCopy(M *ast.Module, c *context, body *ast.Node)  {
-}
-
 func genSet(M *ast.Module, c *context, set *ast.Node)  {
 	assignees := set.Leaves[0]
 	exprlist := set.Leaves[1]
@@ -233,7 +228,7 @@ func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
 	loadRet := &ast.Instr{
 		T: IT.PopRet,
 		Type: ass.T,
-		Destination: []*ast.Operand{dest},
+		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(loadRet)
 }
@@ -245,14 +240,14 @@ func genCallAssignMem(M *ast.Module, c *context, ass *ast.Node) {
 	loadRet := &ast.Instr{
 		T: IT.PopRet,
 		Type: ass.T,
-		Destination: []*ast.Operand{temp},
+		Destination: temp,
 	}
 	c.CurrBlock.AddInstr(loadRet)
 	memLoad := &ast.Instr{
 		T: IT.StoreMem,
 		Type: ass.T,
 		Operands: []*ast.Operand{temp, indexOp},
-		Destination: []*ast.Operand{destOp},
+		Destination: destOp,
 	}
 	c.CurrBlock.AddInstr(memLoad)
 }
@@ -281,7 +276,7 @@ func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 		T: IT.StoreLocal,
 		Type: op.Type,
 		Operands: []*ast.Operand{exp},
-		Destination: []*ast.Operand{op},
+		Destination: op,
 	}
 	c.CurrBlock.AddInstr(store)
 }
@@ -297,7 +292,7 @@ func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 		T: IT.StoreMem,
 		Type: expOp.Type,
 		Operands: []*ast.Operand{expOp, indexOp},
-		Destination: []*ast.Operand{idOp},
+		Destination: idOp,
 	}
 	c.CurrBlock.AddInstr(store)
 }
@@ -354,7 +349,7 @@ func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
 	loadRet := &ast.Instr{
 		T: IT.PopRet,
 		Type: call.T,
-		Destination: []*ast.Operand{ret},
+		Destination: ret,
 	}
 	c.CurrBlock.AddInstr(loadRet)
 
@@ -379,7 +374,7 @@ func genMemAccess(M *ast.Module, c *context, memAccess *ast.Node) *ast.Operand {
 		T: IT.LoadMem,
 		Type: mem.T,
 		Operands:    []*ast.Operand{memOp, expOp},
-		Destination: []*ast.Operand{temp},
+		Destination: temp,
 	}
 
 	c.CurrBlock.AddInstr(boundscheck)
@@ -425,13 +420,13 @@ func globalToOperand(id *ast.Node, global *ast.Symbol) *ast.Operand {
 
 func genConversion(M *ast.Module, c *context, colon *ast.Node) *ast.Operand {
 	it := IT.Convert
-	a := genExpr(M, c, colon.Leaves[0])
+	a := genExpr(M, c, colon.Leaves[1])
 	dest := c.AllocTemp(colon.T)
 	instr := &ast.Instr{
 		T:           it,
 		Type:        colon.T,
 		Operands:    []*ast.Operand{a},
-		Destination: []*ast.Operand{dest},
+		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
@@ -460,7 +455,7 @@ func genBinaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
 		T:           it,
 		Type:        op.T,
 		Operands:    []*ast.Operand{a, b},
-		Destination: []*ast.Operand{dest},
+		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
@@ -506,7 +501,7 @@ func genUnaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
 		T:           it,
 		Type:        op.T,
 		Operands:    []*ast.Operand{a},
-		Destination: []*ast.Operand{dest},
+		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
@@ -525,4 +520,5 @@ func lexToUnaryOp(op lex.TkType) IT.InstrType {
 }
 
 func genMem(M *ast.Module, mem *ast.Mem) {
+	// TODO
 }

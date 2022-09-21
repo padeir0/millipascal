@@ -170,18 +170,6 @@ func ErrorExpectedMemGotLocal(M *ast.Module, local *ast.Decl, n *ast.Node) *erro
 	return NewSemanticError(M, et.ExpectedMem, info, source)
 }
 
-func ErrorCannotCopyToLocal(M *ast.Module, local *ast.Decl, n *ast.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "cannot copy to local")
-	source := NewNodeInfo(local.N, "defined here")
-	return NewSemanticError(M, et.ExpectedMem, info, source)
-}
-
-func ErrorCanOnlyCopyToMemory(M *ast.Module, global *ast.Symbol, n *ast.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "can only copy to memory region")
-	source := NewNodeInfo(global.N, "defined here")
-	return NewSemanticError(M, et.ExpectedMem, info, source)
-}
-
 func ErrorCantUseStringInExpr(M *ast.Module, n *ast.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "cannot use string in expressions")
 	return NewSemanticError(M, et.InvalidUseOfString, info)

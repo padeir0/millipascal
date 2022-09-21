@@ -126,7 +126,7 @@ type Proc struct {
 	Names map[string]*Decl
 	N *Node
 	Code *BasicBlock
-	SpillRegionSize int
+	NumOfSpills int
 }
 
 func (p *Proc) StrArgs() string {
@@ -260,6 +260,9 @@ type Operand struct {
 }
 
 func (o *Operand) String() string {
+	if o == nil {
+		return "nil"
+	}
 	switch o.T {
 	case OT.Temp:
 		return "'"+strconv.Itoa(o.Num)
@@ -276,7 +279,7 @@ type Instr struct {
 	T           IT.InstrType
 	Type        T.Type
 	Operands    []*Operand
-	Destination []*Operand
+	Destination *Operand
 }
 
 func (i *Instr) String() string {
@@ -307,12 +310,8 @@ func (i *Instr) StrOps() string {
 }
 
 func (i *Instr) StrDests() string {
-	if len(i.Destination) == 0 {
+	if i.Destination == nil {
 		return ""
 	}
-	output := i.Destination[0].String()
-	for _, v := range i.Destination[1:] {
-		output += ", " + v.String()
-	}
-	return output
+	return i.Destination.String()
 }

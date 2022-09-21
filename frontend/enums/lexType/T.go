@@ -54,8 +54,6 @@ const (
 	DEF
 	BEGIN
 	END
-	COPY
-	TO
 
 	BYTE
 	WORD
@@ -127,8 +125,6 @@ var tktostr = map[TkType]string{
 	DEF:    "DET",
 	BEGIN:  "BEGIN",
 	END:    "END",
-	COPY:   "COPY",
-	TO:     "TO",
 	BYTE:   "BYTE",
 	WORD:   "WORD",
 	DWORD:  "DWORD",
@@ -211,8 +207,6 @@ var tktosrc = map[TkType]string{
 	DEF:    "det",
 	BEGIN:  "begin",
 	END:    "end",
-	COPY:   "copy",
-	TO:     "to",
 	BYTE:   "byte",
 	WORD:   "word",
 	DWORD:  "dword",

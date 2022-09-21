@@ -9,6 +9,7 @@ import (
 
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 type value int
@@ -164,7 +165,8 @@ func (r *state) FurthestUse() reg {
 func (s *state) Spill(r reg) addr {
 	v, ok := s.UsedRegs[r]
 	if !ok {
-		panic("spilling unused register")
+		sreg := strconv.Itoa(int(r))
+		panic("spilling unused register: " + sreg)
 	}
 	s.FreeReg(r)
 	a := addr(s.AvailableAddr.Pop())
@@ -182,13 +184,13 @@ func Allocate(M *ast.Module, numRegs int) {
 
 func allocProc(M *ast.Module, p *ast.Proc, numRegs int) {
 	var worklist = ast.FlattenGraph(p.Code)
-	p.SpillRegionSize = 0
+	p.NumOfSpills = 0
 	for _, curr := range worklist {
 		s := newState(numRegs)
 		allocBlock(s, curr)
 		top := s.AvailableAddr.Size()
-		if int(top) > p.SpillRegionSize {
-			p.SpillRegionSize = int(top)
+		if int(top) > p.NumOfSpills {
+			p.NumOfSpills = int(top)
 		}
 		insertQueuedInstrs(s, curr)
 	}
@@ -202,6 +204,7 @@ func insertQueuedInstrs(s *state, bb *ast.BasicBlock) {
 
 func allocBlock(s *state, bb *ast.BasicBlock) {
 	for i, instr := range bb.Code {
+		fmt.Print(instr, " >> ")
 		for opIndex, op := range instr.Operands {
 			if op.T == OT.Temp {
 				instr.Operands[opIndex] = ensure(s, bb, op, i)
@@ -209,11 +212,20 @@ func allocBlock(s *state, bb *ast.BasicBlock) {
 				freeIfNotNeeded(s, bb, v, i)
 			}
 		}
-		for destIndex, op := range instr.Destination {
-			if op.T == OT.Temp {
-				instr.Destination[destIndex] = allocTemp(s, bb, op, i)
-			}
+		switch instr.T {
+		case IT.Add,  IT.Sub,    IT.Mult,   IT.Div,
+		     IT.Rem,  IT.Eq,     IT.Diff,   IT.Less,
+		     IT.More, IT.LessEq, IT.MoreEq, IT.Or,
+		     IT.And,  IT.Not:
+			allocArith(s, bb, instr, i)
 		}
+		fmt.Println(instr)
+	}
+}
+
+func allocArith(s *state, bb *ast.BasicBlock, instr *ast.Instr, i int) {
+	if instr.Destination.T == OT.Temp {
+		instr.Destination = allocTemp(s, bb, instr.Destination, i)
 	}
 }
 
@@ -238,7 +250,7 @@ func loadSpill(s *state, bb *ast.BasicBlock, op *ast.Operand, index int, a addr)
 		T: IT.LoadSpill,
 		Type: op.Type,
 		Operands: []*ast.Operand{spillOp},
-		Destination: []*ast.Operand{rOp},
+		Destination: rOp,
 	}
 	queueInstr(s, index-1, load)
 	return rOp
@@ -262,7 +274,7 @@ func spillRegister(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *as
 	store := &ast.Instr{
 		T: IT.StoreSpill,
 		Operands: []*ast.Operand{regOp},
-		Destination: []*ast.Operand{spillOp},
+		Destination: spillOp,
 	}
 	queueInstr(s, index-1, store)
 

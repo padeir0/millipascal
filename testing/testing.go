@@ -7,6 +7,7 @@ import (
 	parser "mpc/frontend/parser"
 	lexer "mpc/frontend/lexer"
 	"mpc/frontend"
+	"mpc/backend"
 	. "mpc/util"
 )
 
@@ -67,6 +68,15 @@ func Frontend(file string) TestResult {
 }
 
 func All(file string) TestResult {
+	expectedErr := extractError(file)
+	stage := discoverStage(expectedErr)
+	if stage <= errors.Semantic {
+		M, err := frontend.All(file)
+		if err != nil {
+			return compareError(file, err, expectedErr)
+		}
+		backend.Generate(M)
+	}
 	return Frontend(file)
 }
 
