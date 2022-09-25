@@ -1,5 +1,5 @@
-proc fibb(n) qword
-vars result
+proc fibb(n) i64
+var result
 begin
 	set result = 1
 	while n > 0 begin

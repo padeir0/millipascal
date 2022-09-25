@@ -1,7 +1,7 @@
 package gen
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	T "mpc/frontend/enums/Type"
 	IT "mpc/frontend/enums/instrType"
 	lex "mpc/frontend/enums/lexType"
@@ -11,15 +11,15 @@ import (
 )
 
 type context struct {
-	Proc *ast.Proc
+	Proc *ir.Proc
 
-	CurrBlock *ast.BasicBlock
+	CurrBlock *ir.BasicBlock
 
 	LabelCounter int
 	TempCounter  int
 }
 
-func newContext(proc *ast.Proc) *context {
+func newContext(proc *ir.Proc) *context {
 	return &context{
 		Proc:         proc,
 		LabelCounter: 0,
@@ -27,18 +27,18 @@ func newContext(proc *ast.Proc) *context {
 	}
 }
 
-func (c *context) NewBlock() *ast.BasicBlock {
+func (c *context) NewBlock() *ir.BasicBlock {
 	counter := strconv.Itoa(c.LabelCounter)
-	b := &ast.BasicBlock{
+	b := &ir.BasicBlock{
 		Label: ".L" + counter,
-		Code:  []*ast.Instr{},
+		Code:  []*ir.Instr{},
 	}
 	c.LabelCounter++
 	return b
 }
 
-func (c *context) AllocTemp(t T.Type) *ast.Operand {
-	op := &ast.Operand{
+func (c *context) AllocTemp(t T.Type) *ir.Operand {
+	op := &ir.Operand{
 		T:   OT.Temp,
 		Type: t,
 		Num: c.TempCounter,
@@ -47,18 +47,16 @@ func (c *context) AllocTemp(t T.Type) *ast.Operand {
 	return op
 }
 
-func Generate(M *ast.Module)  {
+func Generate(M *ir.Module)  {
 	for _, sy := range M.Globals {
 		switch sy.T {
 		case ST.Proc:
 			genProc(M, sy.Proc)
-		case ST.Mem:
-			genMem(M, sy.Mem)
 		}
 	}
 }
 
-func genProc(M *ast.Module, proc *ast.Proc)  {
+func genProc(M *ir.Module, proc *ir.Proc)  {
 	c := newContext(proc)
 	start := c.NewBlock()
 	proc.Code = start
@@ -72,7 +70,7 @@ func genProc(M *ast.Module, proc *ast.Proc)  {
 	return 
 }
 
-func genBlock(M *ast.Module, c *context, body *ast.Node)  {
+func genBlock(M *ir.Module, c *context, body *ir.Node)  {
 	for _, code := range body.Leaves {
 		switch code.Lex {
 		case lex.IF:
@@ -89,7 +87,7 @@ func genBlock(M *ast.Module, c *context, body *ast.Node)  {
 	}
 }
 
-func genIf(M *ast.Module, c *context, if_ *ast.Node)  {
+func genIf(M *ir.Module, c *context, if_ *ir.Node)  {
 	exp := if_.Leaves[0]
 	block := if_.Leaves[1]
 	elseifchain := if_.Leaves[2]
@@ -116,7 +114,7 @@ func genIf(M *ast.Module, c *context, if_ *ast.Node)  {
 	c.CurrBlock = outbl
 }
 
-func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast.BasicBlock)  {
+func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outbl *ir.BasicBlock)  {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
@@ -133,7 +131,7 @@ func genElseIfChain(M *ast.Module, c *context, elseifchain *ast.Node, outbl *ast
 	}
 }
 
-func genWhile(M *ast.Module, c *context, while *ast.Node)  {
+func genWhile(M *ir.Module, c *context, while *ir.Node)  {
 	loop_start := c.NewBlock()
 	loop_body := c.NewBlock()
 	loop_end := c.NewBlock()
@@ -152,20 +150,20 @@ func genWhile(M *ast.Module, c *context, while *ast.Node)  {
 
 }
 
-func genReturn(M *ast.Module, c *context, return_ *ast.Node)  {
+func genReturn(M *ir.Module, c *context, return_ *ir.Node)  {
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
-		storeRet := &ast.Instr {
+		storeRet := &ir.Instr {
 			T: IT.PushRet,
 			Type: op.Type,
-			Operands: []*ast.Operand{op},
+			Operands: []*ir.Operand{op},
 		}
 		c.CurrBlock.AddInstr(storeRet)
 	}
 	c.CurrBlock.Return()
 }
 
-func genSet(M *ast.Module, c *context, set *ast.Node)  {
+func genSet(M *ir.Module, c *context, set *ir.Node)  {
 	assignees := set.Leaves[0]
 	exprlist := set.Leaves[1]
 
@@ -185,9 +183,9 @@ func genSet(M *ast.Module, c *context, set *ast.Node)  {
 	}
 }
 
-func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
+func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node)  {
 	if call.Lex != lex.CALL {
-		panic("must be CALL:\n" + ast.FmtNode(call))
+		panic("must be CALL:\n" + ir.FmtNode(call))
 	}
 	proc := call.Leaves[1]
 	args := call.Leaves[0]
@@ -196,18 +194,18 @@ func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
 
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
-		storeArg := &ast.Instr{
+		storeArg := &ir.Instr{
 			T: IT.PushArg,
 			Type: arg.T,
-			Operands: []*ast.Operand{res},
+			Operands: []*ir.Operand{res},
 		}
 		c.CurrBlock.AddInstr(storeArg)
 	}
 
-	iCall := &ast.Instr{
+	iCall := &ir.Instr{
 		T: IT.Call,
 		Type: call.T,
-		Operands: []*ast.Operand{procOp},
+		Operands: []*ir.Operand{procOp},
 	}
 	c.CurrBlock.AddInstr(iCall)
 
@@ -223,9 +221,9 @@ func genMultiProcAssign(M *ast.Module, c *context, assignees, call *ast.Node)  {
 	}
 }
 
-func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
+func genCallAssign(M *ir.Module, c *context, ass *ir.Node) {
 	dest := genExprID(M, c, ass)
-	loadRet := &ast.Instr{
+	loadRet := &ir.Instr{
 		T: IT.PopRet,
 		Type: ass.T,
 		Destination: dest,
@@ -233,26 +231,26 @@ func genCallAssign(M *ast.Module, c *context, ass *ast.Node) {
 	c.CurrBlock.AddInstr(loadRet)
 }
 
-func genCallAssignMem(M *ast.Module, c *context, ass *ast.Node) {
+func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node) {
 	destOp := genExprID(M, c, ass.Leaves[1]) // CHECK
 	indexOp := genExpr(M, c, ass.Leaves[0])
 	temp := c.AllocTemp(ass.T)
-	loadRet := &ast.Instr{
+	loadRet := &ir.Instr{
 		T: IT.PopRet,
 		Type: ass.T,
 		Destination: temp,
 	}
 	c.CurrBlock.AddInstr(loadRet)
-	memLoad := &ast.Instr{
+	memLoad := &ir.Instr{
 		T: IT.StoreMem,
 		Type: ass.T,
-		Operands: []*ast.Operand{temp, indexOp},
+		Operands: []*ir.Operand{temp, indexOp},
 		Destination: destOp,
 	}
 	c.CurrBlock.AddInstr(memLoad)
 }
 	
-func genMultiAssign(M *ast.Module, c *context, assignees, exprlist *ast.Node)  {
+func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node)  {
 	for i := range assignees.Leaves {
 		ass := assignees.Leaves[i]
 		exp := exprlist.Leaves[i]
@@ -260,7 +258,7 @@ func genMultiAssign(M *ast.Module, c *context, assignees, exprlist *ast.Node)  {
 	}
 }
 
-func genSingleAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
+func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	if assignee.Lex == lex.IDENTIFIER {
 		genNormalAssign(M, c, assignee, expr)
 		return
@@ -269,39 +267,39 @@ func genSingleAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
 	return
 }
 
-func genNormalAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
+func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
-	store := &ast.Instr {
+	store := &ir.Instr {
 		T: IT.StoreLocal,
 		Type: op.Type,
-		Operands: []*ast.Operand{exp},
+		Operands: []*ir.Operand{exp},
 		Destination: op,
 	}
 	c.CurrBlock.AddInstr(store)
 }
 
-func genMemAssign(M *ast.Module, c *context, assignee, expr *ast.Node)  {
+func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	assID := assignee.Leaves[0]
 	indexExp := assignee.Leaves[1]
 
 	indexOp := genExpr(M, c, indexExp)
 	idOp := genExprID(M, c, assID)
 	expOp := genExpr(M, c, expr)
-	store := &ast.Instr {
+	store := &ir.Instr {
 		T: IT.StoreMem,
 		Type: expOp.Type,
-		Operands: []*ast.Operand{expOp, indexOp},
+		Operands: []*ir.Operand{expOp, indexOp},
 		Destination: idOp,
 	}
 	c.CurrBlock.AddInstr(store)
 }
 
-func genExpr(M *ast.Module, c *context, exp *ast.Node) *ast.Operand {
+func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 	switch exp.Lex {
 	case lex.IDENTIFIER:
 		return genExprID(M, c, exp)
-	case lex.INT, lex.FALSE, lex.TRUE, lex.CHAR:
+	case lex.INT, lex.FALSE, lex.TRUE:
 		return genLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
 		return genPlusMinus(M, c, exp)
@@ -323,7 +321,7 @@ func genExpr(M *ast.Module, c *context, exp *ast.Node) *ast.Operand {
 }
 
 // assume a single return
-func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
+func genCall(M *ir.Module, c *context, call *ir.Node) *ir.Operand {
 	proc := call.Leaves[1]
 	args := call.Leaves[0]
 
@@ -331,22 +329,22 @@ func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
 
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
-		storeArg := &ast.Instr{
+		storeArg := &ir.Instr{
 			T: IT.PushArg,
 			Type: arg.T,
-			Operands: []*ast.Operand{res},
+			Operands: []*ir.Operand{res},
 		}
 		c.CurrBlock.AddInstr(storeArg)
 	}
-	iCall := &ast.Instr{
+	iCall := &ir.Instr{
 		T: IT.Call,
 		Type: call.T,
-		Operands: []*ast.Operand{procOp},
+		Operands: []*ir.Operand{procOp},
 	}
 	c.CurrBlock.AddInstr(iCall)
 
 	ret := c.AllocTemp(call.T)
-	loadRet := &ast.Instr{
+	loadRet := &ir.Instr{
 		T: IT.PopRet,
 		Type: call.T,
 		Destination: ret,
@@ -356,24 +354,24 @@ func genCall(M *ast.Module, c *context, call *ast.Node) *ast.Operand {
 	return ret
 }
 
-func genMemAccess(M *ast.Module, c *context, memAccess *ast.Node) *ast.Operand {
+func genMemAccess(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
 	exp := memAccess.Leaves[0]
 	mem := memAccess.Leaves[1]
 
 	memOp := genExprID(M, c, mem)
 	expOp := genExpr(M, c, exp)
 
-	boundscheck := &ast.Instr {
+	boundscheck := &ir.Instr {
 		T: IT.BoundsCheck,
 		Type: mem.T,
-		Operands: []*ast.Operand{memOp, expOp},
+		Operands: []*ir.Operand{memOp, expOp},
 	}
 
 	temp := c.AllocTemp(mem.T)
-	load := &ast.Instr {
+	load := &ir.Instr {
 		T: IT.LoadMem,
 		Type: mem.T,
-		Operands:    []*ast.Operand{memOp, expOp},
+		Operands:    []*ir.Operand{memOp, expOp},
 		Destination: temp,
 	}
 
@@ -383,10 +381,10 @@ func genMemAccess(M *ast.Module, c *context, memAccess *ast.Node) *ast.Operand {
 	return temp
 }
 
-func genExprID(M *ast.Module, c *context, id *ast.Node) *ast.Operand {
+func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 	_, ok := c.Proc.Names[id.Text]
 	if ok {
-		return &ast.Operand{
+		return &ir.Operand{
 			T:     OT.Local,
 			Label: id.Text,
 		}
@@ -398,63 +396,63 @@ func genExprID(M *ast.Module, c *context, id *ast.Node) *ast.Operand {
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(id *ast.Node, global *ast.Symbol) *ast.Operand {
+func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 	switch global.T {
 	case ST.Proc:
-		return &ast.Operand{
+		return &ir.Operand{
 			T:     OT.Proc,
 			Label: id.Text,
 		}
 	case ST.Mem:
-		return &ast.Operand{
+		return &ir.Operand{
 			T:     OT.Mem,
 			Label: id.Text,
 		}
 	}
 	// Const
-	return &ast.Operand{
+	return &ir.Operand{
 		T:     OT.Lit,
 		Label: global.N.Leaves[1].Text, // zero fucks
 	}
 }
 
-func genConversion(M *ast.Module, c *context, colon *ast.Node) *ast.Operand {
+func genConversion(M *ir.Module, c *context, colon *ir.Node) *ir.Operand {
 	it := IT.Convert
 	a := genExpr(M, c, colon.Leaves[1])
 	dest := c.AllocTemp(colon.T)
-	instr := &ast.Instr{
+	instr := &ir.Instr{
 		T:           it,
 		Type:        colon.T,
-		Operands:    []*ast.Operand{a},
+		Operands:    []*ir.Operand{a},
 		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
 }
 
-func genLit(M *ast.Module, c *context, lit *ast.Node) *ast.Operand {
-	return &ast.Operand{
+func genLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+	return &ir.Operand{
 		T:     OT.Lit,
 		Label: lit.Text,
 	}
 }
 
-func genPlusMinus(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
+func genPlusMinus(M *ir.Module, c *context, op *ir.Node) *ir.Operand {
 	if len(op.Leaves) == 2 {
 		return genBinaryOp(M, c, op)
 	}
 	return genUnaryOp(M, c, op)
 }
 
-func genBinaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
+func genBinaryOp(M *ir.Module, c *context, op *ir.Node) *ir.Operand {
 	it := lexToBinaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	b := genExpr(M, c, op.Leaves[1])
 	dest := c.AllocTemp(op.T)
-	instr := &ast.Instr{
+	instr := &ir.Instr{
 		T:           it,
 		Type:        op.T,
-		Operands:    []*ast.Operand{a, b},
+		Operands:    []*ir.Operand{a, b},
 		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
@@ -493,14 +491,14 @@ func lexToBinaryOp(op lex.TkType) IT.InstrType {
 	panic("lexToBinaryOp: unexpected binOp: "+lex.FmtTypes(op))
 }
 
-func genUnaryOp(M *ast.Module, c *context, op *ast.Node) *ast.Operand {
+func genUnaryOp(M *ir.Module, c *context, op *ir.Node) *ir.Operand {
 	it := lexToUnaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	dest := c.AllocTemp(op.T)
-	instr := &ast.Instr{
+	instr := &ir.Instr{
 		T:           it,
 		Type:        op.T,
-		Operands:    []*ast.Operand{a},
+		Operands:    []*ir.Operand{a},
 		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(instr)
@@ -517,8 +515,4 @@ func lexToUnaryOp(op lex.TkType) IT.InstrType {
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected binOp")
-}
-
-func genMem(M *ast.Module, mem *ast.Mem) {
-	// TODO
 }

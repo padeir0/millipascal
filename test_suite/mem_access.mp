@@ -1,7 +1,7 @@
-mem buff res 2 byte set 0
+memory buff 512
 
 proc main
 begin
-	set buff[0] = 1:byte
-	set buff[1] = 2:byte
+	set buff[0] = 1:i8
+	set buff[1] = 2:i8
 end proc

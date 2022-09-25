@@ -1,5 +1,5 @@
 proc main
-vars a
+var a
 begin
 	if a == a begin
 	end

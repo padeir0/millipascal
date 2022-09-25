@@ -1,7 +1,7 @@
 package frontend
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
 	parser "mpc/frontend/parser"
@@ -10,10 +10,11 @@ import (
 	nameresolution "mpc/frontend/nameresolution"
 	typechecker "mpc/frontend/typechecker"
 	gen "mpc/frontend/gen"
+	"mpc/frontend/irchecker"
 	"io/ioutil"
 )
 
-func Lex(file string) ([]*ast.Node, *errors.CompilerError) {
+func Lex(file string) ([]*ir.Node, *errors.CompilerError) {
 	s, err := getFile(file)
 	if err != nil {
 		return nil, err
@@ -22,7 +23,7 @@ func Lex(file string) ([]*ast.Node, *errors.CompilerError) {
 	return lexer.ReadAll(st)
 }
 
-func Parse(file string) (*ast.Node, *errors.CompilerError) {
+func Parse(file string) (*ir.Node, *errors.CompilerError) {
 	s, err := getFile(file)
 	if err != nil {
 		return nil, err
@@ -30,12 +31,16 @@ func Parse(file string) (*ast.Node, *errors.CompilerError) {
 	return parser.Parse(s)
 }
 
-func All(file string) (*ast.Module, *errors.CompilerError) {
+func All(file string) (*ir.Module, *errors.CompilerError) {
 	m, err := resolver.Resolve(file)
 	if err != nil {
 		return nil, err
 	}
 	err = module(m)
+	if err != nil {
+		return nil, err
+	}
+	err = irchecker.Check(m)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +63,7 @@ func processFileError(e error) *errors.CompilerError {
 	}
 }
 
-func module(M *ast.Module) *errors.CompilerError {
+func module(M *ir.Module) *errors.CompilerError {
 	var err *errors.CompilerError
 
 	err = nameresolution.ResolveNames(M)

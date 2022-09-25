@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	T "mpc/frontend/enums/lexType"
 
 	"mpc/frontend/errors"
@@ -29,7 +29,7 @@ func NewLexerError(st *Lexer, t et.ErrType, message string) *errors.CompilerErro
 }
 
 type Lexer struct {
-	Word *ast.Node
+	Word *ir.Node
 
 	File      string
 	Line, Col int
@@ -38,7 +38,7 @@ type Lexer struct {
 	LastRuneSize int
 	Input        string
 
-	Peeked *ast.Node
+	Peeked *ir.Node
 }
 
 func NewLexer(s string) *Lexer {
@@ -73,7 +73,7 @@ func Next(l *Lexer) *errors.CompilerError {
 	return nil
 }
 
-func Peek(s *Lexer) (*ast.Node, *errors.CompilerError) {
+func Peek(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	symbol, err := any(s)
 	if err != nil {
 		return nil, err
@@ -83,12 +83,12 @@ func Peek(s *Lexer) (*ast.Node, *errors.CompilerError) {
 	return symbol, nil
 }
 
-func ReadAll(s *Lexer) ([]*ast.Node, *errors.CompilerError) {
+func ReadAll(s *Lexer) ([]*ir.Node, *errors.CompilerError) {
 	e := Next(s)
 	if e != nil {
 		return nil, e
 	}
-	output := []*ast.Node{}
+	output := []*ir.Node{}
 	for s.Word.Lex != T.EOF {
 		output = append(output, s.Word)
 		e = Next(s)
@@ -99,9 +99,9 @@ func ReadAll(s *Lexer) ([]*ast.Node, *errors.CompilerError) {
 	return output, nil
 }
 
-func GenNode(l *Lexer, tp T.TkType) *ast.Node {
+func GenNode(l *Lexer, tp T.TkType) *ir.Node {
 	text := Selected(l)
-	n := &ast.Node{
+	n := &ir.Node{
 		Lex:    tp,
 		Text:   text,
 		Line:   l.Line,
@@ -220,7 +220,7 @@ loop:
 }
 
 // refactor this
-func any(st *Lexer) (*ast.Node, *errors.CompilerError) {
+func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	var err *errors.CompilerError
 	var r rune
 	var tp T.TkType
@@ -268,10 +268,6 @@ func any(st *Lexer) (*ast.Node, *errors.CompilerError) {
 		tp = T.RIGHTBRACKET
 	case ',':
 		tp = T.COMMA
-	case '"':
-		return strLit(st)
-	case '\'':
-		return runeLit(st)
 	case ':':
 		tp = T.COLON
 	case '>': // >  >=
@@ -324,7 +320,7 @@ func any(st *Lexer) (*ast.Node, *errors.CompilerError) {
 			tp = T.ASSIGNMENT
 		}
 	case eof:
-		return &ast.Node{Lex: T.EOF}, nil
+		return &ir.Node{Lex: T.EOF}, nil
 	default:
 		message := fmt.Sprintf("Invalid symbol: %v", string(r))
 		err := NewLexerError(st, et.InvalidSymbol, message)
@@ -333,7 +329,7 @@ func any(st *Lexer) (*ast.Node, *errors.CompilerError) {
 	return GenNode(st, tp), nil
 }
 
-func number(st *Lexer) (*ast.Node, *errors.CompilerError) {
+func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	err := acceptRun(st, digits)
 	if err != nil {
 		return nil, err
@@ -341,57 +337,7 @@ func number(st *Lexer) (*ast.Node, *errors.CompilerError) {
 	return GenNode(st, T.INT), nil
 }
 
-func strLit(st *Lexer) (*ast.Node, *errors.CompilerError) {
-	for {
-		acceptUntil(st, insideStr)
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
-		if r == '"' {
-			return &ast.Node{
-				Text: Selected(st),
-				Lex:  T.STRING,
-				Line: st.Line,
-				Col:  st.Col,
-			}, nil
-		}
-		if r == '\\' {
-			_, err = nextRune(st) // escaped rune
-			if err != nil {
-				return nil, err
-			}
-		}
-		unread(st)
-	}
-}
-
-func runeLit(st *Lexer) (*ast.Node, *errors.CompilerError) {
-	for {
-		acceptUntil(st, insideRune)
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
-		if r == '"' {
-			return &ast.Node{
-				Text: Selected(st),
-				Lex:  T.CHAR,
-				Line: st.Line,
-				Col:  st.Col,
-			}, nil
-		}
-		if r == '\\' {
-			_, err = nextRune(st) // escaped
-			if err != nil {
-				return nil, err
-			}
-		}
-		unread(st)
-	}
-}
-
-func identifier(st *Lexer) (*ast.Node, *errors.CompilerError) {
+func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	err := acceptRun(st, digits+letters)
 	if err != nil {
 		return nil, err
@@ -399,8 +345,8 @@ func identifier(st *Lexer) (*ast.Node, *errors.CompilerError) {
 	selected := Selected(st)
 	tp := T.IDENTIFIER
 	switch selected {
-	case "vars":
-		tp = T.VARS
+	case "var":
+		tp = T.VAR
 	case "true":
 		tp = T.TRUE
 	case "false":
@@ -423,28 +369,28 @@ func identifier(st *Lexer) (*ast.Node, *errors.CompilerError) {
 		tp = T.ELSEIF
 	case "proc":
 		tp = T.PROC
-	case "mem":
-		tp = T.MEM
-	case "const":
-		tp = T.CONST
-	case "res":
-		tp = T.RES
-	case "set":
-		tp = T.SET
-	case "def":
-		tp = T.DEF
+	case "memory":
+		tp = T.MEMORY
 	case "begin":
 		tp = T.BEGIN
 	case "end":
 		tp = T.END
-	case "byte":
-		tp = T.BYTE
-	case "word":
-		tp = T.WORD
-	case "dword":
-		tp = T.DWORD
-	case "qword":
-		tp = T.QWORD
+	case "set":
+		tp = T.SET
+	case "syscall":
+		tp = T.SYSCALL
+	case "i8":
+		tp = T.I8
+	case "i16":
+		tp = T.I16
+	case "i32":
+		tp = T.I32
+	case "i64":
+		tp = T.I64
+	case "bool":
+		tp = T.BOOL
+	case "ptr":
+		tp = T.PTR
 	}
 	return GenNode(st, tp), nil
 }

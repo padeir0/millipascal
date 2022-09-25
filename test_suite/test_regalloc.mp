@@ -1,6 +1,6 @@
 
 proc main
-vars a
+var a
 begin
 	set a = 
 		(

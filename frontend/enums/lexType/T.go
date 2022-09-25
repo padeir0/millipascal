@@ -9,8 +9,6 @@ const (
 
 	IDENTIFIER
 	INT
-	STRING
-	CHAR
 
 	// symbols
 	PLUS
@@ -33,9 +31,10 @@ const (
 	COLON
 	ASSIGNMENT
 	COMMA
+	SEMICOLON
 
 	// keywords
-	VARS
+	VAR
 	TRUE
 	FALSE
 	OR
@@ -43,22 +42,22 @@ const (
 	NOT
 	IF
 	ELSE
+	ELSEIF
 	WHILE
 	RETURN
-	ELSEIF
 	PROC
-	MEM
-	CONST
-	RES
-	SET
-	DEF
+	MEMORY
 	BEGIN
 	END
+	SYSCALL
+	SET
 
-	BYTE
-	WORD
-	DWORD
-	QWORD
+	I8
+	I16
+	I32
+	I64
+	BOOL
+	PTR
 
 	// special
 	BLOCK
@@ -80,8 +79,6 @@ var tktostr = map[TkType]string{
 
 	IDENTIFIER: "IDENTIFIER",
 	INT:        "INT",
-	STRING:     "STRING",
-	CHAR:       "CHAR",
 
 	// symbols:
 	PLUS:           "PLUS",
@@ -106,29 +103,30 @@ var tktostr = map[TkType]string{
 	COMMA:          "COMMA",
 
 	// keyword: "keyword"
-	VARS:   "VARS",
-	TRUE:   "TRUE",
-	FALSE:  "FALSE",
-	AND:    "AND",
-	OR:     "OR",
-	NOT:    "NOT",
-	IF:     "IF",
-	ELSE:   "ELSE",
-	WHILE:  "WHILE",
-	RETURN: "RETURN",
-	ELSEIF: "ELSEIF",
-	PROC:   "PROC",
-	MEM:    "MEM",
-	CONST:  "CONST",
-	RES:    "RES",
-	SET:    "SET",
-	DEF:    "DET",
-	BEGIN:  "BEGIN",
-	END:    "END",
-	BYTE:   "BYTE",
-	WORD:   "WORD",
-	DWORD:  "DWORD",
-	QWORD:  "QWORD",
+	VAR:     "VARS",
+	TRUE:    "TRUE",
+	FALSE:   "FALSE",
+	AND:     "AND",
+	OR:      "OR",
+	NOT:     "NOT",
+	IF:      "IF",
+	ELSE:    "ELSE",
+	WHILE:   "WHILE",
+	RETURN:  "RETURN",
+	ELSEIF:  "ELSEIF",
+	PROC:    "PROC",
+	MEMORY:  "MEMORY",
+	BEGIN:   "BEGIN",
+	END:     "END",
+	SYSCALL: "SYSCALL",
+	SET:     "SET",
+
+	I8:   "I8",
+	I16:  "I16",
+	I32:  "I32",
+	I64:  "I64",
+	BOOL: "BOOL",
+	PTR:  "PTR",
 
 	// special
 	BLOCK:       "BLOCK",
@@ -164,8 +162,6 @@ var tktosrc = map[TkType]string{
 	UNDEFINED:  "\033[0;31m?\033[0m",
 	INT:        "integer literal",
 	IDENTIFIER: "identifier",
-	STRING:     "string literal",
-	CHAR:       "rune literal",
 
 	PLUS:           "+",
 	MINUS:          "-",
@@ -188,29 +184,29 @@ var tktosrc = map[TkType]string{
 	DIFFERENT:      "!=",
 	ASSIGNMENT:     "=",
 
-	VARS:   "vars",
-	TRUE:   "true",
-	FALSE:  "false",
-	AND:    "and",
-	OR:     "or",
-	NOT:    "not",
-	IF:     "if",
-	ELSE:   "else",
-	WHILE:  "while",
-	RETURN: "return",
-	ELSEIF: "elseif",
-	PROC:   "proc",
-	MEM:    "mem",
-	CONST:  "const",
-	RES:    "res",
-	SET:    "set",
-	DEF:    "det",
-	BEGIN:  "begin",
-	END:    "end",
-	BYTE:   "byte",
-	WORD:   "word",
-	DWORD:  "dword",
-	QWORD:  "qword",
+	VAR:     "vars",
+	TRUE:    "true",
+	FALSE:   "false",
+	AND:     "and",
+	OR:      "or",
+	NOT:     "not",
+	IF:      "if",
+	ELSE:    "else",
+	WHILE:   "while",
+	RETURN:  "return",
+	ELSEIF:  "elseif",
+	PROC:    "proc",
+	MEMORY:  "memory",
+	BEGIN:   "begin",
+	END:     "end",
+	SET:     "set",
+	SYSCALL: "syscall",
+	I8:      "i8",
+	I16:     "i16",
+	I32:     "i32",
+	I64:     "i64",
+	PTR:     "ptr",
+	BOOL:    "bool",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",

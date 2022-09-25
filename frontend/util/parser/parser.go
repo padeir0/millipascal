@@ -2,7 +2,7 @@ package parser
 
 import (
 	. "mpc/frontend/lexer"
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
 	T "mpc/frontend/enums/lexType"
@@ -29,8 +29,8 @@ func NewCompilerError(st *Lexer, t et.ErrType, message string) *errors.CompilerE
 	}
 }
 
-func AllTokens(s *Lexer) []*ast.Node {
-	output := []*ast.Node{}
+func AllTokens(s *Lexer) []*ir.Node {
+	output := []*ir.Node{}
 	for s.Word.Lex != T.EOF {
 		output = append(output, s.Word)
 		Next(s)
@@ -38,13 +38,13 @@ func AllTokens(s *Lexer) []*ast.Node {
 	return output
 }
 
-func Consume(st *Lexer) (*ast.Node, *errors.CompilerError) {
+func Consume(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	n := st.Word
 	err := Next(st)
 	return n, err
 }
 
-func AddLeaf(a *ast.Node, b *ast.Node) {
+func AddLeaf(a *ir.Node, b *ir.Node) {
 	a.Leaves = append(a.Leaves, b)
 }
 
@@ -66,7 +66,7 @@ func Check(st *Lexer, tpList ...T.TkType) (*errors.CompilerError) {
 	return err
 }
 
-func Expect(st *Lexer, tpList ...T.TkType) (*ast.Node, *errors.CompilerError) {
+func Expect(st *Lexer, tpList ...T.TkType) (*ir.Node, *errors.CompilerError) {
 	for _, tp := range tpList {
 		if st.Word.Lex == tp {
 			return Consume(st)
@@ -84,7 +84,7 @@ func Expect(st *Lexer, tpList ...T.TkType) (*ast.Node, *errors.CompilerError) {
 	return nil, err
 }
 
-func ExpectProd(st *Lexer, prod Production, name string) (*ast.Node, *errors.CompilerError) {
+func ExpectProd(st *Lexer, prod Production, name string) (*ir.Node, *errors.CompilerError) {
 	n, err := prod(st)
 	if err != nil {
 		return nil, err
@@ -97,12 +97,12 @@ func ExpectProd(st *Lexer, prod Production, name string) (*ast.Node, *errors.Com
 	return n, err
 }
 
-func ExpectType(s *Lexer) (*ast.Node, *errors.CompilerError) {
-	return Expect(s, T.BYTE, T.WORD, T.DWORD, T.QWORD)
+func ExpectType(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	return Expect(s, T.I8, T.I16, T.I32, T.I64, T.BOOL, T.PTR)
 }
 
-type Production func(st *Lexer) (*ast.Node, *errors.CompilerError)
-type Validator func(*ast.Node) bool
+type Production func(st *Lexer) (*ir.Node, *errors.CompilerError)
+type Validator func(*ir.Node) bool
 
 /* RepeatBinary implements the following pattern
 for a given Production and Terminal:
@@ -112,7 +112,7 @@ for a given Production and Terminal:
 Validator checks for terminals.
 Left to Right precedence
 */
-func RepeatBinary(st *Lexer, prod Production, name string, v Validator) (*ast.Node, *errors.CompilerError) {
+func RepeatBinary(st *Lexer, prod Production, name string, v Validator) (*ir.Node, *errors.CompilerError) {
 	last, err := prod(st)
 	if err != nil {
 		return nil, err
@@ -140,8 +140,8 @@ for a given Production:
 
 	Repeat := {Production}.
 */
-func Repeat(st *Lexer, prod Production) ([]*ast.Node, *errors.CompilerError) {
-	out := []*ast.Node{}
+func Repeat(st *Lexer, prod Production) ([]*ir.Node, *errors.CompilerError) {
+	out := []*ir.Node{}
 	n, err := prod(st)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ But returns the first and last item in the tree.
 
 It's Left associative: first<-second<-last
 */
-func RepeatUnaryLeft(st *Lexer, prod Production) (*ast.Node, *ast.Node, *errors.CompilerError) {
+func RepeatUnaryLeft(st *Lexer, prod Production) (*ir.Node, *ir.Node, *errors.CompilerError) {
 	first, err := prod(st)
 	if err != nil {
 		return nil, nil, err
@@ -188,7 +188,7 @@ func RepeatUnaryLeft(st *Lexer, prod Production) (*ast.Node, *ast.Node, *errors.
 	return first, last, nil
 }
 
-func RepeatUnaryRight(st *Lexer, prod Production) (*ast.Node, *ast.Node, *errors.CompilerError) {
+func RepeatUnaryRight(st *Lexer, prod Production) (*ir.Node, *ir.Node, *errors.CompilerError) {
 	first, err := prod(st)
 	if err != nil {
 		return nil, nil, err
@@ -221,7 +221,7 @@ Validator checks for terminals.
 It differs from RepeatBinary in that it returns a slice
 instead of a Tree with precedence
 */
-func RepeatList(st *Lexer, prod Production, val Validator) ([]*ast.Node, *errors.CompilerError) {
+func RepeatList(st *Lexer, prod Production, val Validator) ([]*ir.Node, *errors.CompilerError) {
 	first, err := prod(st)
 	if err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func RepeatList(st *Lexer, prod Production, val Validator) ([]*ast.Node, *errors
 	if first == nil {
 		return nil, nil
 	}
-	out := []*ast.Node{first}
+	out := []*ir.Node{first}
 	for val(st.Word) {
 		Next(st)
 		n, err := prod(st)
@@ -241,8 +241,8 @@ func RepeatList(st *Lexer, prod Production, val Validator) ([]*ast.Node, *errors
 	return out, nil
 }
 
-func CreateNode(nodes []*ast.Node, t T.TkType) *ast.Node {
-	return &ast.Node{
+func CreateNode(nodes []*ir.Node, t T.TkType) *ir.Node {
+	return &ir.Node{
 		Lex: t,
 		Leaves: nodes,
 	}

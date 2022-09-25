@@ -1,7 +1,7 @@
 package regalloc
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	ST "mpc/frontend/enums/symbolType"
 	OT "mpc/frontend/enums/operandType"
 	IT "mpc/frontend/enums/instrType"
@@ -73,7 +73,7 @@ type useInfo struct {
 
 type deferredInstr struct {
 	index int
-	instr *ast.Instr
+	instr *ir.Instr
 }
 
 type state struct {
@@ -174,7 +174,7 @@ func (s *state) Spill(r reg) addr {
 	return a
 }
 
-func Allocate(M *ast.Module, numRegs int) {
+func Allocate(M *ir.Module, numRegs int) {
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
 			allocProc(M, sy.Proc, numRegs)
@@ -182,8 +182,8 @@ func Allocate(M *ast.Module, numRegs int) {
 	}
 }
 
-func allocProc(M *ast.Module, p *ast.Proc, numRegs int) {
-	var worklist = ast.FlattenGraph(p.Code)
+func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
+	var worklist = ir.FlattenGraph(p.Code)
 	p.NumOfSpills = 0
 	for _, curr := range worklist {
 		s := newState(numRegs)
@@ -196,18 +196,23 @@ func allocProc(M *ast.Module, p *ast.Proc, numRegs int) {
 	}
 }
 
-func insertQueuedInstrs(s *state, bb *ast.BasicBlock) {
+func insertQueuedInstrs(s *state, bb *ir.BasicBlock) {
 	for i, di := range s.queuedInstr {
 		insertInstr(bb, di.index+i, di.instr)
 	}
 }
 
-func allocBlock(s *state, bb *ast.BasicBlock) {
+func allocBlock(s *state, bb *ir.BasicBlock) {
 	for i, instr := range bb.Code {
 		fmt.Print(instr, " >> ")
 		for opIndex, op := range instr.Operands {
-			if op.T == OT.Temp {
-				instr.Operands[opIndex] = ensure(s, bb, op, i)
+			switch op.T {
+			case OT.Temp:
+				instr.Operands[opIndex] = ensureTemp(s, bb, op, i)
+				v := value(op.Num)
+				freeIfNotNeeded(s, bb, v, i)
+			case OT.Local:
+				instr.Operands[opIndex] = ensureLocal(s, bb, op, i)
 				v := value(op.Num)
 				freeIfNotNeeded(s, bb, v, i)
 			}
@@ -223,13 +228,17 @@ func allocBlock(s *state, bb *ast.BasicBlock) {
 	}
 }
 
-func allocArith(s *state, bb *ast.BasicBlock, instr *ast.Instr, i int) {
+func allocArith(s *state, bb *ir.BasicBlock, instr *ir.Instr, i int) {
 	if instr.Destination.T == OT.Temp {
 		instr.Destination = allocTemp(s, bb, instr.Destination, i)
 	}
 }
 
-func ensure(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *ast.Operand {
+func ensureLocal(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.Operand {
+	panic("ensureLocal unimplemented")
+}
+
+func ensureTemp(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.Operand {
 	v := value(op.Num)
 	loc, ok := s.LiveValues[v]
 	if !ok {
@@ -243,20 +252,20 @@ func ensure(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *ast.Opera
 	return loadSpill(s, bb, op, index, a)
 }
 
-func loadSpill(s *state, bb *ast.BasicBlock, op *ast.Operand, index int, a addr) *ast.Operand {
+func loadSpill(s *state, bb *ir.BasicBlock, op *ir.Operand, index int, a addr) *ir.Operand {
 	rOp := allocTemp(s, bb, op, index)
 	spillOp := newSpillOperand(a, op.Type)
-	load := &ast.Instr{
+	load := &ir.Instr{
 		T: IT.LoadSpill,
 		Type: op.Type,
-		Operands: []*ast.Operand{spillOp},
+		Operands: []*ir.Operand{spillOp},
 		Destination: rOp,
 	}
 	queueInstr(s, index-1, load)
 	return rOp
 }
 
-func allocTemp(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *ast.Operand {
+func allocTemp(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.Operand {
 	if s.HasFreeRegs() {
 		v := value(op.Num)
 		r := s.AllocReg(v)
@@ -265,15 +274,15 @@ func allocTemp(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *ast.Op
 	return spillRegister(s, bb, op, index)
 }
 
-func spillRegister(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *ast.Operand {
+func spillRegister(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.Operand {
 	calcNextUse(s, bb, op, index)
 	r := s.FurthestUse()
 	sNum := s.Spill(r)
 	spillOp := newSpillOperand(sNum, op.Type)
 	regOp := newRegOp(r, op.Type)
-	store := &ast.Instr{
+	store := &ir.Instr{
 		T: IT.StoreSpill,
-		Operands: []*ast.Operand{regOp},
+		Operands: []*ir.Operand{regOp},
 		Destination: spillOp,
 	}
 	queueInstr(s, index-1, store)
@@ -286,36 +295,36 @@ func spillRegister(s *state, bb *ast.BasicBlock, op *ast.Operand, index int) *as
 	return newRegOp(r, op.Type)
 }
 
-func newRegOp(r reg, t T.Type) *ast.Operand {
-	return &ast.Operand{
+func newRegOp(r reg, t T.Type) *ir.Operand {
+	return &ir.Operand{
 		T: OT.Register,
 		Num: int(r),
 		Type: t,
 	}
 }
 
-func newSpillOperand(sNum addr, t T.Type) *ast.Operand {
-	return &ast.Operand {
+func newSpillOperand(sNum addr, t T.Type) *ir.Operand {
+	return &ir.Operand {
 		T: OT.Spill,
 		Num: int(sNum),
 		Type: t,
 	}
 }
 
-func calcNextUse(s *state, bb *ast.BasicBlock, opTemp *ast.Operand, index int) {
+func calcNextUse(s *state, bb *ir.BasicBlock, opTemp *ir.Operand, index int) {
 	for v := range s.LiveValues {
 		isNeeded(s, bb, v, index)
 	}
 }
 
-func freeIfNotNeeded(s *state, bb *ast.BasicBlock, v value, index int) {
+func freeIfNotNeeded(s *state, bb *ir.BasicBlock, v value, index int) {
 	if isNeeded(s, bb, v, index) {
 		return
 	}
 	s.Free(v)
 }
 
-func isNeeded(s *state, bb *ast.BasicBlock, v value, index int) bool {
+func isNeeded(s *state, bb *ir.BasicBlock, v value, index int) bool {
 	if index + 1 >= len(bb.Code) {
 		return false
 	}
@@ -339,12 +348,12 @@ func isNeeded(s *state, bb *ast.BasicBlock, v value, index int) bool {
 	return false
 }
 
-func queueInstr(s *state, index int, instr *ast.Instr) {
+func queueInstr(s *state, index int, instr *ir.Instr) {
 	di := deferredInstr{index: index, instr: instr}
 	s.queuedInstr = append(s.queuedInstr, di)
 }
 
-func insertInstr(bb *ast.BasicBlock, index int, instr *ast.Instr) {
+func insertInstr(bb *ir.BasicBlock, index int, instr *ir.Instr) {
 	begin := bb.Code[:index+1]
 	end := bb.Code[index:]
 	bb.Code = append(begin, end...)

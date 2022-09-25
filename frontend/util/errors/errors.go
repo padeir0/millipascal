@@ -3,10 +3,10 @@ package errors
 import (
 	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 )
 
-func Place(M *ast.Module, n *ast.Node) errors.SourceLocation {
+func Place(M *ir.Module, n *ir.Node) errors.SourceLocation {
 	return errors.SourceLocation{
 		File: M.ID,
 		Line: n.Line,
@@ -15,11 +15,11 @@ func Place(M *ast.Module, n *ast.Node) errors.SourceLocation {
 }
 
 type NodeInfo struct {
-	N       *ast.Node
+	N       *ir.Node
 	Message string
 }
 
-func NewNodeInfo(n *ast.Node, m string) *NodeInfo {
+func NewNodeInfo(n *ir.Node, m string) *NodeInfo {
 	return &NodeInfo{
 		N: n,
 		Message: m,
@@ -39,7 +39,7 @@ func newInternalError(stage errors.PipelineStage, debug string) *errors.Compiler
 	}
 }
 
-func NewSemanticError(M *ast.Module, t et.ErrType, n ...*NodeInfo) *errors.CompilerError {
+func NewSemanticError(M *ir.Module, t et.ErrType, n ...*NodeInfo) *errors.CompilerError {
 	excerpts := []errors.Excerpt{}
 	for _, v := range n {
 		loc := Place(M, v.N)

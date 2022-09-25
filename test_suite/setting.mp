@@ -1,5 +1,5 @@
 proc main
-vars a
+var a
 begin
 	set a = 1
 end proc

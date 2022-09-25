@@ -2,7 +2,7 @@ package main
 
 import (
 	"mpc/frontend"
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	"mpc/backend"
 	"mpc/testing"
 	. "mpc/util"
@@ -64,7 +64,7 @@ func normalMode(s string) {
 	case *parseOnly:
 		n, err := frontend.Parse(s)
 		OkOrBurst(err)
-		Stdout(ast.FmtNode(n))
+		Stdout(ir.FmtNode(n))
 		Stdout("\n")
 	case *frontendOnly:
 		m, err := frontend.All(s)

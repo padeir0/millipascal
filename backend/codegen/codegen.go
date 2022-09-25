@@ -1,7 +1,7 @@
 package codegen
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	T "mpc/frontend/enums/Type"
 	ST "mpc/frontend/enums/symbolType"
 	OT "mpc/frontend/enums/operandType"
@@ -25,6 +25,7 @@ type register struct {
 	Byte  string
 }
 
+// we use this two as scratch space, IDIV already needs these, so no matter
 var RAX = &register{QWord: "rax", DWord: "eax", Word: "ax", Byte: "al"}
 var RDX = &register{QWord: "rdx", DWord: "edx", Word: "dx", Byte: "dl"}
 
@@ -43,7 +44,7 @@ var X64Registers = []*register{
 	{QWord: "rbx", DWord: "ebx", Word: "bx", Byte: "bl"},
 }
 
-func Generate(M *ast.Module) string {
+func Generate(M *ir.Module) string {
 	return genHeader() +
 		genReadableRegion(M) + "\n\n\n" +
 		genWritableRegion(M) + "\n\n\n" +
@@ -54,7 +55,7 @@ func genHeader() string {
 	return "format ELF64 executable 3\n"
 }
 
-func genReadableRegion(M *ast.Module) string {
+func genReadableRegion(M *ir.Module) string {
 	output := "segment readable\n"
 	for _, sy := range M.Globals {
 		if sy.T == ST.Const {
@@ -64,7 +65,7 @@ func genReadableRegion(M *ast.Module) string {
 	return output
 }
 
-func genWritableRegion(M *ast.Module) string {
+func genWritableRegion(M *ir.Module) string {
 	output := "segment readable writeable\n"
 	for _, sy := range M.Globals {
 		if sy.T == ST.Mem{
@@ -74,7 +75,7 @@ func genWritableRegion(M *ast.Module) string {
 	return output
 }
 
-func genExecutableRegion(M *ast.Module) string {
+func genExecutableRegion(M *ir.Module) string {
 	output := "segment readable executable\n"
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
@@ -87,18 +88,18 @@ func genExecutableRegion(M *ast.Module) string {
 type procState struct {
 	VarAddr map[string]string
 	SpillBaseOffset int
-	P *ast.Proc
-	M *ast.Module
+	P *ir.Proc
+	M *ir.Module
 }
 
-func genProc(M *ast.Module, P *ast.Proc) string {
+func genProc(M *ir.Module, P *ir.Proc) string {
 	ps := &procState{P: P, M: M}
 	output := genProcHeader(M, P)
 	output += genLocalEnv(ps)
 
 	ps.VarAddr = genVars(P)
 
-	bbs := ast.FlattenGraph(P.Code)
+	bbs := ir.FlattenGraph(P.Code)
 	for _, bb := range bbs {
 		output += genBlock(ps, bb)
 	}
@@ -106,7 +107,7 @@ func genProc(M *ast.Module, P *ast.Proc) string {
 	return output
 }
 
-func genProcHeader(M *ast.Module, P *ast.Proc) string {
+func genProcHeader(M *ir.Module, P *ir.Proc) string {
 	return P.Name + `:
 	push 	rbp
 	mov	rbp, rsp
@@ -122,7 +123,7 @@ func genLocalEnv(ps *procState) string {
 	return "	sub	rsp, " + size + "\n"
 }
 
-func genVars(P *ast.Proc) map[string]string {
+func genVars(P *ir.Proc) map[string]string {
 	output := map[string]string{}
 	offset := 0
 	for _, v := range P.Vars {
@@ -132,21 +133,21 @@ func genVars(P *ast.Proc) map[string]string {
 	return output
 }
 
-func genVarAddr(d *ast.Decl, offset int) string {
+func genVarAddr(d *ir.Decl, offset int) string {
 	return typeToAsm(d.Type) + " [rbp - " + strconv.Itoa(offset) + "]"
 }
 
 func typeToAsm(t T.Type) string {
 	switch t {
-	case T.Byte:  return "byte"
-	case T.Word:  return "word"
-	case T.DWord: return "dword"
-	case T.QWord: return "qword"
+	case T.I8:  return "byte"
+	case T.I16:  return "word"
+	case T.I32: return "dword"
+	case T.I64: return "qword"
 	}
 	panic("invalid type: "+ t.String())
 }
 
-func genBlock(ps *procState, bb *ast.BasicBlock) string {
+func genBlock(ps *procState, bb *ir.BasicBlock) string {
 	output := bb.Label + "\n"
 	for _, instr := range bb.Code {
 		output += genInstr(ps, instr)
@@ -155,7 +156,7 @@ func genBlock(ps *procState, bb *ast.BasicBlock) string {
 	return output
 }
 
-func genInstr(ps *procState, instr *ast.Instr) string {
+func genInstr(ps *procState, instr *ir.Instr) string {
 	switch instr.T {
 	case IT.Add:
 		return genArith(ps, instr, "add")
@@ -172,15 +173,24 @@ func genInstr(ps *procState, instr *ast.Instr) string {
 	case IT.UnaryMinus:
 
 	case IT.Eq:
+		return genCompOp(ps, instr, "sete")
 	case IT.Diff:
+		return genCompOp(ps, instr, "setne")
 	case IT.Less:
+		return genCompOp(ps, instr, "setl")
 	case IT.More:
+		return genCompOp(ps, instr, "setg")
 	case IT.LessEq:
+		return genCompOp(ps, instr, "setle")
 	case IT.MoreEq:
+		return genCompOp(ps, instr, "setge")
 
 	case IT.Or:
+		return genBoolOR(ps, instr)
 	case IT.And:
+		return genBoolAND(ps, instr)
 	case IT.Not:
+		return genBoolNot(ps, instr)
 
 	case IT.Convert:
 	case IT.Call:
@@ -202,19 +212,19 @@ func genInstr(ps *procState, instr *ast.Instr) string {
 	return "UNIMPLEMENTED\n"
 }
 
-func genMov(ps *procState, dest, source *ast.Operand) string {
+func genMov(ps *procState, dest, source *ir.Operand) string {
 	return "\tmov\t" + genOperand(ps, dest) + ", " + genOperand(ps, source) + "\n"
 }
 
-func genBinAsmInstr(ps *procState, instr string, dest, source *ast.Operand) string {
+func genBinAsmInstr(ps *procState, instr string, dest, source *ir.Operand) string {
 	return "\t" + instr + "\t" + genRegister(dest) + ", " + genRegOrLit(source) + "\n"
 }
 
-func genUnaryAsmInstr(ps *procState, instr string, op *ast.Operand) string {
+func genUnaryAsmInstr(ps *procState, instr string, op *ir.Operand) string {
 	return "\t" + instr + "\t" + genRegister(op) + "\n"
 }
 
-func genRegOrLit(op *ast.Operand) string {
+func genRegOrLit(op *ir.Operand) string {
 	switch op.T {
 	case OT.Lit:
 		return op.Label
@@ -224,7 +234,7 @@ func genRegOrLit(op *ast.Operand) string {
 	panic("genRegOrLit: invalid operand type")
 }
 
-func genOperand(ps *procState, op *ast.Operand) string {
+func genOperand(ps *procState, op *ir.Operand) string {
 	switch op.T {
 	case OT.Lit:
 		return op.Label
@@ -244,31 +254,31 @@ func genOperand(ps *procState, op *ast.Operand) string {
 	panic("genOperand: unimplemented OperandType")
 }
 
-func genRegister(op *ast.Operand) string {
+func genRegister(op *ir.Operand) string {
 	if op.T != OT.Register {
 		panic("genRegister: expected register operand")
 	}
 	r := X64Registers[op.Num]
 	switch op.Type {
-	case T.Byte:
+	case T.I8:
 		return r.Byte
-	case T.Word:
+	case T.I16:
 		return r.Word
-	case T.DWord:
+	case T.I32:
 		return r.DWord
-	case T.QWord:
+	case T.I64:
 		return r.QWord
 	}
 	panic("genRegister: invalid type")
 }
 
-func genSpill(ps *procState, op *ast.Operand) string {
+func genSpill(ps *procState, op *ir.Operand) string {
 	baseOffset := strconv.Itoa(ps.SpillBaseOffset)
 	spillOffset := strconv.Itoa(op.Num * 8)
 	return typeToAsm(op.Type) +" [rbp -" + baseOffset + "-" + spillOffset + "]"
 }
 
-func genArith(ps *procState, instr *ast.Instr, asmInstr string) string {
+func genArith(ps *procState, instr *ir.Instr, asmInstr string) string {
 	a, b := convertToTwoAddr(instr)
 	if a == nil || b == nil {
 		return genThreeAddrArith(ps, instr, asmInstr)
@@ -276,7 +286,7 @@ func genArith(ps *procState, instr *ast.Instr, asmInstr string) string {
 	return genBinAsmInstr(ps, asmInstr, a, b)
 }
 
-func genThreeAddrArith(ps *procState, instr *ast.Instr, asmInstr string) string {
+func genThreeAddrArith(ps *procState, instr *ir.Instr, asmInstr string) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination
@@ -285,7 +295,7 @@ func genThreeAddrArith(ps *procState, instr *ast.Instr, asmInstr string) string 
 	return output
 }
 
-func genDiv(ps *procState, instr *ast.Instr) string {
+func genDiv(ps *procState, instr *ir.Instr) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination
@@ -297,7 +307,7 @@ func genDiv(ps *procState, instr *ast.Instr) string {
 	return output
 }
 
-func genRem(ps *procState, instr *ast.Instr) string {
+func genRem(ps *procState, instr *ir.Instr) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination
@@ -309,29 +319,89 @@ func genRem(ps *procState, instr *ast.Instr) string {
 	return output
 }
 
-func genMovToReg(ps *procState, r *register, op *ast.Operand) string {
+func genMovToReg(ps *procState, r *register, op *ir.Operand) string {
 	return "\tmov\t" + getRegAsm(r, op.Type) + ", " + genOperand(ps, op) + "\n"
 }
 
-func genMovFromReg(ps *procState, op *ast.Operand, r *register) string {
+func genMovFromReg(ps *procState, op *ir.Operand, r *register) string {
 	return "\tmov\t" + genOperand(ps, op) + ", " + getRegAsm(r, op.Type) + "\n"
+}
+
+func genCompOp(ps *procState, instr *ir.Instr, asmInstr string) string {
+	a := instr.Operands[0]
+	b := instr.Operands[1]
+	c := instr.Destination
+	output := genBinAsmInstr(ps, "cmp", a, b)
+	output += "\t"+asmInstr+"\t" + genRegister(c) + "\n"
+	return output
+}
+
+var opZERO = &ir.Operand{
+	T: OT.Lit,
+	Label: "0",
+}
+
+func genBoolOR(ps *procState, instr *ir.Instr) string {
+	aOp := instr.Operands[0]
+	bOp := instr.Operands[1]
+	cDest := instr.Destination
+
+	rax := getRegAsm(RAX, instr.Type)
+	rdx := getRegAsm(RDX, instr.Type)
+	a := genRegOrLit(aOp)
+	b := genRegOrLit(bOp)
+	c := genRegOrLit(cDest)
+
+	output := "\tcmp\t" + a + ", 0\n"
+	output += "\tsetne\t" + rax + "\n"
+	output += "\tcmp\t" + b + ", 0\n"
+	output += "\tsetne\t" + rdx + "\n"
+	output += "\tadd\t" + rax + ", " + rdx + "\n"
+	output += "\tcmp\t" + rax + ", 1\n"
+	output += "\tsetge\t" + c + "\n"
+	return output
+}
+
+func genBoolAND(ps *procState, instr *ir.Instr) string {
+	aOp := instr.Operands[0]
+	bOp := instr.Operands[1]
+	cDest := instr.Destination
+
+	rax := getRegAsm(RAX, instr.Type)
+	rdx := getRegAsm(RDX, instr.Type)
+	a := genRegOrLit(aOp)
+	b := genRegOrLit(bOp)
+	c := genRegOrLit(cDest)
+
+	output := "\tcmp\t" + a + ", 0\n"
+	output += "\tsetne\t" + rax + "\n"
+	output += "\tcmp\t" + b + ", 0\n"
+	output += "\tsetne\t" + rdx + "\n"
+	output += "\tadd\t" + rax + ", " + rdx + "\n"
+	output += "\tcmp\t" + rax + ", 2\n"
+	output += "\tsete\t" + c + "\n"
+	return output
+}
+
+func genBoolNot(ps *procState, instr *ir.Instr) string {
+	return "UNIMPLEMENTED"
 }
 
 func getRegAsm(r *register, t T.Type) string {
 	switch t {
-	case T.Byte:
+	case T.I8:
 		return r.Byte
-	case T.Word:
+	case T.I16:
 		return r.Word
-	case T.DWord:
+	case T.I32:
 		return r.DWord
-	case T.QWord:
+	case T.I64:
 		return r.QWord
 	}
 	panic("getRegAsm: invalid type")
 }
 
-func convertToTwoAddr(instr *ast.Instr) (dest *ast.Operand, op *ast.Operand) {
+func convertToTwoAddr(instr *ir.Instr) (dest *ir.Operand, op *ir.Operand) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination
@@ -350,6 +420,6 @@ func convertToTwoAddr(instr *ast.Instr) (dest *ast.Operand, op *ast.Operand) {
 	return nil, nil
 }
 
-func areOpEqual(a, b *ast.Operand) bool {
+func areOpEqual(a, b *ir.Operand) bool {
 	return a.T == b.T && a.Num == b.Num
 }

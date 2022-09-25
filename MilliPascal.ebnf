@@ -1,39 +1,30 @@
 -- Lexer:
-type := byte|word|dword|qword.
+type := i8|i16|i32|i64|bool|ptr.
 id := [a-zA-Z_][a-zA-Z0-9_]*.
 int := [0-9]+.
-char := '(ascii|\\')'.
-string := "(ascii*|\\")".
 
 true := 'true'.
 false := 'false'.
 
-keywords := const|mem|res|set|def
-	  |vars|proc|begin|end
+keywords := var|proc|begin|end
 	  |while|if|else|elseif
-	  |copy|to|or|and|not
-	  |byte|word|dword|qword
-          |true|false.
-operators := , | : | \( | \) | = | == | != | > | >= | < | <= | + | - | * | / | % | \[ | \]. 
+          |or|and|not|memory
+          |i8|i16|i32|i64|bool|ptr
+          |true|false|syscall.
+operators := , | : | \( | \) | \[ | \] | = | == | != | > | >= | < | <= | + | - | * | / | %.
 
 
 -- Parser:
-
 Module := {Symbol}.
 Symbol := Procedure
-        | Memory
-        | Const.
+	| Memory.
 
-Const := 'const' id Terminal.
-
-Memory := 'mem' id (Reserve | Declare).
-Reserve := 'res' int type 'set' Terminal.
-Declare := 'def' TermList.
+Memory := 'memory' id int.
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
 Args := '(' [DeclList] ')'.
-Vars := 'vars' DeclList.
-Rets := type {',' type}.
+Vars := 'var' DeclList.
+Rets := type {',' type} [','].
 
 DeclList := Decl {',' Decl} [','].
 Decl := id [':' type].
@@ -44,7 +35,9 @@ Code := If
       | Set
       | Expr.
 
-Block := 'begin' {Code} 'end'.
+Block := 'begin' {CodeSemicolon} 'end'.
+
+CodeSemicolon := Code [';'].
 
 While := 'while' Expr Block 'while'.
 
@@ -53,10 +46,10 @@ ElseIf := 'elseif' Expr Block.
 Else := 'else' Block
 
 Set := 'set' Assignees '=' ExprList.
-Assignees := Assignee {',' Assignee}.
-Assignee := id [MemAccess].
+Assignees := Assignee {',' Assignee} [','].
+Assignee := id [Indexing].
 
-Return := 'return' [ExprList].
+Return := 'return' ExprList.
 
 ExprList := Expr {',' Expr} [','].
 Expr := And {'or' And}.
@@ -65,16 +58,16 @@ Comp := Sum {compOp Sum}.
 compOp := '==' | '!=' | '>' | '>=' | '<' | '<='.
 Sum := Mult {sumOp Mult}.
 sumOp := '+' | '-'.
-Mult := UnarySuffix {multOp UnarySuffix}.
+Mult := UnaryPrefix {multOp UnaryPrefix}.
 multOp := '*' | '/' | '%'.
-UnarySuffix := UnaryPrefix {Suffix}.
-UnaryPrefix := {Prefix} Factor.
+UnaryPrefix := {Prefix} UnarySuffix.
+UnarySuffix := Factor {Suffix}.
 
 Prefix := 'not' | '+' | '-'.
-Suffix  := MemAccess
+Suffix  := Indexing
 	| Conversion
 	| Call.
-MemAccess := '[' Expr ']'.
+Indexing := '[' Expr ']'.
 Conversion := ':' type.
 Call := '(' [ExprList] ')'.
 
@@ -82,7 +75,6 @@ Factor := Terminal
 	| NestedExpr.
 NestedExpr := '(' Expr ')'.
 Terminal := id
-          | string
-          | char
           | true | false
-          | int.
+          | int
+          | 'syscall'.

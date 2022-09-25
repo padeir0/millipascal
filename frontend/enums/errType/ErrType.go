@@ -56,6 +56,8 @@ const (
 	InvalidCopy
 	MismatchedTypeInAssign
 	BadConst
+	InvalidClassforExpr
+	CannotUseSyscallInExpr
 )
 
 func (et ErrType) String() string {
@@ -124,6 +126,8 @@ var DebugMap = map[ErrType]string{
 	InvalidCopy:                    "InvalidCopy",
 	MismatchedTypeInAssign:         "MismatchedTypeInAssign",
 	BadConst:                       "BadConst",
+	InvalidClassforExpr:            "InvalidClassforExpr",
+	CannotUseSyscallInExpr:         "CannotUseSyscallInExpr",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -175,4 +179,6 @@ var ErrorCodeMap = map[ErrType]string{
 	InvalidCopy:                    "S030",
 	MismatchedTypeInAssign:         "S031",
 	BadConst:                       "S032",
+	InvalidClassforExpr:            "S033",
+	CannotUseSyscallInExpr:         "S034",
 }

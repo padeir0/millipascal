@@ -1,4 +1,4 @@
-package ast
+package ir
 
 import (
 	lex "mpc/frontend/enums/lexType"
@@ -88,7 +88,7 @@ func (M *Module) StringifyCode() string {
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
 			output += sy.Proc.Name + ":\n"+
-				"env: " + sy.Proc.StrArgs() + "\n" + 
+				"[" + sy.Proc.StrArgs() + "]\n" + 
 				FmtBasicBlock(sy.Proc.Code)
 		}
 	}
@@ -137,6 +137,14 @@ func (p *Proc) StrArgs() string {
 	return strings.Join(output, ", ")
 }
 
+func (p *Proc) Returns() string {
+	output := []string{}
+	for _, ret := range p.Rets {
+		output = append(output, ret.String())
+	}
+	return strings.Join(output, ", ")
+}
+
 type Decl struct {
 	Name string
 	Type T.Type
@@ -157,6 +165,7 @@ type BasicBlock struct {
 	Label string
 	Code  []*Instr
 	Out   Flow
+	Checked bool
 }
 
 func (b *BasicBlock) AddInstr(i *Instr) {

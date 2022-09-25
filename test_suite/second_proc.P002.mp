@@ -1,4 +1,4 @@
 proc main
-vars
+var
 begin
 end proc

@@ -1,7 +1,7 @@
 package resolver
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
 	"mpc/frontend/parser"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func Resolve(filePath string) (*ast.Module, *errors.CompilerError) {
+func Resolve(filePath string) (*ir.Module, *errors.CompilerError) {
 	n, err := openAndParse(filePath)
 	if err != nil {
 		return nil, err
@@ -43,16 +43,16 @@ func invalidModuleName(filePath string) *errors.CompilerError {
 	}
 }
 
-func newModule(modID string, name string, root *ast.Node) *ast.Module {
-	return &ast.Module{
+func newModule(modID string, name string, root *ir.Node) *ir.Module {
+	return &ir.Module{
 		ID:   modID,
 		Name: name,
 		Root: root,
-		Globals: map[string]*ast.Symbol{},
+		Globals: map[string]*ir.Symbol{},
 	}
 }
 
-func openAndParse(file string) (*ast.Node, *errors.CompilerError) {
+func openAndParse(file string) (*ir.Node, *errors.CompilerError) {
 	text, e := ioutil.ReadFile(file)
 	if e != nil {
 		return nil, processFileError(e)

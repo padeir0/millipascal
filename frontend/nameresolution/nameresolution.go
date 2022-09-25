@@ -1,15 +1,17 @@
 package nameresolution
 
 import (
-	"mpc/frontend/ast"
+	"mpc/frontend/ir"
 	"mpc/frontend/errors"
 	lex "mpc/frontend/enums/lexType"
 	T "mpc/frontend/enums/Type"
 	ST "mpc/frontend/enums/symbolType"
 	msg "mpc/frontend/messages"
+
+	"strconv"
 )
 
-func ResolveNames(M *ast.Module) *errors.CompilerError {
+func ResolveNames(M *ir.Module) *errors.CompilerError {
 	symbols := M.Root.Leaves[0]
 	for _, symbol := range symbols.Leaves {
 		err := declareSymbol(M, symbol)
@@ -20,7 +22,7 @@ func ResolveNames(M *ast.Module) *errors.CompilerError {
 	return nil
 }
 
-func declareSymbol(M *ast.Module, n *ast.Node) *errors.CompilerError {
+func declareSymbol(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	sy := getSymbol(n)
 	v, ok := M.Globals[sy.Name]
 	if ok {
@@ -30,44 +32,46 @@ func declareSymbol(M *ast.Module, n *ast.Node) *errors.CompilerError {
 	return nil
 }
 
-func getSymbol(n *ast.Node) *ast.Symbol {
+func getSymbol(n *ir.Node) *ir.Symbol {
 	name := getSymbolName(n)
 	switch n.Lex {
 	case lex.PROC:
-		return &ast.Symbol{
+		return &ir.Symbol{
 			T:    ST.Proc,
 			Name: name,
-			Proc: &ast.Proc{
+			Proc: &ir.Proc{
 				Name: name,
-				Args:  []*ast.Decl{},
+				Args:  []*ir.Decl{},
 				Rets:  []T.Type{},
-				Vars:  []*ast.Decl{},
-				Names: map[string]*ast.Decl{},
+				Vars:  []*ir.Decl{},
+				Names: map[string]*ir.Decl{},
 				N:  n,
 			},
 			N: n,
 		}
-	case lex.MEM:
-		return &ast.Symbol{
-			T:    ST.Mem,
-			Name: getSymbolName(n),
-			Mem: &ast.Mem{
-				Size: -1,
-				Type: T.Invalid,
-				Init: []*ast.Node{},
-			},
-			N: n,
-		}
-	case lex.CONST:
-		return &ast.Symbol{
-			T:    ST.Const,
-			Name: getSymbolName(n),
-			N:    n,
-		}
+	case lex.MEMORY:
+		return getMemSymbol(n)
 	}
 	panic("getSymbolType: what")
 }
 
-func getSymbolName(n *ast.Node) string {
+func getMemSymbol(n *ir.Node) *ir.Symbol {
+	size, err := strconv.Atoi(n.Leaves[1].Text)
+	if err != nil {
+		panic("getMemSymbol: " + err.Error())
+	}
+	mem := &ir.Mem{
+			Size: size,
+			Init: []*ir.Node{},
+		}
+	return &ir.Symbol{
+		T:    ST.Mem,
+		Name: getSymbolName(n),
+		Mem: mem,
+		N: n,
+	}
+}
+
+func getSymbolName(n *ir.Node) string {
 	return n.Leaves[0].Text
 }
