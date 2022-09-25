@@ -7,9 +7,11 @@ const (
 	Proc
 	Mem
 	Temp
-	Local
 	Lit
 
+	Local
 	Register
 	Spill
+	Return
+	Argument
 )

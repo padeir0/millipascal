@@ -27,17 +27,18 @@ Vars := 'var' DeclList.
 Rets := type {',' type} [','].
 
 DeclList := Decl {',' Decl} [','].
-Decl := id [':' type].
+Decl := id [Annot].
+Annot := ':' type.
+
+Block := 'begin' {CodeSemicolon} 'end'.
+
+CodeSemicolon := Code [';'].
 
 Code := If
       | While
       | Return
       | Set
       | Expr.
-
-Block := 'begin' {CodeSemicolon} 'end'.
-
-CodeSemicolon := Code [';'].
 
 While := 'while' Expr Block 'while'.
 
@@ -67,8 +68,8 @@ Prefix := 'not' | '+' | '-'.
 Suffix  := Indexing
 	| Conversion
 	| Call.
-Indexing := '[' Expr ']'.
-Conversion := ':' type.
+Indexing := '[' [Annot] Expr ']'.
+Conversion := Annot.
 Call := '(' [ExprList] ')'.
 
 Factor := Terminal

@@ -154,7 +154,7 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node)  {
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
 		storeRet := &ir.Instr {
-			T: IT.PushRet,
+			T: IT.Store,
 			Type: op.Type,
 			Operands: []*ir.Operand{op},
 		}
@@ -183,7 +183,7 @@ func genSet(M *ir.Module, c *context, set *ir.Node)  {
 	}
 }
 
-func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node)  {
+func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 	if call.Lex != lex.CALL {
 		panic("must be CALL:\n" + ir.FmtNode(call))
 	}
@@ -192,62 +192,117 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node)  {
 
 	procOp := genExprID(M, c, proc)
 
-	for _, arg := range args.Leaves {
-		res := genExpr(M, c, arg)
-		storeArg := &ir.Instr{
-			T: IT.PushArg,
-			Type: arg.T,
-			Operands: []*ir.Operand{res},
-		}
-		c.CurrBlock.AddInstr(storeArg)
-	}
+	genInitFrame(M, c, procOp)
+	genLoadArgs(M, c, args)
+	genCallInstr(c, call, procOp)
 
+	genLoadAssignRets(M, c, assignees)
+}
+
+func genInitFrame(M *ir.Module, c *context, procOp *ir.Operand) {
+	sy := M.Globals[procOp.Label]
+	numArgs := genIntOp(len(sy.Proc.Args))
+	numRets := genIntOp(len(sy.Proc.Rets))
+	init := &ir.Instr{
+		T: IT.InitFrame,
+		Operands: []*ir.Operand{numArgs, numRets},
+	}
+	c.CurrBlock.AddInstr(init)
+}
+
+func genIntOp(num int) *ir.Operand {
+	return &ir.Operand{
+		T:   OT.Lit,
+		Num: num,
+	}
+}
+
+func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node) {
+	for i, ass := range assignees.Leaves {
+		if ass.Lex == lex.IDENTIFIER {
+			genCallAssign(M, c, ass, i)
+			continue
+		}
+		if ass.Lex == lex.LEFTBRACKET {
+			genCallAssignMem(M, c, ass, i)
+			continue
+		}
+	}
+}
+
+func genCallInstr(c *context, call *ir.Node, procOp *ir.Operand) {
 	iCall := &ir.Instr{
 		T: IT.Call,
 		Type: call.T,
 		Operands: []*ir.Operand{procOp},
 	}
 	c.CurrBlock.AddInstr(iCall)
+}
 
-	for _, ass := range assignees.Leaves {
-		if ass.Lex == lex.IDENTIFIER {
-			genCallAssign(M, c, ass)
-			continue
+func genLoadArgs(M *ir.Module, c *context, args *ir.Node) {
+	for i, arg := range args.Leaves {
+		res := genExpr(M, c, arg)
+		dest := genCallOp(arg.T, i, OT.Argument)
+		storeArg := &ir.Instr{
+			T: IT.Store,
+			Type: arg.T,
+			Operands: []*ir.Operand{res},
+			Destination: dest,
 		}
-		if ass.Lex == lex.LEFTBRACKET {
-			genCallAssignMem(M, c, ass)
-			continue
-		}
+		c.CurrBlock.AddInstr(storeArg)
 	}
 }
 
-func genCallAssign(M *ir.Module, c *context, ass *ir.Node) {
+func genCallOp(t T.Type, i int, ot OT.OperandType) *ir.Operand {
+	return &ir.Operand {
+		T: ot,
+		Type: t,
+		Num: i,
+	}
+}
+
+func genCallAssign(M *ir.Module, c *context, ass *ir.Node, i int) {
 	dest := genExprID(M, c, ass)
+	op := genCallOp(ass.T, i, OT.Return)
 	loadRet := &ir.Instr{
-		T: IT.PopRet,
+		T: IT.Load,
 		Type: ass.T,
+		Operands: []*ir.Operand{op},
 		Destination: dest,
 	}
 	c.CurrBlock.AddInstr(loadRet)
 }
 
-func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node) {
-	destOp := genExprID(M, c, ass.Leaves[1]) // CHECK
-	indexOp := genExpr(M, c, ass.Leaves[0])
+func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, i int) {
+	basePtrOp := genExprID(M, c, ass.Leaves[2]) // CHECK
+	offsetOp := genExpr(M, c, ass.Leaves[0])
+
+	newPtr := c.AllocTemp(T.Ptr)
+	offset := &ir.Instr {
+		T: IT.Offset,
+		Type: ass.T,
+		Operands: []*ir.Operand{basePtrOp, offsetOp},
+		Destination: newPtr,
+	}
+	c.CurrBlock.AddInstr(offset)
+
+	op := genCallOp(ass.T, i, OT.Return)
 	temp := c.AllocTemp(ass.T)
 	loadRet := &ir.Instr{
-		T: IT.PopRet,
+		T: IT.Load,
 		Type: ass.T,
+		Operands: []*ir.Operand{op},
 		Destination: temp,
 	}
 	c.CurrBlock.AddInstr(loadRet)
-	memLoad := &ir.Instr{
-		T: IT.StoreMem,
+
+	loadPtr := &ir.Instr{
+		T: IT.StorePtr,
 		Type: ass.T,
-		Operands: []*ir.Operand{temp, indexOp},
-		Destination: destOp,
+		Operands: []*ir.Operand{temp},
+		Destination: newPtr,
 	}
-	c.CurrBlock.AddInstr(memLoad)
+	c.CurrBlock.AddInstr(loadPtr)
 }
 	
 func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node)  {
@@ -271,7 +326,7 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
 	store := &ir.Instr {
-		T: IT.StoreLocal,
+		T: IT.Store,
 		Type: op.Type,
 		Operands: []*ir.Operand{exp},
 		Destination: op,
@@ -287,7 +342,7 @@ func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	idOp := genExprID(M, c, assID)
 	expOp := genExpr(M, c, expr)
 	store := &ir.Instr {
-		T: IT.StoreMem,
+		T: IT.StorePtr,
 		Type: expOp.Type,
 		Operands: []*ir.Operand{expOp, indexOp},
 		Destination: idOp,
@@ -327,26 +382,16 @@ func genCall(M *ir.Module, c *context, call *ir.Node) *ir.Operand {
 
 	procOp := genExprID(M, c, proc)
 
-	for _, arg := range args.Leaves {
-		res := genExpr(M, c, arg)
-		storeArg := &ir.Instr{
-			T: IT.PushArg,
-			Type: arg.T,
-			Operands: []*ir.Operand{res},
-		}
-		c.CurrBlock.AddInstr(storeArg)
-	}
-	iCall := &ir.Instr{
-		T: IT.Call,
-		Type: call.T,
-		Operands: []*ir.Operand{procOp},
-	}
-	c.CurrBlock.AddInstr(iCall)
+	genInitFrame(M, c, procOp)
+	genLoadArgs(M, c, args)
+	genCallInstr(c, call, procOp)
 
 	ret := c.AllocTemp(call.T)
+	opRet := genCallOp(call.T, 0, OT.Return)
 	loadRet := &ir.Instr{
-		T: IT.PopRet,
+		T: IT.Load,
 		Type: call.T,
+		Operands: []*ir.Operand{opRet},
 		Destination: ret,
 	}
 	c.CurrBlock.AddInstr(loadRet)
@@ -356,26 +401,18 @@ func genCall(M *ir.Module, c *context, call *ir.Node) *ir.Operand {
 
 func genMemAccess(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
 	exp := memAccess.Leaves[0]
-	mem := memAccess.Leaves[1]
+	mem := memAccess.Leaves[2]
 
-	memOp := genExprID(M, c, mem)
-	expOp := genExpr(M, c, exp)
+	basePtrOp := genExprID(M, c, mem)
+	offsetOp := genExpr(M, c, exp)
 
-	boundscheck := &ir.Instr {
-		T: IT.BoundsCheck,
-		Type: mem.T,
-		Operands: []*ir.Operand{memOp, expOp},
-	}
-
-	temp := c.AllocTemp(mem.T)
+	temp := c.AllocTemp(T.Ptr)
 	load := &ir.Instr {
-		T: IT.LoadMem,
+		T: IT.Offset,
 		Type: mem.T,
-		Operands:    []*ir.Operand{memOp, expOp},
+		Operands:    []*ir.Operand{basePtrOp, offsetOp},
 		Destination: temp,
 	}
-
-	c.CurrBlock.AddInstr(boundscheck)
 	c.CurrBlock.AddInstr(load)
 
 	return temp

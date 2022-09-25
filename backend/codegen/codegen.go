@@ -195,19 +195,10 @@ func genInstr(ps *procState, instr *ir.Instr) string {
 	case IT.Convert:
 	case IT.Call:
 
-	case IT.LoadLocal:
-	case IT.StoreLocal:
-	case IT.LoadMem:
-	case IT.StoreMem:
-	case IT.LoadSpill:
-	case IT.StoreSpill:
-
-	case IT.BoundsCheck:
-
-	case IT.PushRet:
-	case IT.PopRet:
-	case IT.PushArg:
-	case IT.PopArg:
+	case IT.LoadPtr:
+	case IT.StorePtr:
+	case IT.Load:
+	case IT.Store:
 	}
 	return "UNIMPLEMENTED\n"
 }

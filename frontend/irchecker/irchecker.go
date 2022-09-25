@@ -6,13 +6,14 @@ import (
 	eu "mpc/frontend/util/errors"
 	ST "mpc/frontend/enums/symbolType"
 	FT "mpc/frontend/enums/flowType"
-	IT "mpc/frontend/enums/instrType"
+	//IT "mpc/frontend/enums/instrType"
 
 	"strings"
 )
 
 
 func Check(M *ir.Module) *errors.CompilerError {
+	return nil
 	s := newState(M)
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
@@ -141,9 +142,5 @@ func checkRet(s *state) *errors.CompilerError {
 }
 
 func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
-	panic("checkInstr unimplemented")
-	switch instr.T {
-		case IT.Add:
-	}
 	return nil
 }

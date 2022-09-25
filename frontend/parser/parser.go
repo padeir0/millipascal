@@ -193,7 +193,7 @@ func declList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}, nil
 }
 
-// Decl := id [':' type].
+// Decl := id [Annot].
 func decl(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "Decl")
 	if s.Word.Lex != T.IDENTIFIER {
@@ -204,15 +204,11 @@ func decl(s *Lexer) (*ir.Node, *errors.CompilerError) {
 		return nil, err
 	}
 	if s.Word.Lex == T.COLON {
-		colon, err := Consume(s)
+		colon, err := annot(s)
 		if err != nil {
 			return nil, err
 		}
-		tp, err := ExpectType(s)
-		if err != nil {
-			return nil, err
-		}
-		colon.Leaves = []*ir.Node{id, tp}
+		colon.Leaves = []*ir.Node{id, colon.Leaves[0]}
 		return colon, nil
 	}
 	return id, nil
@@ -439,16 +435,24 @@ func suffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	case T.LEFTPAREN:
 		return call(s)
 	case T.COLON:
-		return conversion(s)
+		return annot(s)
 	}
 	return nil, nil
 }
 
-// Indexing = "[" Expr "]".
+// Indexing := '[' [Annot] Expr ']'.
 func indexing(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	n, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
 		return nil, err
+	}
+	var t *ir.Node
+	if s.Word.Lex == T.COLON {
+		a, err := annot(s)
+		if err != nil {
+			return nil, nil
+		}
+		t = a.Leaves[0]
 	}
 	exp, err := ExpectProd(s, expr, "expression")
 	if err != nil {
@@ -458,7 +462,7 @@ func indexing(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	n.Leaves = []*ir.Node{exp}
+	n.Leaves = []*ir.Node{exp, t}
 	return n, nil
 }
 
@@ -504,8 +508,9 @@ func exprList(s *Lexer)(*ir.Node, *errors.CompilerError)  {
 	}, nil
 }
 
-// Conversion = ":" Type.
-func conversion(s *Lexer) (*ir.Node, *errors.CompilerError) {
+// Annot = ":" Type.
+// Conversion = Annot.
+func annot(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	colon, err := Expect(s, T.COLON)
 	if err != nil {
 		return nil, err

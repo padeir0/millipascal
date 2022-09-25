@@ -381,7 +381,8 @@ func checkExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerError {
 }
 
 func checkMemAccess(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	mem := n.Leaves[1]
+	tp := n.Leaves[1]
+	mem := n.Leaves[2]
 	local, ok := sy.Proc.Names[mem.Text]
 	if ok {
 		return msg.ErrorExpectedMemGotLocal(M, local, mem)
@@ -397,7 +398,11 @@ func checkMemAccess(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerErr
 	if err != nil {
 		return err
 	}
-	n.T = T.I8
+	if tp == nil {
+		n.T = T.I8
+	} else {
+		n.T = getType(tp)
+	}
 	return nil
 }
 

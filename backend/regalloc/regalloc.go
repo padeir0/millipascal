@@ -256,7 +256,7 @@ func loadSpill(s *state, bb *ir.BasicBlock, op *ir.Operand, index int, a addr) *
 	rOp := allocTemp(s, bb, op, index)
 	spillOp := newSpillOperand(a, op.Type)
 	load := &ir.Instr{
-		T: IT.LoadSpill,
+		T: IT.Load,
 		Type: op.Type,
 		Operands: []*ir.Operand{spillOp},
 		Destination: rOp,
@@ -281,7 +281,7 @@ func spillRegister(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.O
 	spillOp := newSpillOperand(sNum, op.Type)
 	regOp := newRegOp(r, op.Type)
 	store := &ir.Instr{
-		T: IT.StoreSpill,
+		T: IT.Store,
 		Operands: []*ir.Operand{regOp},
 		Destination: spillOp,
 	}
