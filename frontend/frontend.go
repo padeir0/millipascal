@@ -40,7 +40,7 @@ func All(file string) (*ir.Module, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	err = irchecker.Check(m)
+	err = irchecker.Check(m, false)
 	if err != nil {
 		return nil, err
 	}

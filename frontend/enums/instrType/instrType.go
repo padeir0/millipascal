@@ -9,11 +9,11 @@ func (i InstrType) String() string {
 	case Add:
 		return "add"
 	case UnaryPlus:
-		return "unary_plus"
+		return "uplus"
 	case Sub:
 		return "sub"
 	case UnaryMinus:
-		return "unary_minus"
+		return "uminus"
 	case Div:
 		return "div"
 	case Mult:
@@ -29,9 +29,9 @@ func (i InstrType) String() string {
 	case More:
 		return "more"
 	case LessEq:
-		return "less_eq"
+		return "lesseq"
 	case MoreEq:
-		return "more_eq"
+		return "moreeq"
 	case Or:
 		return "or"
 	case And:
@@ -44,12 +44,14 @@ func (i InstrType) String() string {
 		return "load"
 	case Store:
 		return "store"
+	case LoadPtr:
+		return "loadptr"
+	case StorePtr:
+		return "storeptr"
 	case Offset:
 		return "offset"
 	case Call:
 		return "call"
-	case InitFrame:
-		return "init_frame"
 	}
 	panic("Unstringified InstrType: " + strconv.Itoa(int(i)))
 }
@@ -61,53 +63,62 @@ and Low Level IR, the difference are the operands:
 	- When in LIR, the operands must be of specific classes and typecheck
 
 The annotations bellow show the type and operand class as:
-	type:class
-On the left side are the operands, surrounded by brackets,
-While on the right side, after the arrow, is the single destination:
-	[operand, operand] -> destination
+	type'class
+
+The instructions are typed, and the following notation is used to show
+how operands must be typed relative to the instruction type:
+	instr:T of Constraint [T'class, T'class] -> T'class
+
+Where all occurrences of T can be substituted
+by one type inside the constraint.
+
+On the left side of the arrow are the operands, surrounded by brackets,
+while on the right side, after the arrow, is the single destination:
+	instr:type [operand, operand] -> destination
 
 The classes are defined by the operandType enum and are grouped as:
-	class Immediate = register|lit
-	class Addressable = spill|argument|return|local
-While the types are defined by the Types enum and are grouped as:
-	type Any = i8|i16|i32|i64|ptr|bool
-	type NonPtr = i8|i16|i32|i64|bool
-	type Number = i8|i16|i32|i64
+	Immediate = register|lit
+	Addressable = spill|argument|return|local
+
+While the types are defined by the Types enum and form
+the following constraints:
+	Any = i8|i16|i32|i64|ptr|bool
+	NonPtr = i8|i16|i32|i64|bool
+	Number = i8|i16|i32|i64
 */
 
 const (
 	InvalidInstr InstrType = iota
-	Add // [Number:Immediate, Number:Immediate] -> Number:register
+
+	Add //:T of Number [T'Immediate, T'Immediate] -> T'register
 	Sub
 	Div
 	Mult
 	Rem
 
-	Eq // [Any:Immediate, Any:Immediate] -> bool:register
+	Eq //:T of Any [T'Immediate, T'Immediate] -> bool'register
 	Diff
 	Less
 	More
 	LessEq
 	MoreEq
 
-	Or // [bool:Immediate, bool:Immediate] -> bool:register
+	Or //:bool [bool'Immediate, bool'Immediate] -> bool'register
 	And
 
-	UnaryMinus // [Number:Immediate] -> Number:register
+	Not //:bool [bool'Immediate] -> bool'register
+
+	UnaryMinus //:T of Number [T'Immediate] -> T'register
 	UnaryPlus
 
-	Not // [bool:Immediate] -> bool:register
+	Convert //:T of NonPtr [NonPtr'Immediate] -> T'register
 
-	Convert // [NonPtr:Immediate] -> NonPtr:register
+	Offset   //:T of Number [ptr'Immediate, T'Immediate] -> ptr'register
+	LoadPtr  //:T of Any [ptr'Immediate] -> T'register
+	StorePtr //:T of Any [T'Immediate] -> ptr'Immediate
 
-	Offset   // [ptr:Immediate, Number:Immediate] -> ptr:register
-	LoadPtr  // [ptr:Immediate] -> Any:register
-	StorePtr // [Any:Immediate] -> ptr:Immediate
+	Load  //:T of Any [T'Addressable] -> T'register
+	Store //:T of Any [T'Immediate] -> T'Addressable
 
-	Load  // [Any:Addressable] -> Any:register
-	Store // [Any:Immediate] -> Any:Addressable
-
-        // reserves space for parameters and returns of a procedure call
-	InitFrame  // [Number:lit, Number:lit]
-	Call       // [proc:proc]
+	Call // [proc:proc]
 )

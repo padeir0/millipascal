@@ -151,12 +151,14 @@ func genWhile(M *ir.Module, c *context, while *ir.Node)  {
 }
 
 func genReturn(M *ir.Module, c *context, return_ *ir.Node)  {
-	for _, ret := range return_.Leaves {
+	for i, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
+		retOp := genCallOp(ret.T, i, OT.Return)
 		storeRet := &ir.Instr {
 			T: IT.Store,
 			Type: op.Type,
 			Operands: []*ir.Operand{op},
+			Destination: retOp,
 		}
 		c.CurrBlock.AddInstr(storeRet)
 	}
@@ -192,22 +194,10 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 
 	procOp := genExprID(M, c, proc)
 
-	genInitFrame(M, c, procOp)
 	genLoadArgs(M, c, args)
 	genCallInstr(c, call, procOp)
 
 	genLoadAssignRets(M, c, assignees)
-}
-
-func genInitFrame(M *ir.Module, c *context, procOp *ir.Operand) {
-	sy := M.Globals[procOp.Label]
-	numArgs := genIntOp(len(sy.Proc.Args))
-	numRets := genIntOp(len(sy.Proc.Rets))
-	init := &ir.Instr{
-		T: IT.InitFrame,
-		Operands: []*ir.Operand{numArgs, numRets},
-	}
-	c.CurrBlock.AddInstr(init)
 }
 
 func genIntOp(num int) *ir.Operand {
@@ -341,11 +331,21 @@ func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	indexOp := genExpr(M, c, indexExp)
 	idOp := genExprID(M, c, assID)
 	expOp := genExpr(M, c, expr)
+
+	newPtr := c.AllocTemp(T.Ptr)
+	offset := &ir.Instr {
+		T: IT.Offset,
+		Type: indexOp.Type,
+		Operands: []*ir.Operand{idOp, indexOp},
+		Destination: newPtr,
+	}
+	c.CurrBlock.AddInstr(offset)
+
 	store := &ir.Instr {
 		T: IT.StorePtr,
 		Type: expOp.Type,
-		Operands: []*ir.Operand{expOp, indexOp},
-		Destination: idOp,
+		Operands: []*ir.Operand{expOp},
+		Destination: newPtr,
 	}
 	c.CurrBlock.AddInstr(store)
 }
@@ -382,7 +382,6 @@ func genCall(M *ir.Module, c *context, call *ir.Node) *ir.Operand {
 
 	procOp := genExprID(M, c, proc)
 
-	genInitFrame(M, c, procOp)
 	genLoadArgs(M, c, args)
 	genCallInstr(c, call, procOp)
 
@@ -401,21 +400,36 @@ func genCall(M *ir.Module, c *context, call *ir.Node) *ir.Operand {
 
 func genMemAccess(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
 	exp := memAccess.Leaves[0]
+	t := memAccess.Leaves[1]
 	mem := memAccess.Leaves[2]
 
 	basePtrOp := genExprID(M, c, mem)
 	offsetOp := genExpr(M, c, exp)
 
-	temp := c.AllocTemp(T.Ptr)
-	load := &ir.Instr {
+	newPtr := c.AllocTemp(T.Ptr)
+	offset := &ir.Instr {
 		T: IT.Offset,
-		Type: mem.T,
+		Type: offsetOp.Type,
 		Operands:    []*ir.Operand{basePtrOp, offsetOp},
-		Destination: temp,
+		Destination: newPtr,
 	}
-	c.CurrBlock.AddInstr(load)
+	c.CurrBlock.AddInstr(offset)
 
-	return temp
+	instrT := T.I8
+	if t != nil {
+		instrT = t.T
+	}
+
+	dest := c.AllocTemp(instrT)
+	loadPtr := &ir.Instr {
+		T: IT.LoadPtr,
+		Type: instrT,
+		Operands:    []*ir.Operand{newPtr},
+		Destination: dest,
+	}
+	c.CurrBlock.AddInstr(loadPtr)
+
+	return dest
 }
 
 func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
@@ -424,6 +438,7 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 		return &ir.Operand{
 			T:     OT.Local,
 			Label: id.Text,
+			Type: id.T,
 		}
 	}
 	global, ok := M.Globals[id.Text]
@@ -439,18 +454,16 @@ func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 		return &ir.Operand{
 			T:     OT.Proc,
 			Label: id.Text,
+			Type:  T.Proc,
 		}
 	case ST.Mem:
 		return &ir.Operand{
 			T:     OT.Mem,
 			Label: id.Text,
+			Type:  T.Ptr,
 		}
 	}
-	// Const
-	return &ir.Operand{
-		T:     OT.Lit,
-		Label: global.N.Leaves[1].Text, // zero fucks
-	}
+	panic("wht jus heppn?")
 }
 
 func genConversion(M *ir.Module, c *context, colon *ir.Node) *ir.Operand {
@@ -471,6 +484,7 @@ func genLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
 	return &ir.Operand{
 		T:     OT.Lit,
 		Label: lit.Text,
+		Type: lit.T,
 	}
 }
 
@@ -488,7 +502,7 @@ func genBinaryOp(M *ir.Module, c *context, op *ir.Node) *ir.Operand {
 	dest := c.AllocTemp(op.T)
 	instr := &ir.Instr{
 		T:           it,
-		Type:        op.T,
+		Type:        a.Type,
 		Operands:    []*ir.Operand{a, b},
 		Destination: dest,
 	}

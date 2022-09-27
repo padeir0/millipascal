@@ -42,3 +42,31 @@ const (
 	Proc
 	Syscall
 )
+
+func IsAny(t Type) bool {
+	return t ==  I8 ||
+		t == I16 ||
+		t == I32 ||
+		t == I64 ||
+		t == Bool ||
+		t == Ptr
+}
+
+func IsBool(t Type) bool {
+	return t == Bool
+}
+
+func IsNumber(t Type) bool {
+	return t == I8 ||
+		t == I16 ||
+		t == I32 ||
+		t == I64
+}
+
+func IsPtr(t Type) bool {
+	return t == Ptr
+}
+
+func IsNonPtr(t Type) bool {
+	return t != Ptr
+}

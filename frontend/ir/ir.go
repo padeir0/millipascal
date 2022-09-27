@@ -274,23 +274,23 @@ func (o *Operand) String() string {
 	}
 	switch o.T {
 	case OT.Temp:
-		return strconv.Itoa(o.Num)+"'t"
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'t"
 	case OT.Register:
-		return strconv.Itoa(o.Num)+"'r"
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'r"
 	case OT.Spill:
-		return strconv.Itoa(o.Num)+"'s"
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'s"
 	case OT.Return:
-		return strconv.Itoa(o.Num)+"'ret"
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'ret"
 	case OT.Argument:
-		return strconv.Itoa(o.Num)+"'arg"
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'arg"
 	case OT.Mem:
-		return o.Label + "'mem"
+		return o.Label +":"+o.Type.String()+ "'mem"
 	case OT.Local:
-		return o.Label + "'loc"
+		return o.Label +":"+o.Type.String()+ "'loc"
 	case OT.Lit:
-		return o.Label + "'lit"
+		return o.Label +":"+o.Type.String()+ "'lit"
 	default:
-		return o.Label + "?"
+		return o.Label +":"+o.Type.String()+ "?"
 	}
 }
 

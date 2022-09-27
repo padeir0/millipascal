@@ -499,37 +499,21 @@ type class struct {
 
 var any = class{
 	Description: "i8, i16, i32, i64, bool or ptr",
-	Checker: func(t T.Type) bool {
-		return t == T.I8 ||
-			t == T.I16 ||
-			t == T.I32 ||
-			t == T.I64 ||
-			t == T.Bool ||
-			t == T.Ptr
-	},
+	Checker: T.IsAny,
 }
 
 var _bool = class{
 	Description: "bool",
-	Checker: func(t T.Type) bool {
-		return t == T.Bool
-	},
+	Checker: T.IsBool,
 }
 
 var number = class{
 	Description: "i8, i16, i32 or i64",
-	Checker: func(t T.Type) bool {
-		return t == T.I8 ||
-			t == T.I16 ||
-			t == T.I32 ||
-			t == T.I64
-	},
+	Checker: T.IsNumber,
 }  
 var ptr = class {
 	Description: "ptr",
-	Checker: func(t T.Type) bool {
-		return t == T.Ptr
-	},
+	Checker: T.IsPtr,
 }
 
 // a op b where type(a) = type(b) and type(a op b) = deriver(type(a), type(b))
