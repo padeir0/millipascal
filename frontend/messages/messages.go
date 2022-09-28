@@ -210,3 +210,8 @@ func ErrorCannotUseSyscallAsValue(M *ir.Module, n *ir.Node) *errors.CompilerErro
 	info := NewNodeInfo(n, "invalid use of syscall")
 	return NewSemanticError(M, et.CannotUseSyscallInExpr, info)
 }
+
+func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "cannot use void as value")
+	return NewSemanticError(M, et.CannotUseVoid, info)
+}

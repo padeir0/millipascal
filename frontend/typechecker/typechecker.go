@@ -297,6 +297,9 @@ func checkExprList(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerErro
 		if err != nil {
 			return err
 		}
+		if exp.T == T.Void {
+			return msg.ErrorCannotUseVoid(M, exp.Leaves[1])
+		}
 	}
 	return nil
 }
@@ -438,6 +441,8 @@ func checkCallProc(M *ir.Module, sy, proc *ir.Symbol, n *ir.Node) *errors.Compil
 	}
 	if len(proc.Proc.Rets) == 1 {
 		n.T = proc.Proc.Rets[0]
+	} else if len(proc.Proc.Rets) == 0 {
+		n.T = T.Void
 	} else {
 		n.T = T.MultiRet
 	}
@@ -564,6 +569,9 @@ func checkExprType(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	}
 	if n.T == T.Syscall {
 		return msg.ErrorCannotUseSyscallAsValue(M, n)
+	}
+	if n.T == T.Void {
+		return msg.ErrorCannotUseVoid(M, n)
 	}
 	if n.T == T.Invalid {
 		return msg.ErrorInvalidType(M, n)

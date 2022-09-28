@@ -58,6 +58,7 @@ const (
 	BadConst
 	InvalidClassforExpr
 	CannotUseSyscallInExpr
+	CannotUseVoid
 )
 
 func (et ErrType) String() string {
@@ -128,6 +129,7 @@ var DebugMap = map[ErrType]string{
 	BadConst:                       "BadConst",
 	InvalidClassforExpr:            "InvalidClassforExpr",
 	CannotUseSyscallInExpr:         "CannotUseSyscallInExpr",
+	CannotUseVoid:                  "CannotUseVoid",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -181,4 +183,5 @@ var ErrorCodeMap = map[ErrType]string{
 	BadConst:                       "S032",
 	InvalidClassforExpr:            "S033",
 	CannotUseSyscallInExpr:         "S034",
+	CannotUseVoid:                  "S035",
 }

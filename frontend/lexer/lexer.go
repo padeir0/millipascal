@@ -270,6 +270,8 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.COMMA
 	case ':':
 		tp = T.COLON
+	case ';':
+		tp = T.SEMICOLON
 	case '>': // >  >=
 		r, err := nextRune(st)
 		if err != nil {

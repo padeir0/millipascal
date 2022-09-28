@@ -24,6 +24,8 @@ func (t Type) String() string {
 		return "Proc"
 	case MultiRet:
 		return "MultiRet"
+	case Void:
+		return "Void"
 	}
 	panic("Type.String(): Invalid Type")
 }
@@ -41,6 +43,7 @@ const (
 	MultiRet
 	Proc
 	Syscall
+	Void
 )
 
 func IsAny(t Type) bool {
@@ -68,5 +71,9 @@ func IsPtr(t Type) bool {
 }
 
 func IsNonPtr(t Type) bool {
-	return t != Ptr
+	return t ==  I8 ||
+		t == I16 ||
+		t == I32 ||
+		t == I64 ||
+		t == Bool
 }
