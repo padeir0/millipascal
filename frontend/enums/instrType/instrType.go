@@ -120,5 +120,11 @@ const (
 	Load  //:T of Any [T'Addressable] -> T'register
 	Store //:T of Any [T'Immediate] -> T'Addressable
 
-	Call // [proc:proc]
+	// MIR: [proc:proc, Any'Immediate...] -> Any'Immediate...
+	// LIR: [proc:proc]
+	Call 
+
+	// only for LIR
+	InitFrame // [Number'lit, Number'lit]
+	EndFrame  // [Number'lit, Number'lit]
 )

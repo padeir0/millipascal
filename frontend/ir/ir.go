@@ -279,16 +279,16 @@ func (o *Operand) String() string {
 		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'r"
 	case OT.Spill:
 		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'s"
-	case OT.Return:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'ret"
-	case OT.Argument:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'arg"
+	case OT.Interproc:
+		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'i"
 	case OT.Mem:
 		return o.Label +":"+o.Type.String()+ "'mem"
 	case OT.Local:
 		return o.Label +":"+o.Type.String()+ "'loc"
 	case OT.Lit:
 		return o.Label +":"+o.Type.String()+ "'lit"
+	case OT.Proc:
+		return o.Label+":proc'proc"
 	default:
 		return o.Label +":"+o.Type.String()+ "?"
 	}
@@ -298,7 +298,7 @@ type Instr struct {
 	T           IT.InstrType
 	Type        T.Type
 	Operands    []*Operand
-	Destination *Operand
+	Destination []*Operand
 }
 
 func (i *Instr) String() string {
@@ -329,8 +329,12 @@ func (i *Instr) StrOps() string {
 }
 
 func (i *Instr) StrDests() string {
-	if i.Destination == nil {
+	if len(i.Destination) == 0 {
 		return ""
 	}
-	return i.Destination.String()
+	output := i.Destination[0].String()
+	for _, v := range i.Destination[1:] {
+		output += ", " + v.String()
+	}
+	return output
 }

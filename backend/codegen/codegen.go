@@ -280,7 +280,7 @@ func genArith(ps *procState, instr *ir.Instr, asmInstr string) string {
 func genThreeAddrArith(ps *procState, instr *ir.Instr, asmInstr string) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	c := instr.Destination
+	c := instr.Destination[0]
 	output := genMov(ps, c, a)
 	output += genBinAsmInstr(ps, asmInstr, c, b)
 	return output
@@ -289,7 +289,7 @@ func genThreeAddrArith(ps *procState, instr *ir.Instr, asmInstr string) string {
 func genDiv(ps *procState, instr *ir.Instr) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	c := instr.Destination
+	c := instr.Destination[0]
 
 	output := "	xor	rdx, rdx\n"
 	output += genMovToReg(ps, RAX, a)
@@ -301,7 +301,7 @@ func genDiv(ps *procState, instr *ir.Instr) string {
 func genRem(ps *procState, instr *ir.Instr) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	c := instr.Destination
+	c := instr.Destination[0]
 
 	output := "	xor	rdx, rdx\n"
 	output += genMovToReg(ps, RAX, a)
@@ -321,7 +321,7 @@ func genMovFromReg(ps *procState, op *ir.Operand, r *register) string {
 func genCompOp(ps *procState, instr *ir.Instr, asmInstr string) string {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	c := instr.Destination
+	c := instr.Destination[0]
 	output := genBinAsmInstr(ps, "cmp", a, b)
 	output += "\t"+asmInstr+"\t" + genRegister(c) + "\n"
 	return output
@@ -335,7 +335,7 @@ var opZERO = &ir.Operand{
 func genBoolOR(ps *procState, instr *ir.Instr) string {
 	aOp := instr.Operands[0]
 	bOp := instr.Operands[1]
-	cDest := instr.Destination
+	cDest := instr.Destination[0]
 
 	rax := getRegAsm(RAX, instr.Type)
 	rdx := getRegAsm(RDX, instr.Type)
@@ -356,7 +356,7 @@ func genBoolOR(ps *procState, instr *ir.Instr) string {
 func genBoolAND(ps *procState, instr *ir.Instr) string {
 	aOp := instr.Operands[0]
 	bOp := instr.Operands[1]
-	cDest := instr.Destination
+	cDest := instr.Destination[0]
 
 	rax := getRegAsm(RAX, instr.Type)
 	rdx := getRegAsm(RDX, instr.Type)
@@ -395,7 +395,7 @@ func getRegAsm(r *register, t T.Type) string {
 func convertToTwoAddr(instr *ir.Instr) (dest *ir.Operand, op *ir.Operand) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	c := instr.Destination
+	c := instr.Destination[0]
 
 	if c == nil {
 		return nil, nil

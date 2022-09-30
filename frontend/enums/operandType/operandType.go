@@ -12,8 +12,7 @@ const (
 	Local
 	Register
 	Spill
-	Return
-	Argument
+	Interproc
 )
 
 func IsImmediate(ot OperandType) bool {
@@ -23,8 +22,7 @@ func IsImmediate(ot OperandType) bool {
 
 func IsAddressable(ot OperandType) bool {
 	return  ot == Spill ||
-		ot == Argument ||
-		ot == Return ||
+		ot == Interproc ||
 		ot == Local
 }
 

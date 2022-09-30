@@ -1,11 +1,13 @@
 package regalloc
 
 import (
-	"mpc/frontend/ir"
 	ST "mpc/frontend/enums/symbolType"
 	OT "mpc/frontend/enums/operandType"
 	IT "mpc/frontend/enums/instrType"
 	T "mpc/frontend/enums/Type"
+
+	"mpc/frontend/ir"
+	IRU "mpc/frontend/util/ir"
 
 	"strconv"
 	"strings"
@@ -229,8 +231,9 @@ func allocBlock(s *state, bb *ir.BasicBlock) {
 }
 
 func allocArith(s *state, bb *ir.BasicBlock, instr *ir.Instr, i int) {
-	if instr.Destination.T == OT.Temp {
-		instr.Destination = allocTemp(s, bb, instr.Destination, i)
+	dest := instr.Destination[0]
+	if dest.T == OT.Temp {
+		instr.Destination[0] = allocTemp(s, bb, dest, i)
 	}
 }
 
@@ -255,12 +258,7 @@ func ensureTemp(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.Oper
 func loadSpill(s *state, bb *ir.BasicBlock, op *ir.Operand, index int, a addr) *ir.Operand {
 	rOp := allocTemp(s, bb, op, index)
 	spillOp := newSpillOperand(a, op.Type)
-	load := &ir.Instr{
-		T: IT.Load,
-		Type: op.Type,
-		Operands: []*ir.Operand{spillOp},
-		Destination: rOp,
-	}
+	load := IRU.Load(spillOp, rOp)
 	queueInstr(s, index-1, load)
 	return rOp
 }
@@ -280,11 +278,7 @@ func spillRegister(s *state, bb *ir.BasicBlock, op *ir.Operand, index int) *ir.O
 	sNum := s.Spill(r)
 	spillOp := newSpillOperand(sNum, op.Type)
 	regOp := newRegOp(r, op.Type)
-	store := &ir.Instr{
-		T: IT.Store,
-		Operands: []*ir.Operand{regOp},
-		Destination: spillOp,
-	}
+	store := IRU.Store(regOp, spillOp)
 	queueInstr(s, index-1, store)
 
 	v := value(op.Num)
