@@ -1,5 +1,6 @@
 package codegen
 
+/*
 import (
 	"mpc/frontend/ir"
 	T "mpc/frontend/enums/Type"
@@ -216,7 +217,7 @@ func genUnaryAsmInstr(ps *procState, instr string, op *ir.Operand) string {
 }
 
 func genRegOrLit(op *ir.Operand) string {
-	switch op.T {
+	switch op.HirC {
 	case OT.Lit:
 		return op.Label
 	case OT.Register:
@@ -226,7 +227,7 @@ func genRegOrLit(op *ir.Operand) string {
 }
 
 func genOperand(ps *procState, op *ir.Operand) string {
-	switch op.T {
+	switch op.HirC {
 	case OT.Lit:
 		return op.Label
 	case OT.Local:
@@ -246,7 +247,7 @@ func genOperand(ps *procState, op *ir.Operand) string {
 }
 
 func genRegister(op *ir.Operand) string {
-	if op.T != OT.Register {
+	if op.HirC != OT.Register {
 		panic("genRegister: expected register operand")
 	}
 	r := X64Registers[op.Num]
@@ -328,7 +329,7 @@ func genCompOp(ps *procState, instr *ir.Instr, asmInstr string) string {
 }
 
 var opZERO = &ir.Operand{
-	T: OT.Lit,
+	HirC: OT.Lit,
 	Label: "0",
 }
 
@@ -412,5 +413,6 @@ func convertToTwoAddr(instr *ir.Instr) (dest *ir.Operand, op *ir.Operand) {
 }
 
 func areOpEqual(a, b *ir.Operand) bool {
-	return a.T == b.T && a.Num == b.Num
+	return a.HirC == b.HirC && a.Num == b.Num
 }
+*/

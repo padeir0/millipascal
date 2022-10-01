@@ -44,6 +44,8 @@ func (i InstrType) String() string {
 		return "load"
 	case Store:
 		return "store"
+	case Copy:
+		return "copy"
 	case LoadPtr:
 		return "loadptr"
 	case StorePtr:
@@ -52,79 +54,51 @@ func (i InstrType) String() string {
 		return "offset"
 	case Call:
 		return "call"
+	case IncFrame:
+		return "incframe"
+	case DecFrame:
+		return "decframe"
 	}
 	panic("Unstringified InstrType: " + strconv.Itoa(int(i)))
 }
 
-/*
-These instructions are used both as an Medium-level IR
-and Low Level IR, the difference are the operands:
-	- When in MIR, the operands are of any class, as long as it typechecks
-	- When in LIR, the operands must be of specific classes and typecheck
-
-The annotations bellow show the type and operand class as:
-	type'class
-
-The instructions are typed, and the following notation is used to show
-how operands must be typed relative to the instruction type:
-	instr:T of Constraint [T'class, T'class] -> T'class
-
-Where all occurrences of T can be substituted
-by one type inside the constraint.
-
-On the left side of the arrow are the operands, surrounded by brackets,
-while on the right side, after the arrow, is the single destination:
-	instr:type [operand, operand] -> destination
-
-The classes are defined by the operandType enum and are grouped as:
-	Immediate = register|lit
-	Addressable = spill|argument|return|local
-
-While the types are defined by the Types enum and form
-the following constraints:
-	Any = i8|i16|i32|i64|ptr|bool
-	NonPtr = i8|i16|i32|i64|bool
-	Number = i8|i16|i32|i64
-*/
-
 const (
 	InvalidInstr InstrType = iota
 
-	Add //:T of Number [T'Immediate, T'Immediate] -> T'register
+	Add
 	Sub
 	Div
 	Mult
 	Rem
 
-	Eq //:T of Any [T'Immediate, T'Immediate] -> bool'register
+	Eq
 	Diff
 	Less
 	More
 	LessEq
 	MoreEq
 
-	Or //:bool [bool'Immediate, bool'Immediate] -> bool'register
+	Or
 	And
 
-	Not //:bool [bool'Immediate] -> bool'register
+	Not
 
-	UnaryMinus //:T of Number [T'Immediate] -> T'register
+	UnaryMinus
 	UnaryPlus
 
-	Convert //:T of NonPtr [NonPtr'Immediate] -> T'register
+	Convert
 
-	Offset   //:T of Number [ptr'Immediate, T'Immediate] -> ptr'register
-	LoadPtr  //:T of Any [ptr'Immediate] -> T'register
-	StorePtr //:T of Any [T'Immediate] -> ptr'Immediate
+	Offset
+	LoadPtr
+	StorePtr
 
-	Load  //:T of Any [T'Addressable] -> T'register
-	Store //:T of Any [T'Immediate] -> T'Addressable
+	Load
+	Store
 
-	// MIR: [proc:proc, Any'Immediate...] -> Any'Immediate...
-	// LIR: [proc:proc]
-	Call 
+	Copy
 
-	// only for LIR
-	InitFrame // [Number'lit, Number'lit]
-	EndFrame  // [Number'lit, Number'lit]
+	Call
+
+	IncFrame
+	DecFrame
 )

@@ -65,7 +65,7 @@ func ErrorInvalidInitForMemType(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors
 	return NewSemanticError(M, et.InvalidInitForMemType, info)
 }
 
-func ErrorNameNotDefined(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerError {
+func ErrorNameNotDefined(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "name is not defined")
 	return NewSemanticError(M, et.NameNotDefined, info)
 }
@@ -76,7 +76,7 @@ func ErrorCanOnlyIndexMemory(M *ir.Module, global *ir.Symbol, n *ir.Node) *error
 	return NewSemanticError(M, et.CanOnlyIndexMemory, info, source)
 }
 
-func ErrorCannotIndexLocal(M *ir.Module, local *ir.Decl, n *ir.Node) *errors.CompilerError {
+func ErrorCannotIndexLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "can only index memory")
 	source := NewNodeInfo(local.N, "name is local " + local.Type.String())
 	return NewSemanticError(M, et.CanOnlyIndexMemory, info, source)
@@ -119,15 +119,14 @@ func ErrorMemResAllowsOnlyIntAndChar(M *ir.Module, n *ir.Node) *errors.CompilerE
 	return NewSemanticError(M, et.InvalidMemResTerm, info)
 }
 
-func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, proc *ir.Symbol, i int) *errors.CompilerError {
-	arg := proc.Proc.Args[i]
+func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *ir.Symbol) *errors.CompilerError {
 	info := NewNodeInfo(param, "mismatched type in Call, has type: " + param.T.String())
 	source := NewNodeInfo(arg.N, "expected type: " + arg.Type.String())
 	return NewSemanticError(M, et.MismatchedTypeForArgument, info, source)
 }
 
-func ErrorInvalidNumberOfArgs(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	expected := strconv.Itoa(len(global.Proc.Args))
+func ErrorInvalidNumberOfArgs(M *ir.Module, callee *ir.Proc, n *ir.Node) *errors.CompilerError {
+	expected := strconv.Itoa(len(callee.Args))
 	info := NewNodeInfo(n, "invalid number of arguments, expected: " + expected)
 	return NewSemanticError(M, et.InvalidNumberOfArgs, info)
 }
@@ -138,21 +137,21 @@ func ErrorExpectedProcedure(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors
 	return NewSemanticError(M, et.ExpectedProcedure, info, source)
 }
 
-func ErrorExpectedProcedureGotLocal(M *ir.Module, local *ir.Decl, n *ir.Node) *errors.CompilerError {
+func ErrorExpectedProcedureGotLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "is not a procedure")
 	source := NewNodeInfo(local.N, "defined here")
 	return NewSemanticError(M, et.ExpectedProcedure, info, source)
 }
 
-func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	expected := strconv.Itoa(len(proc.Proc.Rets))
+func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	expected := strconv.Itoa(len(proc.Rets))
 	info := NewNodeInfo(n, "invalid number of returns")
 	source := NewNodeInfo(proc.N, "expected: " + expected)
 	return NewSemanticError(M, et.InvalidNumberOfReturns, info, source)
 }
 
-func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Symbol, retN *ir.Node, i int) *errors.CompilerError {
-	ret := proc.Proc.Rets[i]
+func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *errors.CompilerError {
+	ret := proc.Rets[i]
 	info := NewNodeInfo(retN, "mismatched type in return, has type: " + retN.T.String())
 	source := NewNodeInfo(proc.N, "expected type: " + ret.String())
 	return NewSemanticError(M, et.MismatchedReturnType, info, source)
@@ -164,7 +163,7 @@ func ErrorExpectedMem(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.Compi
 	return NewSemanticError(M, et.ExpectedMem, info, source)
 }
 
-func ErrorExpectedMemGotLocal(M *ir.Module, local *ir.Decl, n *ir.Node) *errors.CompilerError {
+func ErrorExpectedMemGotLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "is not a memory region")
 	source := NewNodeInfo(local.N, "defined here")
 	return NewSemanticError(M, et.ExpectedMem, info, source)

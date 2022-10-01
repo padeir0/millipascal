@@ -1,13 +1,13 @@
 package gen
 
 import (
-	"mpc/frontend/ir"
-	RIU "mpc/frontend/util/ir"
+	hirc "mpc/frontend/enums/HIRClass"
 	T "mpc/frontend/enums/Type"
 	IT "mpc/frontend/enums/instrType"
 	lex "mpc/frontend/enums/lexType"
-	OT "mpc/frontend/enums/operandType"
 	ST "mpc/frontend/enums/symbolType"
+	"mpc/frontend/ir"
+	RIU "mpc/frontend/util/ir"
 	"strconv"
 )
 
@@ -40,15 +40,15 @@ func (c *context) NewBlock() *ir.BasicBlock {
 
 func (c *context) AllocTemp(t T.Type) *ir.Operand {
 	op := &ir.Operand{
-		T:   OT.Temp,
+		HirC: hirc.Temp,
 		Type: t,
-		Num: c.TempCounter,
+		Num:  c.TempCounter,
 	}
 	c.TempCounter++
 	return op
 }
 
-func Generate(M *ir.Module)  {
+func Generate(M *ir.Module) {
 	for _, sy := range M.Globals {
 		switch sy.T {
 		case ST.Proc:
@@ -57,7 +57,7 @@ func Generate(M *ir.Module)  {
 	}
 }
 
-func genProc(M *ir.Module, proc *ir.Proc)  {
+func genProc(M *ir.Module, proc *ir.Proc) {
 	c := newContext(proc)
 	start := c.NewBlock()
 	proc.Code = start
@@ -66,12 +66,12 @@ func genProc(M *ir.Module, proc *ir.Proc)  {
 	body := proc.N.Leaves[4]
 	genBlock(M, c, body)
 	if !proc.Code.HasFlow() {
-		proc.Code.Return()
+		proc.Code.Return([]*ir.Operand{})
 	}
-	return 
+	return
 }
 
-func genBlock(M *ir.Module, c *context, body *ir.Node)  {
+func genBlock(M *ir.Module, c *context, body *ir.Node) {
 	for _, code := range body.Leaves {
 		switch code.Lex {
 		case lex.IF:
@@ -88,16 +88,16 @@ func genBlock(M *ir.Module, c *context, body *ir.Node)  {
 	}
 }
 
-func genIf(M *ir.Module, c *context, if_ *ir.Node)  {
+func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	exp := if_.Leaves[0]
 	block := if_.Leaves[1]
 	elseifchain := if_.Leaves[2]
 	else_ := if_.Leaves[3]
 
 	op := genExpr(M, c, exp)
-	truebl  := c.NewBlock()
+	truebl := c.NewBlock()
 	falsebl := c.NewBlock()
-	outbl   := c.NewBlock()
+	outbl := c.NewBlock()
 	c.CurrBlock.Branch(op, truebl, falsebl)
 
 	c.CurrBlock = truebl
@@ -115,13 +115,13 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node)  {
 	c.CurrBlock = outbl
 }
 
-func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outbl *ir.BasicBlock)  {
+func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outbl *ir.BasicBlock) {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
 
 		op := genExpr(M, c, exp)
-		truebl  := c.NewBlock()
+		truebl := c.NewBlock()
 		falsebl := c.NewBlock()
 		c.CurrBlock.Branch(op, truebl, falsebl)
 
@@ -132,7 +132,7 @@ func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outbl *ir.Ba
 	}
 }
 
-func genWhile(M *ir.Module, c *context, while *ir.Node)  {
+func genWhile(M *ir.Module, c *context, while *ir.Node) {
 	loop_start := c.NewBlock()
 	loop_body := c.NewBlock()
 	loop_end := c.NewBlock()
@@ -151,17 +151,16 @@ func genWhile(M *ir.Module, c *context, while *ir.Node)  {
 
 }
 
-func genReturn(M *ir.Module, c *context, return_ *ir.Node)  {
-	for i, ret := range return_.Leaves {
+func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
+	operands := []*ir.Operand{}
+	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
-		retOp := genInterprocOp(ret.T, i)
-		storeRet := RIU.Store(op, retOp)
-		c.CurrBlock.AddInstr(storeRet)
+		operands = append(operands, op)
 	}
-	c.CurrBlock.Return()
+	c.CurrBlock.Return(operands)
 }
 
-func genSet(M *ir.Module, c *context, set *ir.Node)  {
+func genSet(M *ir.Module, c *context, set *ir.Node) {
 	assignees := set.Leaves[0]
 	exprlist := set.Leaves[1]
 
@@ -192,8 +191,8 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 
 func genIntOp(num int) *ir.Operand {
 	return &ir.Operand{
-		T:   OT.Lit,
-		Num: num,
+		HirC: hirc.Lit,
+		Num:  num,
 	}
 }
 
@@ -215,8 +214,8 @@ func genCallInstr(c *context, proc *ir.Operand, args, rets []*ir.Operand) {
 	operands := []*ir.Operand{proc}
 	operands = append(operands, args...)
 	iCall := &ir.Instr{
-		T: IT.Call,
-		Operands: operands,
+		T:           IT.Call,
+		Operands:    operands,
 		Destination: rets,
 	}
 	c.CurrBlock.AddInstr(iCall)
@@ -231,22 +230,13 @@ func genArgs(M *ir.Module, c *context, args *ir.Node) []*ir.Operand {
 	return output
 }
 
-func genRets(M *ir.Module, c *context, procName string) []*ir.Operand {
-	proc := M.Globals[procName].Proc
+func genRets(M *ir.Module, c *context, proc *ir.Proc) []*ir.Operand {
 	output := []*ir.Operand{}
 	for _, ret := range proc.Rets {
 		op := c.AllocTemp(ret)
 		output = append(output, op)
 	}
 	return output
-}
-
-func genInterprocOp(t T.Type, i int) *ir.Operand {
-	return &ir.Operand {
-		T: OT.Interproc,
-		Type: t,
-		Num: i,
-	}
 }
 
 func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
@@ -270,8 +260,8 @@ func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	loadPtr := RIU.StorePtr(temp, newPtr)
 	c.CurrBlock.AddInstr(loadPtr)
 }
-	
-func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node)  {
+
+func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node) {
 	for i := range assignees.Leaves {
 		ass := assignees.Leaves[i]
 		exp := exprlist.Leaves[i]
@@ -279,7 +269,7 @@ func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node)  {
 	}
 }
 
-func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
+func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 	if assignee.Lex == lex.IDENTIFIER {
 		genNormalAssign(M, c, assignee, expr)
 		return
@@ -288,14 +278,14 @@ func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
 	return
 }
 
-func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
+func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
 	store := RIU.Store(exp, op)
 	c.CurrBlock.AddInstr(store)
 }
 
-func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node)  {
+func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 	assID := assignee.Leaves[0]
 	indexExp := assignee.Leaves[1]
 
@@ -344,7 +334,7 @@ func genCall(M *ir.Module, c *context, call *ir.Node) []*ir.Operand {
 	procOp := genExprID(M, c, proc)
 
 	argOps := genArgs(M, c, args)
-	retOps := genRets(M, c, procOp.Label)
+	retOps := genRets(M, c, procOp.Symbol.Proc)
 	genCallInstr(c, procOp, argOps, retOps)
 
 	return retOps
@@ -375,12 +365,20 @@ func genMemAccess(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
 }
 
 func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
-	_, ok := c.Proc.Names[id.Text]
+	decl, ok := c.Proc.Vars[id.Text]
 	if ok {
 		return &ir.Operand{
-			T:     OT.Local,
-			Label: id.Text,
-			Type: id.T,
+			HirC:   hirc.Local,
+			Type:   id.T,
+			Symbol: decl,
+		}
+	}
+	decl, ok = c.Proc.ArgMap[id.Text]
+	if ok {
+		return &ir.Operand{
+			HirC:   hirc.Local,
+			Type:   id.T,
+			Symbol: decl,
 		}
 	}
 	global, ok := M.Globals[id.Text]
@@ -394,15 +392,15 @@ func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 	switch global.T {
 	case ST.Proc:
 		return &ir.Operand{
-			T:     OT.Proc,
-			Label: id.Text,
-			Type:  T.Proc,
+			HirC:   hirc.Global,
+			Symbol: global,
+			Type:   T.Proc,
 		}
 	case ST.Mem:
 		return &ir.Operand{
-			T:     OT.Mem,
-			Label: id.Text,
-			Type:  T.Ptr,
+			HirC:   hirc.Global,
+			Symbol: global,
+			Type:   T.Ptr,
 		}
 	}
 	panic("wht jus heppn?")
@@ -417,10 +415,14 @@ func genConversion(M *ir.Module, c *context, colon *ir.Node) *ir.Operand {
 }
 
 func genLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+	value, err := strconv.Atoi(lit.Text)
+	if err != nil {
+		panic(err)
+	}
 	return &ir.Operand{
-		T:     OT.Lit,
-		Label: lit.Text,
-		Type: lit.T,
+		HirC:  hirc.Lit,
+		Type:  lit.T,
+		Num:   value,
 	}
 }
 
@@ -475,7 +477,7 @@ func lexToBinaryOp(op lex.TkType) IT.InstrType {
 	case lex.OR:
 		return IT.Or
 	}
-	panic("lexToBinaryOp: unexpected binOp: "+lex.FmtTypes(op))
+	panic("lexToBinaryOp: unexpected binOp: " + lex.FmtTypes(op))
 }
 
 func genUnaryOp(M *ir.Module, c *context, op *ir.Node) *ir.Operand {

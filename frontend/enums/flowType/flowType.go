@@ -16,6 +16,7 @@ func (f FlowType) String() string {
 
 const (
 	InvalidFlow FlowType = iota
+
 	Jmp
 	If
 	Return

@@ -1,16 +1,17 @@
 package ir
 
 import (
-	lex "mpc/frontend/enums/lexType"
 	T "mpc/frontend/enums/Type"
-	IT "mpc/frontend/enums/instrType"
-	ST "mpc/frontend/enums/symbolType"
 	FT "mpc/frontend/enums/flowType"
-	OT "mpc/frontend/enums/operandType"
+	IT "mpc/frontend/enums/instrType"
+	lex "mpc/frontend/enums/lexType"
+	hirc "mpc/frontend/enums/HIRClass"
+	mirc "mpc/frontend/enums/MIRClass"
+	ST "mpc/frontend/enums/symbolType"
 
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type Node struct {
@@ -18,7 +19,7 @@ type Node struct {
 	Lex    lex.TkType
 	Leaves []*Node
 
-	T     T.Type
+	T T.Type
 
 	Line, Col int
 	Length    int
@@ -79,7 +80,7 @@ func (M *Module) StrGlobals() string {
 	for _, sy := range M.Globals {
 		output = append(output, sy.Name)
 	}
-	
+
 	return strings.Join(output, ", ")
 }
 
@@ -87,8 +88,8 @@ func (M *Module) StringifyCode() string {
 	output := ""
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
-			output += sy.Proc.Name + ":\n"+
-				"[" + sy.Proc.StrArgs() + "]\n" + 
+			output += sy.Proc.Name + ":\n" +
+				"[" + sy.Proc.StrArgs() + "]\n" +
 				FmtBasicBlock(sy.Proc.Code)
 		}
 	}
@@ -96,42 +97,45 @@ func (M *Module) StringifyCode() string {
 }
 
 type Symbol struct {
-	T ST.SymbolType
+	T    ST.SymbolType
 	Name string
-	N *Node
+	N    *Node
 
-	Proc  *Proc
-	Mem   *Mem
+	Type T.Type
+	Proc *Proc
+	Mem  *Mem
 }
 
 func (v *Symbol) String() string {
 	switch v.T {
 	case ST.Proc:
-		return "proc "+v.Name
+		return "proc " + v.Name
+	case ST.Var:
+		return "var " + v.Name
+	case ST.Arg:
+		return "arg " + v.Name
 	case ST.Mem:
-		return "mem "+v.Name
-	case ST.Const:
-		return "const "+v.Name
+		return "mem " + v.Name
 	default:
 		return "invalid"
 	}
 }
 
 type Proc struct {
-	Name string
-	Args []*Decl
-	Rets []T.Type
-	Vars []*Decl
+	Name   string
+	Args   []*Symbol
+	ArgMap map[string]*Symbol
+	Vars   map[string]*Symbol
+	Rets   []T.Type
 
-	Names map[string]*Decl
-	N *Node
-	Code *BasicBlock
+	N           *Node
+	Code        *BasicBlock
 	NumOfSpills int
 }
 
 func (p *Proc) StrArgs() string {
 	output := []string{}
-	for _, decl := range p.Names {
+	for _, decl := range p.Args {
 		output = append(output, decl.String())
 	}
 	return strings.Join(output, ", ")
@@ -145,16 +149,6 @@ func (p *Proc) Returns() string {
 	return strings.Join(output, ", ")
 }
 
-type Decl struct {
-	Name string
-	Type T.Type
-	N *Node
-}
-
-func (d *Decl) String() string {
-	return d.Name + ":" + d.Type.String()
-}
-
 type Mem struct {
 	Size int
 	Type T.Type
@@ -162,9 +156,9 @@ type Mem struct {
 }
 
 type BasicBlock struct {
-	Label string
-	Code  []*Instr
-	Out   Flow
+	Label   string
+	Code    []*Instr
+	Out     Flow
 	Checked bool
 }
 
@@ -183,15 +177,16 @@ func (b *BasicBlock) Jmp(o *BasicBlock) {
 func (b *BasicBlock) Branch(cond *Operand, True *BasicBlock, False *BasicBlock) {
 	b.Out = Flow{
 		T:     FT.If,
-		V:     cond,
+		V:     []*Operand{cond},
 		True:  True,
 		False: False,
 	}
 }
 
-func (b *BasicBlock) Return() {
+func (b *BasicBlock) Return(rets []*Operand) {
 	b.Out = Flow{
-		T:     FT.Return,
+		V: rets,
+		T: FT.Return,
 	}
 }
 
@@ -244,7 +239,7 @@ func flattenHelper(bb *BasicBlock, BBset *map[*BasicBlock]struct{}) {
 
 type Flow struct {
 	T     FT.FlowType
-	V     *Operand
+	V     []*Operand
 	True  *BasicBlock
 	False *BasicBlock
 }
@@ -254,48 +249,74 @@ func (f *Flow) String() string {
 	case FT.Jmp:
 		return "jmp " + f.True.Label
 	case FT.If:
-		return "if "+f.V.String()+"? "+f.True.Label+" : "+f.False.Label
+		return "if " + f.StrRets() + "? " + f.True.Label + " : " + f.False.Label
 	case FT.Return:
-		return "ret"
+		return "ret" + f.StrRets()
 	}
 	return "invalid FlowType"
 }
 
+func (f *Flow) StrRets() string {
+	output := []string{}
+	for _, op := range f.V {
+		output = append(output, op.String())
+	}
+	return strings.Join(output, ", ")
+}
+
 type Operand struct {
-	T OT.OperandType
-	Type T.Type
-	Label string
-	Num int
+	HirC     hirc.HIRClass
+	MirC     mirc.MIRClass
+	Type     T.Type
+	Symbol   *Symbol
+	Num      int
 }
 
 func (o *Operand) String() string {
 	if o == nil {
 		return "nil"
 	}
-	switch o.T {
-	case OT.Temp:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'t"
-	case OT.Register:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'r"
-	case OT.Spill:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'s"
-	case OT.Interproc:
-		return strconv.Itoa(o.Num)+":"+o.Type.String()+"'i"
-	case OT.Mem:
-		return o.Label +":"+o.Type.String()+ "'mem"
-	case OT.Local:
-		return o.Label +":"+o.Type.String()+ "'loc"
-	case OT.Lit:
-		return o.Label +":"+o.Type.String()+ "'lit"
-	case OT.Proc:
-		return o.Label+":proc'proc"
+	switch o.HirC {
+	case hirc.Temp:
+		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case hirc.Local:
+		return "$" + o.Symbol.Name + ":" + o.Type.String()
+	case hirc.Global:
+		return o.Symbol.Name + ":" + o.Type.String()
+	case hirc.Lit:
+		return strconv.Itoa(o.Num)
 	default:
-		return o.Label +":"+o.Type.String()+ "?"
+		return o.Type.String() + "?"
 	}
 }
 
+func (o *Operand) MirStr() string {
+	if o == nil {
+		return "nil"
+	}
+	switch o.MirC {
+	case mirc.Register:
+		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case mirc.Spill:
+		return "^" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
+	case mirc.Interproc:
+		return "~" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
+	case mirc.Local:
+		return "$" + o.Symbol.Name + ":" + o.Type.String()
+	case mirc.Static:
+		return o.Symbol.Name + ":" + o.Type.String()
+	case mirc.Lit:
+		return o.Symbol.Name
+	default:
+		return o.Symbol.Name + "?" + strconv.Itoa(o.Num)
+	}
+}
+
+type LIRInstrType int
+
 type Instr struct {
 	T           IT.InstrType
+	LirT        LIRInstrType
 	Type        T.Type
 	Operands    []*Operand
 	Destination []*Operand

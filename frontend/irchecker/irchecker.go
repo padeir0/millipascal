@@ -5,7 +5,7 @@ import (
 	FT "mpc/frontend/enums/flowType"
 	IT "mpc/frontend/enums/instrType"
 	ST "mpc/frontend/enums/symbolType"
-	OT "mpc/frontend/enums/operandType"
+	mirc "mpc/frontend/enums/MIRClass"
 	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 	eu "mpc/frontend/util/errors"
@@ -135,69 +135,69 @@ func checkRet(s *state) *errors.CompilerError {
 }
 
 type Checker struct {
-	Class func(OT.OperandType)bool
+	Class func(mirc.MIRClass)bool
 	Type  func(T.Type)bool
 }
 
 func (c *Checker) Check(op *ir.Operand, checkClass bool) bool {
 	if checkClass {
-		return c.Type(op.Type) && c.Class(op.T)
+		return c.Type(op.Type) && c.Class(op.MirC)
 	}
 	return c.Type(op.Type)
 }
 
 var any_imme = Checker {
-	Class: OT.IsImmediate,
+	Class: mirc.IsImmediate,
 	Type: T.IsAny,
 }
 
 var any_reg = Checker {
-	Class: OT.IsRegister,
+	Class: mirc.IsRegister,
 	Type: T.IsAny,
 }
 
 var any_addr = Checker {
-	Class: OT.IsAddressable,
+	Class: mirc.IsAddressable,
 	Type: T.IsAny,
 }
 
 var num_imme = Checker {
-	Class: OT.IsImmediate,
+	Class: mirc.IsImmediate,
 	Type: T.IsNumber,
 }
 
 var num_reg = Checker {
-	Class: OT.IsRegister,
+	Class: mirc.IsRegister,
 	Type: T.IsNumber,
 }
 
 var bool_imme = Checker {
-	Class: OT.IsImmediate,
+	Class: mirc.IsImmediate,
 	Type: T.IsBool,
 }
 
 var bool_reg = Checker {
-	Class: OT.IsRegister,
+	Class: mirc.IsRegister,
 	Type: T.IsBool,
 }
 
 var nonPtr_imme = Checker {
-	Class: OT.IsImmediate,
+	Class: mirc.IsImmediate,
 	Type: T.IsNonPtr,
 }
 
 var nonPtr_reg = Checker {
-	Class: OT.IsRegister,
+	Class: mirc.IsRegister,
 	Type: T.IsNonPtr,
 }
 
 var ptr_imme = Checker {
-	Class: OT.IsImmediate,
+	Class: mirc.IsImmediate,
 	Type: T.IsPtr,
 }
 
 var ptr_reg = Checker {
-	Class: OT.IsRegister,
+	Class: mirc.IsRegister,
 	Type: T.IsPtr,
 }
 
@@ -409,11 +409,10 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 		return malformedInstr(instr)
 	}
 	procOp := instr.Operands[0]
-	sy, ok := s.m.Globals[procOp.Label]
-	if !ok {
+	if procOp.Symbol == nil {
 		return procNotFound(instr)
 	}
-	proc := sy.Proc
+	proc := procOp.Symbol.Proc
 
 	if len(instr.Operands) - 1 != len(proc.Args) {
 		return procInvalidNumOfArgs(instr, proc)
@@ -448,12 +447,12 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 	loadOp := instr.Operands[0]
 	dest := instr.Destination[0]
 	var source *ir.Operand
-	switch loadOp.T {
-	case OT.Spill:
+	switch loadOp.MirC {
+	case mirc.Spill:
 		source = s.Spill.Load(loadOp.Num)
-	case OT.Interproc:
+	case mirc.Interproc:
 		source = s.InterProc.Load(loadOp.Num)
-	case OT.Local:
+	case mirc.Local:
 		source = s.Variables.Load(loadOp.Num)
 	}
 	if source == nil {
@@ -469,12 +468,12 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	source := instr.Operands[0]
 	dest := instr.Destination[0]
-	switch source.T {
-	case OT.Spill:
+	switch source.MirC {
+	case mirc.Spill:
 		s.Spill.Store(dest.Num, source)
-	case OT.Interproc:
+	case mirc.Interproc:
 		s.InterProc.Store(dest.Num, source)
-	case OT.Local:
+	case mirc.Local:
 		s.Variables.Store(dest.Num, source)
 	}
 	return nil
@@ -550,7 +549,7 @@ func errorLoadingIncorrectType(instr *ir.Instr) *errors.CompilerError {
 func procNotFound(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("procedure not found: " + instr.String())
 }
-func procArgNotFound(instr *ir.Instr, d *ir.Decl) *errors.CompilerError {
+func procArgNotFound(instr *ir.Instr, d *ir.Symbol) *errors.CompilerError {
 	return eu.NewInternalSemanticError("argument "+d.Name+" not found in: " + instr.String())
 }
 func procInvalidNumOfArgs(instr *ir.Instr, p *ir.Proc) *errors.CompilerError {
@@ -563,7 +562,7 @@ func procInvalidNumOfRets(instr *ir.Instr, p *ir.Proc) *errors.CompilerError {
 	beepBop := strconv.Itoa(len(instr.Destination))
 	return eu.NewInternalSemanticError("expected "+n+" returns, instead found: " + beepBop)
 }
-func procBadArg(instr *ir.Instr, d *ir.Decl, op *ir.Operand) *errors.CompilerError {
+func procBadArg(instr *ir.Instr, d *ir.Symbol, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("argument "+op.String()+" doesn't match formal parameter "+d.Name+" in: " + instr.String())
 }
 func procBadRet(instr *ir.Instr, d T.Type, op *ir.Operand) *errors.CompilerError {

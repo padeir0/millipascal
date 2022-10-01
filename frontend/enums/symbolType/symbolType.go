@@ -8,15 +8,19 @@ func (s SymbolType) String() string {
 		return "proc"
 	case Mem:
 		return "mem"
-	case Const:
-		return "constant"
+	case Var:
+		return "Var"
+	case Arg:
+		return "Arg"
 	}
 	return "??"
 }
 
 const (
 	Invalid SymbolType = iota
+
 	Proc
 	Mem
-	Const
+	Var
+	Arg
 )

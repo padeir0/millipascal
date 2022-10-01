@@ -41,10 +41,10 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 			Name: name,
 			Proc: &ir.Proc{
 				Name: name,
-				Args:  []*ir.Decl{},
+				ArgMap:  map[string]*ir.Symbol{},
+				Args:  []*ir.Symbol{},
 				Rets:  []T.Type{},
-				Vars:  []*ir.Decl{},
-				Names: map[string]*ir.Decl{},
+				Vars:  map[string]*ir.Symbol{},
 				N:  n,
 			},
 			N: n,
