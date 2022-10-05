@@ -131,6 +131,7 @@ func (s *state) HasFreeRegs() bool {
 	return s.AvailableRegs.HasItems()
 }
 
+// TODO: fix Free to accept any StorageClass
 func (s *state) Free(v value) {
 	loc, ok := s.LiveValues[v]
 	if !ok {
@@ -143,7 +144,7 @@ func (s *state) Free(v value) {
 		s.FreeReg(r)
 	} else {
 		a := spill(loc.Num)
-		s.FreeAddr(a)
+		s.FreeSpill(a)
 	}
 }
 
@@ -157,7 +158,7 @@ func (s *state) FreeReg(r reg) {
 	panic("freeing unused register")
 }
 
-func (s *state) FreeAddr(a spill) {
+func (s *state) FreeSpill(a spill) {
 	_, ok := s.UsedSpills[a]
 	if ok {
 		delete(s.UsedSpills, a)
@@ -195,7 +196,7 @@ func (s *state) Spill(r reg) spill {
 	}
 	s.FreeReg(r)
 	a := spill(s.AvailableAddr.Pop())
-	s.LiveValues[v] = useInfo{Place: Register, Num: int(a), NextUse: -1}
+	s.LiveValues[v] = useInfo{Place: Spill, Num: int(a), NextUse: -1}
 	return a
 }
 
@@ -250,6 +251,7 @@ func queuedToMap(queue []deferredInstr) map[int][]*ir.Instr {
 	return out
 }
 
+// TODO: If any local values are alive at the end of the block, store them back into place
 func allocBlock(s *state, bb *ir.BasicBlock) {
 	s.bb = bb
 	for i, instr := range bb.Code {
@@ -381,6 +383,7 @@ func allocReg(s *state, op *ir.Operand, index int) *ir.Operand {
 	return spillRegister(s, op, index)
 }
 
+// TODO: Spilling locals should return them to their Local place and not Spill Region
 func spillRegister(s *state, op *ir.Operand, index int) *ir.Operand {
 	calcNextUse(s, op, index)
 	r := s.FurthestUse()
@@ -431,6 +434,7 @@ func freeIfNotNeeded(s *state, index int, v value) {
 	s.Free(v)
 }
 
+// TODO: fix isNeeded to accept any MIRClass/HIRClass
 func isNeeded(s *state, index int, v value) bool {
 	if index+1 >= len(s.bb.Code) {
 		return false
