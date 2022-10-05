@@ -17,6 +17,10 @@ HIR's primary concern is regarding value flow between operations.
 While in HIR, operands can have the following classes:
 
 	temp	lit	local	global
+
+And are grouped as:
+	Operable = temp|lit|local|global
+	Result   = temp|local
  
 #### TEMP
 
@@ -44,13 +48,13 @@ They are procedures and memory declarations.
 
 HIR basic types are the following:
 
-	byte	word	dword	qword	ptr	bool
+	i8	i16	i32	i64	ptr	bool
 
 And are grouped as:
 
-	Any = byte|word|dword|qword|ptr|bool
-	NonPtr = byte|word|dword|qword|bool
-	Number = byte|word|dword|qword
+	Any    = i8|i16|i32|i64|ptr|bool
+	NonPtr = i8|i16|i32|i64|bool
+	Number = i8|i16|i32|i64
 	
 The names of groups start with a capital letter to be differentiable from
 single types.
@@ -58,39 +62,39 @@ single types.
 ### HIR Instructions
 
 ```
-	Add:T of Number [T, T] -> T
+	Add:T of Number [T'Operable, T'Operable] -> T'Result
 	Sub
 	Div
 	Mult
 	Rem
 
-	Eq:T of Any [T, T] -> bool
+	Eq:T of Any [T'Operable, T'Operable] -> bool'Result
 	Diff
 	Less
 	More
 	LessEq
 	MoreEq
 
-	Or:bool [bool, bool] -> bool
+	Or:bool [bool'Operable, bool'Operable] -> bool'Result
 	And
 
-	Not:bool [bool] -> bool
+	Not:bool [bool'Operable] -> bool'Result
 
-	UnaryMinus:T of Number [T] -> T
+	UnaryMinus:T of Number [T'Operable] -> T'Result
 	UnaryPlus
 
-	Convert:T of NonPtr [NonPtr] -> T
+	Convert:T of NonPtr [NonPtr'Operable] -> T'Result
 
-	Offset:T of Number [ptr, T] -> ptr
-	LoadPtr:T of Any [ptr] -> T
-	StorePtr:T of Any [T] -> ptr
+	Offset:T of Number [ptr'Operable, T'Operable] -> ptr'Result
+	LoadPtr:T of Any [ptr'Operable] -> T'Result
+	StorePtr:T of Any [T'Operable] -> ptr'Result
 
-	Load:T of Any [T] -> T
-	Store:T of Any [T] -> T
+	Load:T of Any [T'Operable] -> T'Result
+	Store:T of Any [T'Operable] -> T'Result
 
-	Copy:T of Any [T] -> T
+	Copy:T of Any [T'Result] -> T'Result
 
-	Call [proc, Any...] -> Any...
+	Call [proc'Operable, Any'Operable...] -> Any'Result...
 ```
 
 The `Call` instruction is the only instruction where you can have

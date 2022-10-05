@@ -1,26 +1,33 @@
 package regalloc
 
 import (
-	ST "mpc/frontend/enums/symbolType"
 	hirc "mpc/frontend/enums/HIRClass"
 	mirc "mpc/frontend/enums/MIRClass"
-	IT "mpc/frontend/enums/instrType"
 	T "mpc/frontend/enums/Type"
+	IT "mpc/frontend/enums/instrType"
+	ST "mpc/frontend/enums/symbolType"
 
 	"mpc/frontend/ir"
 	IRU "mpc/frontend/util/ir"
 
+	"fmt"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 type reg int
 type spill int
+type interproc int
+
+type value struct {
+	T      hirc.HIRClass
+	Symbol *ir.Symbol
+	Num    int
+}
 
 type stack struct {
 	items []int
-	top int
+	top   int
 }
 
 func (s *stack) String() string {
@@ -34,11 +41,11 @@ func (s *stack) String() string {
 func newStack(size int) *stack {
 	items := make([]int, size)
 	for i := range items {
-		items[i] = size-i-1
+		items[i] = size - i - 1
 	}
 	return &stack{
 		items: items,
-		top: size-1,
+		top:   size - 1,
 	}
 }
 
@@ -67,9 +74,19 @@ func (s *stack) Size() int {
 	return s.top
 }
 
+type StorageClass int
+
+const (
+	InvalidStorageClass StorageClass = iota
+	Register
+	Local
+	InterProc
+	Spill
+)
+
 type useInfo struct {
-	IsReg bool
-	Num int
+	Place   StorageClass
+	Num     int
 	NextUse int
 }
 
@@ -78,22 +95,21 @@ type deferredInstr struct {
 	instr *ir.Instr
 }
 
-type Value struct {
-	T mirc.MIRClass
-	Num int
-}
-
 type state struct {
 	AvailableRegs *stack
 	// UsedRegs[ reg ] retuns the value stored in the register
-	UsedRegs  map[reg]ir.Operand
+	UsedRegs map[reg]value
 
 	AvailableAddr *stack
 	// UsedSpills[ spill ] retuns the value stored in the spill address
-	UsedSpills  map[spill]ir.Operand
+	UsedSpills map[spill]value
+
+	AvailableInterproc *stack
+	// UsedInterproc[ interproc ] retuns the value stored in the interproc address
+	UsedInterproc map[interproc]value
 
 	// LiveValues[ value ] retuns the register or address storing this value
-	LiveValues  map[ir.Operand]useInfo
+	LiveValues  map[value]useInfo
 	queuedInstr []deferredInstr
 
 	bb *ir.BasicBlock
@@ -102,12 +118,12 @@ type state struct {
 func newState(numRegs int) *state {
 	return &state{
 		AvailableRegs: newStack(numRegs),
-		UsedRegs: map[reg]ir.Operand{},
+		UsedRegs:      map[reg]value{},
 
 		AvailableAddr: newStack(16),
-		UsedSpills: map[spill]ir.Operand{},
+		UsedSpills:    map[spill]value{},
 
-		LiveValues: map[ir.Operand]useInfo{},
+		LiveValues: map[value]useInfo{},
 	}
 }
 
@@ -115,14 +131,14 @@ func (s *state) HasFreeRegs() bool {
 	return s.AvailableRegs.HasItems()
 }
 
-func (s *state) Free(v *ir.Operand) {
-	loc, ok := s.LiveValues[*v]
+func (s *state) Free(v value) {
+	loc, ok := s.LiveValues[v]
 	if !ok {
 		panic("freeing unfound value")
 	}
-	delete(s.LiveValues, *v)
+	delete(s.LiveValues, v)
 
-	if loc.IsReg {
+	if loc.Place == Register {
 		r := reg(loc.Num)
 		s.FreeReg(r)
 	} else {
@@ -151,18 +167,18 @@ func (s *state) FreeAddr(a spill) {
 	panic("freeing unused addr")
 }
 
-func (s *state) AllocReg(v *ir.Operand) reg {
+func (s *state) AllocReg(v value) reg {
 	r := reg(s.AvailableRegs.Pop())
-	s.UsedRegs[r] = *v
-	s.LiveValues[*v] = useInfo{IsReg: true, Num: int(r), NextUse: -1}
+	s.UsedRegs[r] = v
+	s.LiveValues[v] = useInfo{Place: Register, Num: int(r), NextUse: -1}
 	return r
 }
 
 func (r *state) FurthestUse() reg {
 	biggestIndex := 0
-	bestReg:= reg(-1)
+	bestReg := reg(-1)
 	for _, info := range r.LiveValues {
-		if info.IsReg && info.NextUse > biggestIndex {
+		if info.Place == Register && info.NextUse > biggestIndex {
 			biggestIndex = info.NextUse
 			bestReg = reg(info.Num)
 		}
@@ -179,7 +195,7 @@ func (s *state) Spill(r reg) spill {
 	}
 	s.FreeReg(r)
 	a := spill(s.AvailableAddr.Pop())
-	s.LiveValues[v] = useInfo{IsReg: false, Num: int(a), NextUse: -1}
+	s.LiveValues[v] = useInfo{Place: Register, Num: int(a), NextUse: -1}
 	return a
 }
 
@@ -207,7 +223,7 @@ func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
 
 func insertQueuedInstrs(s *state, bb *ir.BasicBlock) {
 	mapped := queuedToMap(s.queuedInstr)
-	newBlock := make([]*ir.Instr, len(bb.Code) + len(s.queuedInstr))
+	newBlock := make([]*ir.Instr, len(bb.Code)+len(s.queuedInstr))
 	offset := 0
 	for i, oldInstr := range bb.Code {
 		newBlock[i+offset] = oldInstr
@@ -239,21 +255,17 @@ func allocBlock(s *state, bb *ir.BasicBlock) {
 	for i, instr := range bb.Code {
 		fmt.Print(instr, " >> ")
 		switch instr.T {
-		case IT.Add, IT.Sub, IT.Mult, IT.Div, IT.Rem:
-			allocBinArith(s, instr, i)
-		case IT.Eq, IT.Diff, IT.Less,
-		     IT.More, IT.LessEq, IT.MoreEq:
-			allocComp(s, instr, i)
-		case IT.Or, IT.And:
-			allocBinLogical(s, instr, i)
-		case IT.Not:
-			allocUnLogical(s, instr, i)
-		case IT.UnaryMinus, IT.UnaryPlus:
-			allocUnArith(s, instr, i)
-		case IT.Convert:
-			allocConvert(s, instr, i)
-		case IT.Offset:
-			allocOffset(s, instr, i)
+		case IT.Add, IT.Sub, IT.Mult, IT.Div, IT.Rem,
+			IT.Eq, IT.Diff, IT.Less,
+			IT.More, IT.LessEq, IT.MoreEq,
+			IT.Or, IT.And,
+			IT.Offset:
+			allocBinary(s, instr, i)
+		case IT.Not,
+			IT.UnaryMinus, IT.UnaryPlus,
+			IT.Convert,
+			IT.Copy:
+			allocUnary(s, instr, i)
 		case IT.LoadPtr:
 			allocLoadPtr(s, instr, i)
 		case IT.StorePtr:
@@ -269,7 +281,7 @@ func allocBlock(s *state, bb *ir.BasicBlock) {
 	}
 }
 
-func allocBinArith(s *state, instr *ir.Instr, index int) {
+func allocBinary(s *state, instr *ir.Instr, index int) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination[0]
@@ -277,31 +289,11 @@ func allocBinArith(s *state, instr *ir.Instr, index int) {
 	instr.Destination[0] = ensureImmediate(s, index, c)
 }
 
-func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
-	for i, op := range ops {
-		instr.Operands[i] = ensureImmediate(s, index, op)
-	}
-	for _, op := range ops {
-		freeIfNotNeeded(s, index, op)
-	}
-}
-
-func allocComp(s *state, instr *ir.Instr, index int) {
-}
-
-func allocBinLogical(s *state, instr *ir.Instr, index int) {
-}
-
-func allocUnLogical(s *state, instr *ir.Instr, index int) {
-}
-
-func allocUnArith(s *state, instr *ir.Instr, index int) {
-}
-
-func allocConvert(s *state, instr *ir.Instr, index int) {
-}
-
-func allocOffset(s *state, instr *ir.Instr, index int) {
+func allocUnary(s *state, instr *ir.Instr, index int) {
+	a := instr.Operands[0]
+	c := instr.Destination[0]
+	ensureOperands(s, instr, index, a)
+	instr.Destination[0] = ensureImmediate(s, index, c)
 }
 
 func allocLoadPtr(s *state, instr *ir.Instr, index int) {
@@ -319,52 +311,71 @@ func allocLoad(s *state, instr *ir.Instr, index int) {
 func allocCall(s *state, instr *ir.Instr, index int) {
 }
 
-
-func allocArith(s *state, bb *ir.BasicBlock, instr *ir.Instr, i int) {
-	dest := instr.Destination[0]
-	if dest.HirC == hirc.Temp {
-		instr.Destination[0] = allocTemp(s, dest, i)
+func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
+	for i, op := range ops {
+		instr.Operands[i] = ensureImmediate(s, index, op)
+	}
+	for _, op := range ops {
+		freeIfNotNeeded(s, index, toValue(op))
 	}
 }
 
 func ensureImmediate(s *state, index int, op *ir.Operand) *ir.Operand {
+	v := toValue(op)
+	info, ok := s.LiveValues[v]
+	if ok {
+		switch info.Place {
+		case Register:
+			return newRegOp(reg(info.Num), op.Type)
+		case Local, InterProc, Spill:
+			return loadAddressable(s, op, index)
+		}
+		panic("ensureImmediate: Invalid StorageClass")
+	}
 	switch op.HirC {
 	case hirc.Temp:
-		return ensureImmTemp(s, index, op)
+		return allocReg(s, op, index)
 	case hirc.Local:
-		return ensureImmLocal(s, index, op)
+		return loadAddressable(s, op, index)
+	case hirc.Global:
+		return newStaticOp(s, op)
+	case hirc.Lit:
+		return newLitOp(s, op)
 	}
-	panic("ensureImmediate: what")
+	panic("ensureImmediate: Invalid HIRClass")
 }
 
-func ensureImmLocal(s *state, index int, op *ir.Operand) *ir.Operand {
-	panic("ensureLocal unimplemented")
+func newStaticOp(s *state, op *ir.Operand) *ir.Operand {
+	return &ir.Operand{
+		HirC:   op.HirC,
+		MirC:   mirc.Static,
+		Type:   op.Type,
+		Symbol: op.Symbol,
+		Num:    op.Num,
+	}
 }
 
-func ensureImmTemp(s *state, index int, op *ir.Operand) *ir.Operand {
-	loc, ok := s.LiveValues[*op]
-	if !ok {
-		return allocTemp(s, op, index)
+func newLitOp(s *state, op *ir.Operand) *ir.Operand {
+	return &ir.Operand{
+		HirC:   op.HirC,
+		MirC:   mirc.Lit,
+		Type:   op.Type,
+		Symbol: op.Symbol,
+		Num:    op.Num,
 	}
-	if loc.IsReg {
-		r := reg(loc.Num)
-		return newRegOp(r, op.Type)
-	}
-	a := spill(loc.Num)
-	return loadSpill(s, op, index, a)
 }
 
-func loadSpill(s *state, op *ir.Operand, index int, a spill) *ir.Operand {
-	rOp := allocTemp(s, op, index)
-	spillOp := newSpillOperand(a, op.Type)
-	load := IRU.Load(spillOp, rOp)
+func loadAddressable(s *state, op *ir.Operand, index int) *ir.Operand {
+	rOp := allocReg(s, op, index)
+	newOp := newOperand(op)
+	load := IRU.Load(newOp, rOp)
 	queueInstr(s, index-1, load)
 	return rOp
 }
 
-func allocTemp(s *state, op *ir.Operand, index int) *ir.Operand {
+func allocReg(s *state, op *ir.Operand, index int) *ir.Operand {
 	if s.HasFreeRegs() {
-		r := s.AllocReg(op)
+		r := s.AllocReg(toValue(op))
 		return newRegOp(r, op.Type)
 	}
 	return spillRegister(s, op, index)
@@ -379,7 +390,7 @@ func spillRegister(s *state, op *ir.Operand, index int) *ir.Operand {
 	store := IRU.Store(regOp, spillOp)
 	queueInstr(s, index-1, store)
 
-	r2 := s.AllocReg(op)
+	r2 := s.AllocReg(toValue(op))
 	if r != r2 {
 		panic("something went wrong")
 	}
@@ -389,37 +400,42 @@ func spillRegister(s *state, op *ir.Operand, index int) *ir.Operand {
 func newRegOp(r reg, t T.Type) *ir.Operand {
 	return &ir.Operand{
 		MirC: mirc.Register,
-		Num: int(r),
+		Num:  int(r),
 		Type: t,
 	}
 }
 
 func newSpillOperand(sNum spill, t T.Type) *ir.Operand {
-	return &ir.Operand {
+	return &ir.Operand{
 		MirC: mirc.Spill,
-		Num: int(sNum),
+		Num:  int(sNum),
 		Type: t,
 	}
 }
 
+func newOperand(op *ir.Operand) *ir.Operand {
+	newOp := *op
+	return &newOp
+}
+
 func calcNextUse(s *state, opTemp *ir.Operand, index int) {
 	for v := range s.LiveValues {
-		isNeeded(s, index, &v)
+		isNeeded(s, index, v)
 	}
 }
 
-func freeIfNotNeeded(s *state, index int, op *ir.Operand) {
-	if isNeeded(s, index, op) {
+func freeIfNotNeeded(s *state, index int, v value) {
+	if isNeeded(s, index, v) {
 		return
 	}
-	s.Free(op)
+	s.Free(v)
 }
 
-func isNeeded(s *state, index int, v *ir.Operand) bool {
-	if index + 1 >= len(s.bb.Code) {
+func isNeeded(s *state, index int, v value) bool {
+	if index+1 >= len(s.bb.Code) {
 		return false
 	}
-	useInfo, ok := s.LiveValues[*v]
+	useInfo, ok := s.LiveValues[v]
 	if !ok {
 		panic("isNeeded: value not found")
 	}
@@ -430,8 +446,8 @@ func isNeeded(s *state, index int, v *ir.Operand) bool {
 	for i, instr := range s.bb.Code[index+1:] {
 		for _, op := range instr.Operands {
 			if op.HirC == hirc.Temp && op.Num == v.Num {
-				useInfo.NextUse = i+index+1
-				s.LiveValues[*v] = useInfo
+				useInfo.NextUse = i + index + 1
+				s.LiveValues[v] = useInfo
 				return true
 			}
 		}
@@ -442,4 +458,12 @@ func isNeeded(s *state, index int, v *ir.Operand) bool {
 func queueInstr(s *state, index int, instr *ir.Instr) {
 	di := deferredInstr{index: index, instr: instr}
 	s.queuedInstr = append(s.queuedInstr, di)
+}
+
+func toValue(op *ir.Operand) value {
+	return value{
+		T:      op.HirC,
+		Symbol: op.Symbol,
+		Num:    op.Num,
+	}
 }
