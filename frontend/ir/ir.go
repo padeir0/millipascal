@@ -251,7 +251,7 @@ func (f *Flow) String() string {
 	case FT.If:
 		return "if " + f.StrRets() + "? " + f.True.Label + " : " + f.False.Label
 	case FT.Return:
-		return "ret" + f.StrRets()
+		return "ret " + f.StrRets()
 	}
 	return "invalid FlowType"
 }

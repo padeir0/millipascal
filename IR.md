@@ -87,7 +87,7 @@ single types.
 
 	Offset:T of Number [ptr'Operable, T'Operable] -> ptr'Result
 	LoadPtr:T of Any [ptr'Operable] -> T'Result
-	StorePtr:T of Any [T'Operable] -> ptr'Result
+	StorePtr:T of Any [T'Operable] -> ptr'Operable
 
 	Load:T of Any [T'Operable] -> T'Result
 	Store:T of Any [T'Operable] -> T'Result

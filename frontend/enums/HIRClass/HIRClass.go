@@ -10,3 +10,15 @@ const (
 	Local
 	Global
 )
+
+func IsOperable(c HIRClass) bool {
+	return c == Temp ||
+		c == Lit ||
+		c == Local ||
+		c == Global
+}
+
+func IsResult(c HIRClass) bool {
+	return c == Temp ||
+		c == Local
+}

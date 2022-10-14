@@ -1,4 +1,4 @@
-package irchecker
+package mirchecker
 
 import (
 	T "mpc/frontend/enums/Type"
@@ -14,8 +14,8 @@ import (
 	"strconv"
 )
 
-func Check(M *ir.Module, CheckClass bool) *errors.CompilerError {
-	s := newState(M, CheckClass)
+func Check(M *ir.Module) *errors.CompilerError {
+	s := newState(M)
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
 			s.proc = sy.Proc
@@ -75,13 +75,12 @@ type state struct {
 	CheckClass bool
 }
 
-func newState(M *ir.Module, checkClass bool) *state {
+func newState(M *ir.Module) *state {
 	return &state{
 		m:         M,
 		InterProc: newRegion(8),
 		Variables: newRegion(8),
 		Spill:     newRegion(8),
-		CheckClass: checkClass,
 	}
 }
 
@@ -139,11 +138,8 @@ type Checker struct {
 	Type  func(T.Type)bool
 }
 
-func (c *Checker) Check(op *ir.Operand, checkClass bool) bool {
-	if checkClass {
-		return c.Type(op.Type) && c.Class(op.MirC)
-	}
-	return c.Type(op.Type)
+func (c *Checker) Check(op *ir.Operand) bool {
+	return c.Type(op.Type) && c.Class(op.MirC)
 }
 
 var any_imme = Checker {
@@ -204,37 +200,34 @@ var ptr_reg = Checker {
 func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
-		return checkArith(instr, s.CheckClass)
+		return checkArith(instr)
 	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
-		return checkComp(instr, s.CheckClass)
+		return checkComp(instr)
 	case IT.Or, IT.And:
-		return checkLogical(instr, s.CheckClass)
+		return checkLogical(instr)
 	case IT.Not:
-		return checkNot(instr, s.CheckClass)
+		return checkNot(instr)
 	case IT.UnaryMinus, IT.UnaryPlus:
-		return checkUnaryArith(instr, s.CheckClass)
+		return checkUnaryArith(instr)
 	case IT.Convert:
-		return checkConvert(instr, s.CheckClass)
+		return checkConvert(instr)
 	case IT.Offset:
-		return checkOffset(instr, s.CheckClass)
+		return checkOffset(instr)
 	case IT.LoadPtr:
-		return checkLoadPtr(instr, s.CheckClass)
+		return checkLoadPtr(instr)
 	case IT.StorePtr:
-		return checkStorePtr(instr, s.CheckClass)
+		return checkStorePtr(instr)
 	case IT.Store:
 		return checkStore(s, instr)
 	case IT.Load:
 		return checkLoad(s, instr)
 	case IT.Call:
-		if s.CheckClass {
-			return checkLIRCall(s, instr)
-		}
 		return checkCall(s, instr)
 	}
 	panic("sumthin' went wong")
 }
 
-func checkArith(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkArith(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -246,10 +239,10 @@ func checkArith(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkBinary(instr, num_imme, num_imme, num_reg, checkClass)
+	return checkBinary(instr, num_imme, num_imme, num_reg)
 }
 
-func checkComp(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkComp(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -260,10 +253,10 @@ func checkComp(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkBinary(instr, any_imme, any_imme, bool_reg, checkClass)
+	return checkBinary(instr, any_imme, any_imme, bool_reg)
 }
 
-func checkLogical(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkLogical(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -275,10 +268,10 @@ func checkLogical(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkBinary(instr, bool_imme, bool_imme, bool_reg, checkClass)
+	return checkBinary(instr, bool_imme, bool_imme, bool_reg)
 }
 
-func checkUnaryArith(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkUnaryArith(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -289,10 +282,10 @@ func checkUnaryArith(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, num_imme, num_reg, checkClass)
+	return checkUnary(instr, num_imme, num_reg)
 }
 
-func checkNot(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkNot(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -303,10 +296,10 @@ func checkNot(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, bool_imme, bool_reg, checkClass)
+	return checkUnary(instr, bool_imme, bool_reg)
 }
 
-func checkConvert(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkConvert(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -316,10 +309,10 @@ func checkConvert(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, nonPtr_imme, nonPtr_reg, checkClass)
+	return checkUnary(instr, nonPtr_imme, nonPtr_reg)
 }
 
-func checkOffset(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkOffset(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -329,10 +322,10 @@ func checkOffset(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkBinary(instr, ptr_imme, num_imme, ptr_reg, checkClass)
+	return checkBinary(instr, ptr_imme, num_imme, ptr_reg)
 }
 
-func checkLoadPtr(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -342,10 +335,10 @@ func checkLoadPtr(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, ptr_imme, any_reg, checkClass)
+	return checkUnary(instr, ptr_imme, any_reg)
 }
 
-func checkStorePtr(instr *ir.Instr, checkClass bool) *errors.CompilerError {
+func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -355,7 +348,7 @@ func checkStorePtr(instr *ir.Instr, checkClass bool) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, any_reg, ptr_imme, checkClass)
+	return checkUnary(instr, any_reg, ptr_imme)
 }
 
 func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
@@ -369,7 +362,7 @@ func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	err = checkUnary(instr, any_addr, any_reg, s.CheckClass)
+	err = checkUnary(instr, any_addr, any_reg)
 	if err != nil {
 		return err
 	}
@@ -392,7 +385,7 @@ func checkStore(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	err = checkUnary(instr, any_imme, any_addr, s.CheckClass)
+	err = checkUnary(instr, any_imme, any_addr)
 	if err != nil {
 		return err
 	}
@@ -492,25 +485,25 @@ func checkEqual(instr *ir.Instr, types ...T.Type) *errors.CompilerError {
 	return nil
 }
 
-func checkBinary(instr *ir.Instr, checkA, checkB, checkC Checker, checkClass bool) *errors.CompilerError {
+func checkBinary(instr *ir.Instr, checkA, checkB, checkC Checker) *errors.CompilerError {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	dest := instr.Destination[0]
 
-	if checkA.Check(a, checkClass) &&
-		checkB.Check(b, checkClass) &&
-		checkC.Check(dest, checkClass){
+	if checkA.Check(a) &&
+		checkB.Check(b) &&
+		checkC.Check(dest){
 		return nil
 	}
 	return malformedTypeOrClass(instr)
 }
 
-func checkUnary(instr *ir.Instr, checkA, checkC Checker, checkClass bool) *errors.CompilerError {
+func checkUnary(instr *ir.Instr, checkA, checkC Checker) *errors.CompilerError {
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
 
-	if checkA.Check(a, checkClass) &&
-		checkC.Check(dest, checkClass) {
+	if checkA.Check(a) &&
+		checkC.Check(dest) {
 		return nil
 	}
 	return malformedTypeOrClass(instr)

@@ -10,7 +10,7 @@ import (
 	nameresolution "mpc/frontend/nameresolution"
 	typechecker "mpc/frontend/typechecker"
 	gen "mpc/frontend/gen"
-	"mpc/frontend/irchecker"
+	"mpc/frontend/hirchecker"
 	"io/ioutil"
 )
 
@@ -40,8 +40,8 @@ func All(file string) (*ir.Module, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: have a separate HIR checker and a separate MIR checker
-	err = irchecker.Check(m, false)
+
+	err = hirchecker.Check(m)
 	if err != nil {
 		return nil, err
 	}
