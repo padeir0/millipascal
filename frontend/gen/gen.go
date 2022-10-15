@@ -184,6 +184,7 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 	if call.Lex != lex.CALL {
 		panic("must be CALL:\n" + ir.FmtNode(call))
 	}
+	// TODO: pass assignees to genCall so that no copying needs to happen
 	rets := genCall(M, c, call)
 
 	genLoadAssignRets(M, c, assignees, rets)
@@ -241,7 +242,8 @@ func genRets(M *ir.Module, c *context, proc *ir.Proc) []*ir.Operand {
 
 func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	dest := genExprID(M, c, ass)
-	loadRet := RIU.Load(op, dest)
+	// TODO: try to avoid this COPY instruction
+	loadRet := RIU.Copy(op, dest)
 	c.CurrBlock.AddInstr(loadRet)
 }
 
@@ -254,7 +256,8 @@ func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	c.CurrBlock.AddInstr(offset)
 
 	temp := c.AllocTemp(ass.T)
-	loadRet := RIU.Load(op, temp)
+	// TODO: try to avoid this COPY instruction
+	loadRet := RIU.Copy(op, temp)
 	c.CurrBlock.AddInstr(loadRet)
 
 	loadPtr := RIU.StorePtr(temp, newPtr)
@@ -281,7 +284,8 @@ func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 	op := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
-	store := RIU.Store(exp, op)
+	// TODO: Try to avoid this COPY instruction
+	store := RIU.Copy(exp, op)
 	c.CurrBlock.AddInstr(store)
 }
 

@@ -285,9 +285,22 @@ func (o *Operand) String() string {
 		return o.Symbol.Name + ":" + o.Type.String()
 	case hirc.Lit:
 		return strconv.Itoa(o.Num)
-	default:
-		return o.Type.String() + "?"
 	}
+	switch o.MirC {
+	case mirc.Lit:
+		return strconv.Itoa(o.Num)
+	case mirc.Local:
+		return "$" + o.Symbol.Name + ":" + o.Type.String()
+	case mirc.Spill:
+		return "s" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case mirc.Register:
+		return "r" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case mirc.Static:
+		return "%" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case mirc.Interproc:
+		return "i" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	}
+	return "?"
 }
 
 func (o *Operand) MirStr() string {

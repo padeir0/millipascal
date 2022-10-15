@@ -9,6 +9,7 @@ const (
 	Spill
 	Interproc
 	Local
+
 	Lit
 	Static
 )

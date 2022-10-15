@@ -2,6 +2,16 @@ package hirclass
 
 type HIRClass int
 
+func (c HIRClass) String() string {
+	switch c {
+	case Temp: return "temp"
+	case Lit: return "lit"
+	case Local: return "local"
+	case Global: return "global"
+	}
+	return "?"
+}
+
 const (
 	InvalidOpType HIRClass = iota
 

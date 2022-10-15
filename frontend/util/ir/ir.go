@@ -58,3 +58,12 @@ func Convert(a, dest *ir.Operand) *ir.Instr {
 		Destination: []*ir.Operand{dest},
 	}
 }
+
+func Copy(source, destination *ir.Operand) *ir.Instr {
+	return &ir.Instr{
+		T: IT.Copy,
+		Type: source.Type,
+		Operands: []*ir.Operand{source},
+		Destination: []*ir.Operand{destination},
+	}
+}

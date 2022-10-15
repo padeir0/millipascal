@@ -167,10 +167,10 @@ func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 		return checkLoadPtr(instr)
 	case IT.StorePtr:
 		return checkStorePtr(instr)
-	case IT.Store:
-		return checkStore(s, instr)
-	case IT.Load:
-		return checkLoad(s, instr)
+	case IT.Store, IT.Load:
+		return invalidMirInstr(instr)
+	case IT.Copy:
+		return checkCopy(instr)
 	case IT.Call:
 		return checkCall(s, instr)
 	}
@@ -262,6 +262,25 @@ func checkConvert(instr *ir.Instr) *errors.CompilerError {
 	return checkUnary(instr, nonPtr_oper, nonPtr_res)
 }
 
+func checkCopy(instr *ir.Instr) *errors.CompilerError {
+	err := checkForm(instr, 1, true)
+	if err != nil {
+		return err
+	}
+	a := instr.Operands[0]
+	dest := instr.Destination[0]
+	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
+	if err != nil {
+		return err
+	}
+	err = checkUnary(instr, any_oper, any_res)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func checkOffset(instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, true)
 	if err != nil {
@@ -299,44 +318,6 @@ func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
 		return err
 	}
 	return checkUnary(instr, any_oper, ptr_oper)
-}
-
-func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
-	err := checkForm(instr, 1, true)
-	if err != nil {
-		return err
-	}
-	a := instr.Operands[0]
-	dest := instr.Destination[0]
-	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
-	if err != nil {
-		return err
-	}
-	err = checkUnary(instr, any_oper, any_res)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func checkStore(s *state, instr *ir.Instr) *errors.CompilerError {
-	err := checkForm(instr, 1, true)
-	if err != nil {
-		return err
-	}
-	a := instr.Operands[0]
-	dest := instr.Destination[0]
-	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
-	if err != nil {
-		return err
-	}
-	err = checkUnary(instr, any_oper, any_res)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
@@ -456,4 +437,7 @@ func procBadArg(instr *ir.Instr, d *ir.Symbol, op *ir.Operand) *errors.CompilerE
 }
 func procBadRet(instr *ir.Instr, d T.Type, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("return "+op.String()+" doesn't match formal return "+d.String()+" in: " + instr.String())
+}
+func invalidMirInstr(instr *ir.Instr) *errors.CompilerError {
+	return eu.NewInternalSemanticError("invalid MIR instruction in LIR representation: "+instr.String())
 }
