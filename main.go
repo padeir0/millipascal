@@ -75,11 +75,9 @@ func normalMode(s string) {
 	default:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
-		asm := backend.Generate(m)
+		err = backend.Generate(m)
+		OkOrBurst(err)
 		Stdout(m.StringifyCode())
-		Stdout("\n--------------------------ASM-------------------------------\n")
-		Stdout(asm)
-		Stdout("\n")
 	}
 }
 
@@ -115,7 +113,7 @@ func printResults(results []*testing.TestResult) {
 func Test(folder string, tester testing.Tester) []*testing.TestResult {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
-		Fatal(err.Error())
+		Fatal(err.Error() + "\n")
 	}
 	results := []*testing.TestResult{}
 	for _, v := range entries {

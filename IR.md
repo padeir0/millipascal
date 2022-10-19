@@ -1,6 +1,7 @@
 # IR
 
 There are 3 Intermediate Representations:
+
 	- HIR: high level representation of value flow between operations
 	- MIR: representation of resource usage in an lower-level abstract machine
 	- LIR: direct representation of a specific machine

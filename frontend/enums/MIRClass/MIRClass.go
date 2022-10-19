@@ -7,7 +7,8 @@ const (
 
 	Register
 	Spill
-	Interproc
+	CallerInterproc
+	CalleeInterproc
 	Local
 
 	Lit
@@ -22,7 +23,8 @@ func IsImmediate(ot MIRClass) bool {
 
 func IsAddressable(ot MIRClass) bool {
 	return  ot == Spill ||
-		ot == Interproc ||
+		ot == CallerInterproc ||
+		ot == CalleeInterproc ||
 		ot == Local
 }
 

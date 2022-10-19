@@ -75,7 +75,14 @@ func All(file string) TestResult {
 		if err != nil {
 			return compareError(file, err, expectedErr)
 		}
-		backend.Generate(M)
+		err = backend.Generate(M)
+		if err != nil {
+			return TestResult{
+				File: file,
+				Ok:   false,
+				Message: err.Debug,
+			}
+		}
 	}
 	return Frontend(file)
 }

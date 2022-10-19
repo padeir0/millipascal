@@ -149,6 +149,26 @@ func (p *Proc) Returns() string {
 	return strings.Join(output, ", ")
 }
 
+func (p *Proc) ResetCheck() {
+	resetCheckBB(p.Code)
+}
+
+func resetCheckBB(bb *BasicBlock) {
+	if !bb.Checked {
+		return
+	}
+	bb.Checked = false
+	switch bb.Out.T {
+	case FT.If:
+		resetCheckBB(bb.Out.True)
+		resetCheckBB(bb.Out.False)
+	case FT.Return:
+		return
+	case FT.Jmp:
+		resetCheckBB(bb.Out.True)
+	}
+}
+
 type Mem struct {
 	Size int
 	Type T.Type
@@ -297,7 +317,7 @@ func (o *Operand) String() string {
 		return "r" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.Static:
 		return "%" + strconv.Itoa(o.Num) + ":" + o.Type.String()
-	case mirc.Interproc:
+	case mirc.CallerInterproc:
 		return "i" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	}
 	return "?"
@@ -312,7 +332,7 @@ func (o *Operand) MirStr() string {
 		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.Spill:
 		return "^" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
-	case mirc.Interproc:
+	case mirc.CallerInterproc:
 		return "~" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
 	case mirc.Local:
 		return "$" + o.Symbol.Name + ":" + o.Type.String()

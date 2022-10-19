@@ -120,6 +120,7 @@ type deferredInstr struct {
 	instr *ir.Instr
 }
 
+// TODO: consider if there's any need for explicit Caller Interproc and Local regions
 type state struct {
 	AvailableRegs *stack
 	// UsedRegs[ reg ] retuns the value stored in the register
@@ -590,7 +591,7 @@ func newLocalOperand(sy *ir.Symbol) *ir.Operand {
 
 func newInterprocOperand(i interproc, t T.Type) *ir.Operand {
 	return &ir.Operand{
-		MirC: mirc.Interproc,
+		MirC: mirc.CallerInterproc,
 		Type: t,
 		Num:  int(i),
 	}
