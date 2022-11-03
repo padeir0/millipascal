@@ -296,16 +296,6 @@ func (o *Operand) String() string {
 	if o == nil {
 		return "nil"
 	}
-	switch o.HirC {
-	case hirc.Temp:
-		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
-	case hirc.Local:
-		return "$" + o.Symbol.Name + ":" + o.Type.String()
-	case hirc.Global:
-		return o.Symbol.Name + ":" + o.Type.String()
-	case hirc.Lit:
-		return strconv.Itoa(o.Num)
-	}
 	switch o.MirC {
 	case mirc.Lit:
 		return strconv.Itoa(o.Num)
@@ -319,6 +309,16 @@ func (o *Operand) String() string {
 		return "%" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.CallerInterproc:
 		return "i" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	}
+	switch o.HirC {
+	case hirc.Temp:
+		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case hirc.Local:
+		return "$" + o.Symbol.Name + ":" + o.Type.String()
+	case hirc.Global:
+		return o.Symbol.Name + ":" + o.Type.String()
+	case hirc.Lit:
+		return strconv.Itoa(o.Num)
 	}
 	return "?"
 }

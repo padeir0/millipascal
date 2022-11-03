@@ -9,6 +9,8 @@ import (
 	"mpc/frontend"
 	"mpc/backend"
 	. "mpc/util"
+
+	"fmt"
 )
 
 // files are tested by running them and
@@ -29,12 +31,13 @@ type TestResult struct {
 
 func (res *TestResult) String() string {
 	if res.Ok {
-		return "ok"
+		return "\u001b[34mok\u001b[0m"
 	}
-	return "fail"
+	return "\u001b[31mfail\u001b[0m"
 }
 
 func Lex(file string) TestResult {
+	defer recoverIfFatal()
 	expectedErr := extractError(file)
 	stage := discoverStage(expectedErr)
 	if stage <= errors.Lexer {
@@ -47,6 +50,7 @@ func Lex(file string) TestResult {
 }
 
 func Parse(file string) TestResult {
+	defer recoverIfFatal()
 	expectedErr := extractError(file)
 	stage := discoverStage(expectedErr)
 	if stage <= errors.Parser {
@@ -58,6 +62,7 @@ func Parse(file string) TestResult {
 }
 
 func Frontend(file string) TestResult {
+	defer recoverIfFatal()
 	expectedErr := extractError(file)
 	stage := discoverStage(expectedErr)
 	if stage <= errors.Semantic {
@@ -68,6 +73,7 @@ func Frontend(file string) TestResult {
 }
 
 func All(file string) TestResult {
+	defer recoverIfFatal()
 	expectedErr := extractError(file)
 	stage := discoverStage(expectedErr)
 	if stage <= errors.Semantic {
@@ -85,6 +91,12 @@ func All(file string) TestResult {
 		}
 	}
 	return Frontend(file)
+}
+
+func recoverIfFatal() {
+	if r := recover(); r != nil {
+		fmt.Printf("\u001b[31m fatal error: %v\t\u001b[0m", r)
+	}
 }
 
 type Tester func(file string) TestResult

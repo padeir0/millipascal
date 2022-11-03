@@ -35,26 +35,26 @@ func newRegion(size int) region {
 	return make(region, size)
 }
 
-func (r region) String() string {
+func (r *region) String() string {
 	output := []string{}
-	for _, op := range r {
+	for _, op := range *r {
 		output = append(output, op.String())
 	}
 	return strings.Join(output, ", ")
 }
 
-func (r region) Store(i int, op *ir.Operand) {
-	if i >= len(r) {
-		r = append(r, newRegion(i-len(r)+1)...)
+func (r *region) Store(i int, op *ir.Operand) {
+	if i >= len(*r) {
+		*r = append(*r, newRegion(i-len(*r)+1)...)
 	}
-	r[i] = op
+	(*r)[i] = op
 }
 
-func (r region) Load(i int) *ir.Operand {
-	if i >= len(r) {
+func (r *region) Load(i int) *ir.Operand {
+	if i >= len(*r) {
 		return nil
 	}
-	return r[i]
+	return (*r)[i]
 }
 
 func (r region) Clear(i int) {
@@ -464,7 +464,7 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	source := instr.Operands[0]
 	dest := instr.Destination[0]
-	switch source.MirC {
+	switch dest.MirC {
 	case mirc.Spill:
 		s.Spill.Store(dest.Num, source)
 	case mirc.CalleeInterproc:

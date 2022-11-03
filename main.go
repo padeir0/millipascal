@@ -76,8 +76,8 @@ func normalMode(s string) {
 		m, err := frontend.All(s)
 		OkOrBurst(err)
 		err = backend.Generate(m)
-		OkOrBurst(err)
 		Stdout(m.StringifyCode())
+		OkOrBurst(err)
 	}
 }
 
@@ -95,18 +95,16 @@ func checkValid() {
 }
 
 func printResults(results []*testing.TestResult) {
-	failed := []*testing.TestResult{}
+	failed := 0
+	Stdout("\n")
 	for _, res := range results {
-		Stdout(res.String() + "\t" + res.File + "\n")
-		if !res.Ok {
-			failed = append(failed, res)
+		if !res.Ok && res.Message != "" {
+			Stdout(res.File + "\t" + res.Message + "\n")
+			failed += 1
 		}
 	}
-	Stdout("\n\n")
-	for _, res := range failed {
-		Stdout(res.File + "\t" + res.Message + "\n")
-	}
-	Stdout("failed: " + strconv.Itoa(len(failed)) + "\n")
+	Stdout("\n")
+	Stdout("failed: " + strconv.Itoa(failed) + "\n")
 	Stdout("total: " + strconv.Itoa(len(results)) + "\n")
 }
 
@@ -118,13 +116,15 @@ func Test(folder string, tester testing.Tester) []*testing.TestResult {
 	results := []*testing.TestResult{}
 	for _, v := range entries {
 		fullpath := folder + "/" + v.Name()
-		Stdout(fullpath + "\n")
+		Stdout("testing: " + fullpath + "\t")
 		if v.IsDir() {
 			res := Test(fullpath, tester)
 			results = append(results, res...)
+			Stdout("\n")
 		} else {
 			res := tester(fullpath)
 			results = append(results, &res)
+			Stdout(res.String() + "\n")
 		}
 	}
 	return results

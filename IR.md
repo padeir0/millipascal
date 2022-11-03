@@ -90,7 +90,7 @@ single types.
 	LoadPtr:T of Any [ptr'Operable] -> T'Result
 	StorePtr:T of Any [T'Operable] -> ptr'Operable
 
-	Copy:T of Any [T'Result] -> T'Result
+	Copy:T of Any [T'Operable] -> T'Result
 
 	Call [proc'Operable, Any'Operable...] -> Any'Result...
 ```
