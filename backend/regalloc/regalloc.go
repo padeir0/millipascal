@@ -6,6 +6,7 @@ import (
 	T "mpc/frontend/enums/Type"
 	IT "mpc/frontend/enums/instrType"
 	ST "mpc/frontend/enums/symbolType"
+	FT "mpc/frontend/enums/flowType"
 
 	"mpc/frontend/ir"
 	IRU "mpc/frontend/util/ir"
@@ -138,7 +139,6 @@ type deferredInstr struct {
 	instr *ir.Instr
 }
 
-// TODO: consider if there's any need for explicit Caller Interproc and Local regions
 type state struct {
 	AvailableRegs *stack
 	// UsedRegs[ reg ] retuns the value stored in the register
@@ -161,9 +161,10 @@ type state struct {
 	// stores the index of the furthest use of each value
 	valueUse map[value]int
 	bb       *ir.BasicBlock
+	p        *ir.Proc
 }
 
-func newState(numRegs int, bb *ir.BasicBlock) *state {
+func newState(numRegs int, p *ir.Proc, bb *ir.BasicBlock) *state {
 	return &state{
 		AvailableRegs: newStack(numRegs),
 		UsedRegs:      map[reg]value{},
@@ -177,6 +178,7 @@ func newState(numRegs int, bb *ir.BasicBlock) *state {
 		queuedInstr: map[int][]*ir.Instr{},
 		lastQueued:  0,
 
+		p: p,
 		bb: bb,
 	}
 }
@@ -254,8 +256,8 @@ func (s *state) AllocReg(v value) reg {
 	return r
 }
 
-func (s *state) FurthestUse() (reg, value) {
-	biggestIndex := -1
+func (s *state) FurthestUse(index int) (reg, value) {
+	biggestIndex := index
 	bestReg := reg(-1)
 	var holdingValue value
 	for v, info := range s.LiveValues {
@@ -317,14 +319,32 @@ func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
 	var worklist = ir.FlattenGraph(p.Code)
 	p.NumOfSpills = 0
 	for _, curr := range worklist {
-		s := newState(numRegs, curr)
+		s := newState(numRegs, p, curr)
 		findUses(s)
 		allocBlock(s)
-		top := s.AvailableSpills.Size()
-		if int(top) > p.NumOfSpills {
-			p.NumOfSpills = int(top)
+		storeLiveLocals(s)
+		if s.bb.Out.T == FT.Return {
+			transformReturn(s)
 		}
-		insertQueuedInstrs(s, curr)
+		insertQueuedInstrs(s)
+		calcSpill(s)
+	}
+}
+
+func calcSpill(s *state) {
+	top := s.AvailableSpills.Size()
+	if int(top) > s.p.NumOfSpills {
+		s.p.NumOfSpills = int(top)
+	}
+}
+
+func transformReturn(s *state) {
+	last := len(s.bb.Code)-1
+	for i, ret := range s.bb.Out.V {
+		immediateRet := ensureImmediate(s, last, ret)
+		callerInterproc := newOp(ret, mirc.CallerInterproc, i)
+		loadRet := IRU.Store(immediateRet, callerInterproc)
+		s.QueueInstr(last, loadRet)
 	}
 }
 
@@ -335,23 +355,36 @@ func findUses(s *state) {
 			s.valueUse[v] = index
 		}
 	}
+
+	// check if value is returned or used in branching
+	maxIndex := len(s.bb.Code)
+	for _, op := range s.bb.Out.V {
+		if op.HirC == hirc.Temp || op.HirC == hirc.Local {
+			v := toValue(op)
+			s.valueUse[v] = maxIndex
+		}
+	}
 }
 
 func getUsedValues(instr *ir.Instr) []value {
 	output := []value{}
 	for _, op := range instr.Operands {
-		output = append(output, toValue(op))
+		if op.HirC == hirc.Temp || op.HirC == hirc.Local {
+			output = append(output, toValue(op))
+		}
 	}
 	for _, dest := range instr.Destination {
-		output = append(output, toValue(dest))
+		if dest.HirC == hirc.Temp || dest.HirC == hirc.Local {
+			output = append(output, toValue(dest))
+		}
 	}
 	return output
 }
 
-func insertQueuedInstrs(s *state, bb *ir.BasicBlock) {
-	newBlock := make([]*ir.Instr, len(bb.Code)+s.lastQueued)
+func insertQueuedInstrs(s *state) {
+	newBlock := make([]*ir.Instr, len(s.bb.Code)+s.lastQueued)
 	offset := 0
-	for i, oldInstr := range bb.Code {
+	for i, oldInstr := range s.bb.Code {
 		newBlock[i+offset] = oldInstr
 		newInstrs, ok := s.queuedInstr[i]
 		if ok {
@@ -361,7 +394,7 @@ func insertQueuedInstrs(s *state, bb *ir.BasicBlock) {
 			}
 		}
 	}
-	bb.Code = newBlock
+	s.bb.Code = newBlock
 }
 
 func allocBlock(s *state) {
@@ -378,20 +411,17 @@ func allocBlock(s *state) {
 			allocBinary(s, instr, i)
 		case IT.Not,
 			IT.UnaryMinus, IT.UnaryPlus,
-			IT.Convert:
+			IT.Convert, IT.LoadPtr:
 			allocUnary(s, instr, i)
-		case IT.Copy:
-			allocCopy(s, instr, i)
-		case IT.LoadPtr:
-			allocLoadPtr(s, instr, i)
 		case IT.StorePtr:
 			allocStorePtr(s, instr, i)
+		case IT.Copy:
+			allocCopy(s, instr, i)
 		case IT.Call:
 			allocCall(s, instr, i)
 		}
 		//fmt.Println(instr, "\n")
 	}
-	storeLiveLocals(s)
 }
 
 func allocBinary(s *state, instr *ir.Instr, index int) {
@@ -409,12 +439,10 @@ func allocUnary(s *state, instr *ir.Instr, index int) {
 	instr.Destination[0] = ensureImmediate(s, index, c)
 }
 
-// TODO: implement HIR -> MIR transformation for LoadPtr
-func allocLoadPtr(s *state, instr *ir.Instr, index int) {
-}
-
-// TODO: implement HIR -> MIR transformation for StorePtr
 func allocStorePtr(s *state, instr *ir.Instr, index int) {
+	a := instr.Operands[0]
+	b := instr.Operands[1]
+	ensureOperands(s, instr, index, a, b)
 }
 
 // Combination of possible Copy instructions
@@ -465,6 +493,11 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 
 // TODO: implement HIR -> MIR transformation for Call
 func allocCall(s *state, instr *ir.Instr, index int) {
+
+	// just so other transformations work
+	for _, op := range instr.Operands[1:] {
+		freeIfNotNeeded(s, index, toValue(op))
+	}
 }
 
 // if operand is Temp it must be allocated first
@@ -603,9 +636,9 @@ func allocReg(s *state, op *ir.Operand, index int) *ir.Operand {
 }
 
 func spillRegister(s *state, op *ir.Operand, index int) *ir.Operand {
-	r, val := s.FurthestUse()
+	r, val := s.FurthestUse(index)
 	if r == -1 {
-		panic(s.String())
+		panic("not enough registers")
 	}
 	switch val.T {
 	case hirc.Temp:

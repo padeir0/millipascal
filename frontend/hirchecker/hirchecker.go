@@ -301,23 +301,24 @@ func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 	}
 	dest := instr.Destination[0]
 	err = checkEqual(instr, instr.Type, dest.Type) 
-	if err != nil {
-		return err
-	}
 	return checkUnary(instr, ptr_oper, any_res)
 }
 
 func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
-	err := checkForm(instr, 1, true)
+	err := checkForm(instr, 2, false)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
+	dest := instr.Operands[1]
 	err = checkEqual(instr, instr.Type, a.Type) 
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, any_oper, ptr_oper)
+	if any_oper.Check(a) && ptr_oper.Check(dest) {
+		return nil
+	}
+	return malformedTypeOrClass(instr)
 }
 
 func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {

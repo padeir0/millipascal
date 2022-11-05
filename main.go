@@ -100,6 +100,8 @@ func printResults(results []*testing.TestResult) {
 	for _, res := range results {
 		if !res.Ok && res.Message != "" {
 			Stdout(res.File + "\t" + res.Message + "\n")
+		}
+		if !res.Ok {
 			failed += 1
 		}
 	}

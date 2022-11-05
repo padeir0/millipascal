@@ -87,8 +87,8 @@ single types.
 	Convert:T of NonPtr [NonPtr'Operable] -> T'Result
 
 	Offset:T of Number [ptr'Operable, T'Operable] -> ptr'Result
-	LoadPtr:T of Any [ptr'Operable] -> T'Result
-	StorePtr:T of Any [T'Operable] -> ptr'Operable
+	LoadPtr:T of Any  [ptr'Operable] -> T'Result
+	StorePtr:T of Any [T'Operable], ptr'Operable
 
 	Copy:T of Any [T'Operable] -> T'Result
 
@@ -211,7 +211,7 @@ to be differentiable.
 
 	Offset:T of Number [ptr'Immediate, T'Immediate] -> ptr'register
 	LoadPtr:T of Any [ptr'Immediate] -> T'register
-	StorePtr:T of Any [T'Immediate] -> ptr'Immediate
+	StorePtr:T of Any [T'Immediate], ptr'Immediate
 
 	Load:T of Any [T'Addressable] -> T'register
 	Store:T of Any [T'Immediate] -> T'Addressable
@@ -224,4 +224,5 @@ to be differentiable.
 	DecFrame [Number'lit]
 ```
 
+TODO: LIR spec for x86
 ## LIR

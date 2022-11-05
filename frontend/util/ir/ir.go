@@ -36,8 +36,7 @@ func StorePtr(source, ptr *ir.Operand) *ir.Instr {
 	return &ir.Instr{
 		T: IT.StorePtr,
 		Type: source.Type,
-		Operands: []*ir.Operand{source},
-		Destination: []*ir.Operand{ptr},
+		Operands: []*ir.Operand{source, ptr},
 	} 
 }
 

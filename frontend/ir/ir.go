@@ -356,6 +356,9 @@ type Instr struct {
 }
 
 func (i *Instr) String() string {
+	if i == nil {
+		return "nil"
+	}
 	if i.Destination != nil {
 		if i.Type != T.Invalid {
 			return fmt.Sprintf("%v:%v %v -> %v", i.T.String(), i.Type.String(), i.StrOps(), i.StrDests())

@@ -342,16 +342,21 @@ func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 }
 
 func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
-	err := checkForm(instr, 1, 1)
+	err := checkForm(instr, 2, 0)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
+	dest := instr.Operands[1]
 	err = checkEqual(instr, instr.Type, a.Type)
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, any_reg, ptr_imme)
+	if any_reg.Check(a) &&
+		ptr_imme.Check(dest) {
+		return nil
+	}
+	return malformedTypeOrClass(instr)
 }
 
 func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
