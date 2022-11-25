@@ -20,6 +20,7 @@ func Check(M *ir.Module) *errors.CompilerError {
 		if sy.T == ST.Proc {
 			s.proc = sy.Proc
 			s.proc.ResetCheck()
+			s.InitArgs()
 			err := checkCode(s, sy.Proc.Code)
 			if err != nil {
 				return err
@@ -71,7 +72,6 @@ type state struct {
 
 	CalleeInterproc region
 	CallerInterproc region
-	Variables       region
 	Spill           region
 }
 
@@ -80,8 +80,32 @@ func newState(M *ir.Module) *state {
 		m:               M,
 		CalleeInterproc: newRegion(8),
 		CallerInterproc: newRegion(8),
-		Variables:       newRegion(8),
 		Spill:           newRegion(8),
+	}
+}
+
+func (s *state) InitArgs() {
+	for i, arg := range s.proc.Args {
+		argOp := newCallerOperand(arg, i)
+		s.CallerInterproc.Store(i, argOp)
+	}
+}
+
+func newCallerOperand(arg *ir.Symbol, i int) *ir.Operand {
+	return &ir.Operand{
+		Mirc:   mirc.CallerInterproc,
+		Num:    i,
+		Symbol: arg,
+		Type:   arg.Type,
+	}
+}
+
+func newLocalOperand(arg *ir.Symbol) *ir.Operand {
+	return &ir.Operand{
+		Mirc:   mirc.Local,
+		Num:    -1,
+		Symbol: arg,
+		Type:   arg.Type,
 	}
 }
 
@@ -137,7 +161,7 @@ type Checker struct {
 }
 
 func (c *Checker) Check(op *ir.Operand) bool {
-	return c.Type(op.Type) && c.Class(op.MirC)
+	return c.Type(op.Type) && c.Class(op.Mirc)
 }
 
 var any_imme = Checker{
@@ -429,6 +453,9 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 
 	for i, formal_arg := range proc.Args {
 		real_arg := s.CalleeInterproc.Load(i)
+		if real_arg == nil {
+			return errorLoadingGarbage(instr)
+		}
 		if formal_arg.Type != real_arg.Type {
 			return procBadArg(instr, formal_arg, real_arg)
 		}
@@ -436,7 +463,7 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 
 	for i, formal_ret := range proc.Rets {
-		op := &ir.Operand{MirC: mirc.CallerInterproc, Num: i, Type: formal_ret}
+		op := &ir.Operand{Mirc: mirc.CallerInterproc, Num: i, Type: formal_ret}
 		s.CalleeInterproc.Store(i, op)
 	}
 	return nil
@@ -446,7 +473,7 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 	loadOp := instr.Operands[0]
 	dest := instr.Destination[0]
 	var source *ir.Operand
-	switch loadOp.MirC {
+	switch loadOp.Mirc {
 	case mirc.Spill:
 		source = s.Spill.Load(loadOp.Num)
 	case mirc.CalleeInterproc:
@@ -454,7 +481,7 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 	case mirc.CallerInterproc:
 		source = s.CallerInterproc.Load(loadOp.Num)
 	case mirc.Local:
-		source = s.Variables.Load(loadOp.Num)
+		source = newLocalOperand(loadOp.Symbol)
 	}
 	if source == nil {
 		return errorLoadingGarbage(instr)
@@ -469,7 +496,7 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	source := instr.Operands[0]
 	dest := instr.Destination[0]
-	switch dest.MirC {
+	switch dest.Mirc {
 	case mirc.Spill:
 		s.Spill.Store(dest.Num, source)
 	case mirc.CalleeInterproc:
@@ -477,7 +504,7 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	case mirc.CallerInterproc:
 		s.CallerInterproc.Store(dest.Num, source)
 	case mirc.Local:
-		s.Variables.Store(dest.Num, source)
+		// TODO: should it do nothing?
 	}
 	return nil
 }
@@ -576,5 +603,5 @@ func procBadRet(instr *ir.Instr, d T.Type, op *ir.Operand) *errors.CompilerError
 }
 
 func nilInstr(s *state) *errors.CompilerError {
-	return eu.NewInternalSemanticError("nil instruction in: " + s.proc.Name + " " +s.bb.Label)
+	return eu.NewInternalSemanticError("nil instruction in: " + s.proc.Name + " " + s.bb.Label)
 }

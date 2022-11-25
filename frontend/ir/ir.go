@@ -121,10 +121,15 @@ func (v *Symbol) String() string {
 	}
 }
 
+type PositionalSymbol struct {
+	Position int
+	Symbol *Symbol
+}
+
 type Proc struct {
 	Name   string
 	Args   []*Symbol
-	ArgMap map[string]*Symbol
+	ArgMap map[string]PositionalSymbol
 	Vars   map[string]*Symbol
 	Rets   []T.Type
 
@@ -285,8 +290,8 @@ func (f *Flow) StrRets() string {
 }
 
 type Operand struct {
-	HirC     hirc.HIRClass
-	MirC     mirc.MIRClass
+	Hirc     hirc.HIRClass
+	Mirc     mirc.MIRClass
 	Type     T.Type
 	Symbol   *Symbol
 	Num      int
@@ -296,7 +301,7 @@ func (o *Operand) String() string {
 	if o == nil {
 		return "nil"
 	}
-	switch o.MirC {
+	switch o.Mirc {
 	case mirc.Lit:
 		return strconv.Itoa(o.Num)
 	case mirc.Local:
@@ -308,13 +313,17 @@ func (o *Operand) String() string {
 	case mirc.Static:
 		return "%" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.CallerInterproc:
-		return "i" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "caller#" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+	case mirc.CalleeInterproc:
+		return "callee#" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	}
-	switch o.HirC {
+	switch o.Hirc {
 	case hirc.Temp:
 		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case hirc.Local:
-		return "$" + o.Symbol.Name + ":" + o.Type.String()
+		return "local#" + o.Symbol.Name + ":" + o.Type.String()
+	case hirc.Arg:
+		return "arg#" + o.Symbol.Name + ":" + o.Type.String()
 	case hirc.Global:
 		return o.Symbol.Name + ":" + o.Type.String()
 	case hirc.Lit:
@@ -327,7 +336,7 @@ func (o *Operand) MirStr() string {
 	if o == nil {
 		return "nil"
 	}
-	switch o.MirC {
+	switch o.Mirc {
 	case mirc.Register:
 		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.Spill:

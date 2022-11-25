@@ -73,7 +73,7 @@ func getProcRets(M *ir.Module, n *ir.Node) []T.Type {
 }
 
 func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	for _, decl := range n.Leaves {
+	for i, decl := range n.Leaves {
 		var d *ir.Symbol
 		if len(decl.Leaves) == 0 {
 			d = &ir.Symbol{
@@ -92,7 +92,7 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 		if err != nil {
 			return err
 		}
-		proc.ArgMap[d.Name] = d
+		proc.ArgMap[d.Name] = ir.PositionalSymbol{Position: i, Symbol: d}
 		proc.Args = append(proc.Args, d)
 		decl.T = d.Type
 	}
@@ -366,11 +366,11 @@ func checkIdAssignee(M *ir.Module, proc *ir.Proc, assignee *ir.Node) *errors.Com
 }
 
 func getVarOrArg(proc *ir.Proc, name string) *ir.Symbol {
-	def, ok := proc.ArgMap[name]
+	posSy, ok := proc.ArgMap[name]
 	if ok {
-		return def
+		return posSy.Symbol
 	}
-	def, ok = proc.Vars[name]
+	def, ok := proc.Vars[name]
 	if ok {
 		return def
 	}

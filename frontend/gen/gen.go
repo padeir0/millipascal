@@ -40,7 +40,7 @@ func (c *context) NewBlock() *ir.BasicBlock {
 
 func (c *context) AllocTemp(t T.Type) *ir.Operand {
 	op := &ir.Operand{
-		HirC: hirc.Temp,
+		Hirc: hirc.Temp,
 		Type: t,
 		Num:  c.TempCounter,
 	}
@@ -192,7 +192,7 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 
 func genIntOp(num int) *ir.Operand {
 	return &ir.Operand{
-		HirC: hirc.Lit,
+		Hirc: hirc.Lit,
 		Num:  num,
 	}
 }
@@ -372,17 +372,18 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 	decl, ok := c.Proc.Vars[id.Text]
 	if ok {
 		return &ir.Operand{
-			HirC:   hirc.Local,
+			Hirc:   hirc.Local,
 			Type:   id.T,
 			Symbol: decl,
 		}
 	}
-	decl, ok = c.Proc.ArgMap[id.Text]
+	posSy, ok := c.Proc.ArgMap[id.Text]
 	if ok {
 		return &ir.Operand{
-			HirC:   hirc.Local,
+			Hirc:   hirc.Arg,
 			Type:   id.T,
-			Symbol: decl,
+			Symbol: posSy.Symbol,
+			Num:    posSy.Position,
 		}
 	}
 	global, ok := M.Globals[id.Text]
@@ -396,13 +397,13 @@ func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 	switch global.T {
 	case ST.Proc:
 		return &ir.Operand{
-			HirC:   hirc.Global,
+			Hirc:   hirc.Global,
 			Symbol: global,
 			Type:   T.Proc,
 		}
 	case ST.Mem:
 		return &ir.Operand{
-			HirC:   hirc.Global,
+			Hirc:   hirc.Global,
 			Symbol: global,
 			Type:   T.Ptr,
 		}
@@ -424,9 +425,9 @@ func genLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
 		panic(err)
 	}
 	return &ir.Operand{
-		HirC:  hirc.Lit,
-		Type:  lit.T,
-		Num:   value,
+		Hirc: hirc.Lit,
+		Type: lit.T,
+		Num:  value,
 	}
 }
 

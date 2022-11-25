@@ -110,13 +110,13 @@ between procedures occur.
 
 There are 6 types of storage classes:
 
-	register	interproc	spill
+	register	spill		callee_interproc
 	local		lit		static
 	
 They are grouped as:
 
 	Immediate = register|lit|static
-	Addressable = spill|interproc|local
+	Addressable = spill|callee_interproc|local
 
 Interprocs and Registers are volatile, they can be corrupted on
 procedure calls, so if a value that is currently residing in

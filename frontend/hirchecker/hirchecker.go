@@ -94,7 +94,7 @@ type Checker struct {
 }
 
 func (c *Checker) Check(op *ir.Operand) bool {
-	return c.Type(op.Type) && c.Class(op.HirC)
+	return c.Type(op.Type) && c.Class(op.Hirc)
 }
 
 var any_oper = Checker {
