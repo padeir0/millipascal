@@ -330,7 +330,9 @@ func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
 		s := newState(numRegs, p, curr)
 		findUses(s)
 		allocBlock(s)
-		storeLiveLocals(s)
+		if s.bb.Out.T != FT.Return {
+			storeLiveLocals(s) 
+		}
 		if s.bb.Out.T == FT.Return {
 			transformReturn(s)
 		}
@@ -347,10 +349,33 @@ func calcSpill(s *state) {
 }
 
 func transformReturn(s *state) {
-	end := len(s.bb.Code)
+	type RetVal struct {
+		Index int
+		Op *ir.Operand
+	}
+
+	end := len(s.bb.Code) + 1
+	notAlive := []RetVal{}
+	// load the already immediate ones first
 	for i, ret := range s.bb.Out.V {
-		immediateRet := ensureImmediate(s, end, ret)
-		callerInterproc := newOp(ret, mirc.CallerInterproc, i)
+		rVal := toValue(ret)
+		info, ok := s.LiveValues[rVal]
+		if ok && info.Place == Register {
+			regOp := newRegOp(reg(info.Num), info.T)
+			callerInterproc := newOp(ret, mirc.CallerInterproc, i)
+			loadRet := IRU.Store(regOp, callerInterproc)
+			s.QueueInstr(end, loadRet)
+			s.Free(rVal)
+		} else {
+			rv := RetVal{Index: i, Op: ret}
+			notAlive = append(notAlive, rv)
+		}
+	}
+
+	// then load the remaining
+	for _, ret := range notAlive {
+		immediateRet := ensureImmediate(s, end, ret.Op)
+		callerInterproc := newOp(ret.Op, mirc.CallerInterproc, ret.Index)
 		loadRet := IRU.Store(immediateRet, callerInterproc)
 		s.QueueInstr(end, loadRet)
 	}
@@ -366,7 +391,7 @@ func findUses(s *state) {
 	}
 
 	// check if value is returned or used in branching
-	maxIndex := len(s.bb.Code)
+	maxIndex := 1 << 31 // ensure it's after the s.atEnd instructions
 	for _, op := range s.bb.Out.V {
 		if op.Hirc == hirc.Temp || op.Hirc == hirc.Local || op.Hirc == hirc.Arg {
 			v := toValue(op)
@@ -409,7 +434,7 @@ func allocBlock(s *state) {
 	//fmt.Println(s.bb.Label)
 	for i, instr := range s.bb.Code {
 		//fmt.Println(s.String())
-		//fmt.Print(instr, " >> ")
+		//fmt.Println("hirc: ", instr)
 		switch instr.T {
 		case IT.Add, IT.Sub, IT.Mult, IT.Div, IT.Rem,
 			IT.Eq, IT.Diff, IT.Less,
@@ -428,7 +453,7 @@ func allocBlock(s *state) {
 		case IT.Call:
 			allocCall(s, instr, i)
 		}
-		//fmt.Println(instr, "\n")
+		//fmt.Println("mirc: ", instr, "\n")
 	}
 }
 
@@ -472,36 +497,43 @@ func allocStorePtr(s *state, instr *ir.Instr, index int) {
 // 	lit (lit) -> arg (reg|callerInter)
 // c.HirC can only be Temp, Local or Arg
 func allocCopy(s *state, instr *ir.Instr, index int) {
-	a := instr.Operands[0]
-	aAddr := isAddressable(s, a)
-	instr.Operands[0] = toMirc(s, a)
+	source := instr.Operands[0]
+	sourceIsAddr := isAddressable(s, source)
 
-	c := instr.Destination[0]
-	cValue := toValue(c)
-	cAddr := isAddressable(s, c)
-	instr.Destination[0] = toMirc(s, c)
+	dest := instr.Destination[0]
+	destIsAddr := isAddressable(s, dest)
 
-	if aAddr {
-		if cAddr {
-			// LOAD  a   -> reg
-			// STORE reg -> c
+	if sourceIsAddr {
+		if destIsAddr {
+			// LOAD  source -> reg
+			// STORE reg    -> dest
 			instr.T = IT.Load
-			reg := allocReg(s, cValue, c.Type, index)
+			instr.Operands[0] = toMirc(s, source)
+			reg := allocReg(s, toValue(source), source.Type, index)
 			instr.Destination[0] = reg
-			s.QueueInstr(index, IRU.Store(reg, c))
+
+			destMirc := toMirc(s, dest)
+			// insert after the Load instruction
+			s.QueueInstr(index+1, IRU.Store(reg, destMirc)) 
 		} else {
-			// LOAD  a   -> c
+			// LOAD source -> dest
 			instr.T = IT.Load
+			instr.Operands[0] = toMirc(s, source)
+			instr.Destination[0] = toMirc(s, dest)
 		}
 	} else {
-		if cAddr {
-			// STORE a -> c
+		if destIsAddr {
+			// STORE source -> dest
 			instr.T = IT.Store
+			instr.Operands[0] = toMirc(s, source)
+			instr.Destination[0] = toMirc(s, dest)
 		} else {
-			// COPY  a -> c
+			// COPY source -> dest
+			instr.Operands[0] = toMirc(s, source)
+			instr.Destination[0] = toMirc(s, dest)
 		}
 	}
-	freeIfNotNeeded(s, index, toValue(a))
+	freeIfNotNeeded(s, index, toValue(source))
 }
 
 // transforms call instructions from:
@@ -589,12 +621,12 @@ func isAddressable(s *state, o *ir.Operand) bool {
 }
 
 func toMirc(s *state, o *ir.Operand) *ir.Operand {
-	info, ok := s.LiveValues[toValue(o)]
-	if ok {
-		return newOp(o, info.Place.ToMirc(), info.Num)
-	}
 	switch o.Hirc {
 	case hirc.Temp:
+		info, ok := s.LiveValues[toValue(o)]
+		if ok {
+			return newOp(o, info.Place.ToMirc(), info.Num)
+		}
 		panic("toMirc: temp is not alive")
 	case hirc.Local:
 		return newOp(o, mirc.Local, o.Num)
@@ -768,6 +800,9 @@ func allocReg(s *state, v value, t T.Type, index int) *ir.Operand {
 func spillUsedAndAlloc(s *state, v value, t T.Type, index int) *ir.Operand {
 	r, val := s.FurthestUse(index)
 	if r == -1 {
+		//fmt.Print("\n------\n")
+		//fmt.Println(s)
+		//fmt.Printf("Value: %v, Type: %v, Index: %v", v, t, index)
 		panic("not enough registers")
 	}
 	switch val.Class {
