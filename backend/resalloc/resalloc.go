@@ -1,4 +1,4 @@
-package regalloc
+package resalloc
 
 import (
 	hirc "mpc/frontend/enums/HIRClass"
@@ -215,8 +215,10 @@ func (s *state) Free(v value) {
 	case Spill:
 		a := spill(loc.Num)
 		s.FreeSpill(a)
-	case Local, CalleeInterProc:
-		panic("i dont think this should happen: freeing " + loc.Place.String())
+	case CalleeInterProc:
+		// no need to keep track of this 
+	case Local, CallerInterProc:
+		panic("freeing " + loc.Place.String())
 	}
 }
 
@@ -348,6 +350,7 @@ func calcSpill(s *state) {
 	}
 }
 
+// TODO: transformReturn should look if the value is already where it needs to be (in the respective Caller Interproc)
 func transformReturn(s *state) {
 	type RetVal struct {
 		Index int
@@ -374,7 +377,7 @@ func transformReturn(s *state) {
 
 	// then load the remaining
 	for _, ret := range notAlive {
-		immediateRet := ensureImmediate(s, end, ret.Op)
+		immediateRet := ensureImmediate(s, end, toValue(ret.Op), ret.Op.Type)
 		callerInterproc := newOp(ret.Op, mirc.CallerInterproc, ret.Index)
 		loadRet := IRU.Store(immediateRet, callerInterproc)
 		s.QueueInstr(end, loadRet)
@@ -462,14 +465,14 @@ func allocBinary(s *state, instr *ir.Instr, index int) {
 	b := instr.Operands[1]
 	c := instr.Destination[0]
 	ensureOperands(s, instr, index, a, b)
-	instr.Destination[0] = ensureImmediate(s, index, c)
+	instr.Destination[0] = ensureImmediate(s, index, toValue(c), c.Type)
 }
 
 func allocUnary(s *state, instr *ir.Instr, index int) {
 	a := instr.Operands[0]
 	c := instr.Destination[0]
 	ensureOperands(s, instr, index, a)
-	instr.Destination[0] = ensureImmediate(s, index, c)
+	instr.Destination[0] = ensureImmediate(s, index, toValue(c), c.Type)
 }
 
 func allocStorePtr(s *state, instr *ir.Instr, index int) {
@@ -548,11 +551,12 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 // ret1 is assumed to be in interproc1
 // retN is assumed to be in interprocN
 func allocCall(s *state, instr *ir.Instr, index int) {
-	spillAllLiveInterproc(s, index) // TODO: spill only the ones being corrupted
+	// TODO: spillAllLiveInterproc should only spill the ones being corrupted
+	spillAllLiveInterproc(s, index)
 	loadArguments(s, instr, index)
 	spillAllLiveRegisters(s, index)
-
-	clearVolatiles(s, instr.Operands[0].Symbol.Proc) // TODO: clear only the ones being corrupted
+	// TODO: clearVolatiles should only clear the ones being corrupted
+	clearVolatiles(s, instr.Operands[0].Symbol.Proc)
 
 	for i, dest := range instr.Destination {
 		v := toValue(dest)
@@ -593,7 +597,13 @@ func clearVolatiles(s *state, proc *ir.Proc) {
 func loadArguments(s *state, instr *ir.Instr, index int) {
 	// ensure immediate, then store
 	for i, op := range instr.Operands[1:] {
-		immediate := ensureImmediate(s, index, op)
+		v := toValue(op)
+		info, ok := s.LiveValues[v]
+		if ok && info.Place == CalleeInterProc && info.Num == i {
+			// if it's already where it needs to be
+			continue
+		}
+		immediate := ensureImmediate(s, index, v, op.Type)
 		arg := newOp(op, mirc.CalleeInterproc, i)
 		storeArg := IRU.Store(immediate, arg)
 		s.QueueInstr(index, storeArg)
@@ -604,7 +614,11 @@ func loadArguments(s *state, instr *ir.Instr, index int) {
 func isAddressable(s *state, o *ir.Operand) bool {
 	switch o.Hirc {
 	case hirc.Temp:
-		return false
+		info, ok := s.LiveValues[toValue(o)]
+		if ok {
+			return info.Place.IsAddressable()
+		}
+		panic("isAddressable: temp is not alive")
 	case hirc.Lit, hirc.Global:
 		return false
 	case hirc.Local, hirc.Arg:
@@ -652,12 +666,12 @@ func storeLiveLocals(s *state) {
 
 func spillAllLiveInterproc(s *state, index int) {
 	for val, info := range s.LiveValues {
-		if info.Place == CalleeInterProc && val.Class == hirc.Temp {
+		lastUse := s.valueUse[val]
+		if info.Place == CalleeInterProc && lastUse > index {
 			callee := calleeInterproc(info.Num)
 			op := loadCalleeInterproc(s, callee, val, info.T, index)
 			r := reg(op.Num)
 			spillTemp(s, r, info.T, index)
-			s.FreeReg(r)
 		}
 	}
 }
@@ -683,7 +697,7 @@ func spillAllLiveRegisters(s *state, index int) {
 func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 	newOps := make([]*ir.Operand, len(ops))
 	for i, op := range ops {
-		newOps[i] = ensureImmediate(s, index, op)
+		newOps[i] = ensureImmediate(s, index, toValue(op), op.Type)
 	}
 	for _, op := range ops {
 		if op.Hirc == hirc.Local || op.Hirc == hirc.Arg || op.Hirc == hirc.Temp {
@@ -694,15 +708,13 @@ func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 }
 
 // TODO: create ensureDestination function that handles the Destination while keeping track of mutation
-// TODO: ensureImmediate should only accept value and useInfo, not the whole operand
-// TODO: create ensureOperandImmediate that accepts an operand instead
-func ensureImmediate(s *state, index int, op *ir.Operand) *ir.Operand {
-	v := toValue(op)
+
+func ensureImmediate(s *state, index int, v value, t T.Type) *ir.Operand {
 	info, ok := s.LiveValues[v]
 	if ok {
 		switch info.Place {
 		case Register:
-			return newRegOp(reg(info.Num), op.Type)
+			return newRegOp(reg(info.Num), t)
 		case Spill:
 			return loadSpill(s, v, info, index)
 		case CalleeInterProc:
@@ -716,19 +728,29 @@ func ensureImmediate(s *state, index int, op *ir.Operand) *ir.Operand {
 		}
 		panic("ensureImmediate: Invalid StorageClass")
 	}
-	switch op.Hirc {
+	switch v.Class {
 	case hirc.Temp:
-		return allocReg(s, v, op.Type, index)
+		return allocReg(s, v, t, index)
 	case hirc.Local:
-		return loadLocal(s, v, op.Type, index)
+		return loadLocal(s, v, t, index)
 	case hirc.Arg:
-		return loadArg(s, v, op.Type, index)
+		return loadArg(s, v, t, index)
 	case hirc.Global:
-		return newOp(op, mirc.Static, op.Num)
+		return newOpFromValue(v, t, mirc.Static, v.Num)
 	case hirc.Lit:
-		return newOp(op, mirc.Lit, op.Num)
+		return newOpFromValue(v, t, mirc.Lit, v.Num)
 	}
 	panic("ensureImmediate: Invalid HIRClass")
+}
+
+func newOpFromValue(v value, t T.Type, m mirc.MIRClass, num int) *ir.Operand {
+	return &ir.Operand{
+		Hirc:   v.Class,
+		Mirc:   m,
+		Type:   t,
+		Symbol: v.Symbol,
+		Num:    num,
+	}
 }
 
 func newOp(op *ir.Operand, m mirc.MIRClass, num int) *ir.Operand {
@@ -884,8 +906,8 @@ func newCallerInterprocOperand(i callerInterproc, t T.Type) *ir.Operand {
 	}
 }
 
-// can only insert free after current instruction
 // TODO: whenever freeing dirty values, see if it's necessary to store them back (mutated)
+// can only insert free after current instruction
 func freeIfNotNeeded(s *state, index int, v value) {
 	useInfo, ok := s.LiveValues[v]
 	if !ok {
@@ -894,14 +916,16 @@ func freeIfNotNeeded(s *state, index int, v value) {
 	if isNeeded(s, index, v, useInfo) {
 		return
 	}
-	if v.Class == hirc.Local {
-		r := reg(useInfo.Num)
-		storeLocal(s, r, v.Symbol, index+1)
-	}
-	if v.Class == hirc.Arg {
-		r := reg(useInfo.Num)
-		arg := callerInterproc(v.Num)
-		storeArg(s, r, arg, useInfo.T, index+1)
+	if s.bb.Out.T != FT.Return { // no need to restore in returns
+		if v.Class == hirc.Local {
+			r := reg(useInfo.Num)
+			storeLocal(s, r, v.Symbol, index+1)
+		}
+		if v.Class == hirc.Arg {
+			r := reg(useInfo.Num)
+			arg := callerInterproc(v.Num)
+			storeArg(s, r, arg, useInfo.T, index+1)
+		}
 	}
 	s.Free(v)
 }
