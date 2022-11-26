@@ -528,6 +528,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 			instr.Operands[0] = toMirc(s, source)
 			instr.Destination[0] = toMirc(s, dest)
 		} else {
+			//fmt.Println(source, dest)
 			// COPY source -> dest
 			instr.Operands[0] = toMirc(s, source)
 			instr.Destination[0] = toMirc(s, dest)
@@ -603,19 +604,11 @@ func loadArguments(s *state, instr *ir.Instr, index int) {
 func isAddressable(s *state, o *ir.Operand) bool {
 	switch o.Hirc {
 	case hirc.Temp:
-		info, ok := s.LiveValues[toValue(o)]
-		if ok {
-			return info.Place.IsAddressable()
-		}
 		return false
-	case hirc.Local, hirc.Arg:
-		info, ok := s.LiveValues[toValue(o)]
-		if ok {
-			return info.Place.IsAddressable()
-		}
-		return true
 	case hirc.Lit, hirc.Global:
 		return false
+	case hirc.Local, hirc.Arg:
+		return true
 	}
 	panic("isAddressable: wtf")
 }
@@ -700,6 +693,9 @@ func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 	instr.Operands = newOps
 }
 
+// TODO: create ensureDestination function that handles the Destination while keeping track of mutation
+// TODO: ensureImmediate should only accept value and useInfo, not the whole operand
+// TODO: create ensureOperandImmediate that accepts an operand instead
 func ensureImmediate(s *state, index int, op *ir.Operand) *ir.Operand {
 	v := toValue(op)
 	info, ok := s.LiveValues[v]
@@ -770,7 +766,6 @@ func loadLocal(s *state, v value, t T.Type, index int) *ir.Operand {
 	return rOp
 }
 
-// TODO: test loadArg
 func loadArg(s *state, v value, t T.Type, index int) *ir.Operand {
 	newOp := newCallerInterprocOperand(callerInterproc(v.Num), t)
 	rOp := allocReg(s, v, t, index)
