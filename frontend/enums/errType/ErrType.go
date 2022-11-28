@@ -37,7 +37,7 @@ const (
 	OperationBetweenUnequalTypes
 	InvalidInitForMemType
 	NameNotDefined
-	CanOnlyIndexMemory
+	CanOnlyDerefPointers
 	CanOnlyAssignLocal
 	NotAssignable
 	InvalidType
@@ -108,7 +108,7 @@ var DebugMap = map[ErrType]string{
 	InvalidDependencyCycle:         "InvalidDependencyCycle",
 	InvalidInitForMemType:          "InvalidInitForMemType",
 	NameNotDefined:                 "NameNotDefined",
-	CanOnlyIndexMemory:             "CanOnlyIndexMemory",
+	CanOnlyDerefPointers:             "CanOnlyIndexMemory",
 	CanOnlyAssignLocal:             "CanOnlyAssignLocal",
 	NotAssignable:                  "NotAssignable",
 	InvalidType:                    "InvalidType",
@@ -162,7 +162,7 @@ var ErrorCodeMap = map[ErrType]string{
 	FromImportingUnexportedName:    "S011",
 	InvalidInitForMemType:          "S012",
 	NameNotDefined:                 "S013",
-	CanOnlyIndexMemory:             "S014",
+	CanOnlyDerefPointers:             "S014",
 	CanOnlyAssignLocal:             "S015",
 	NotAssignable:                  "S016",
 	InvalidType:                    "S017",

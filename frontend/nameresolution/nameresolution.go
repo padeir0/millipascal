@@ -39,6 +39,7 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 		return &ir.Symbol{
 			T:    ST.Proc,
 			Name: name,
+			Type: T.Proc,
 			Proc: &ir.Proc{
 				Name:   name,
 				ArgMap: map[string]ir.PositionalSymbol{},
@@ -66,6 +67,7 @@ func getMemSymbol(n *ir.Node) *ir.Symbol {
 	}
 	return &ir.Symbol{
 		T:    ST.Mem,
+		Type: T.Ptr,
 		Name: getSymbolName(n),
 		Mem:  mem,
 		N:    n,

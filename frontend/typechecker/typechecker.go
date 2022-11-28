@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"mpc/frontend/ir"
 	T "mpc/frontend/enums/Type"
 	lex "mpc/frontend/enums/lexType"
 	ST "mpc/frontend/enums/symbolType"
 	"mpc/frontend/errors"
+	"mpc/frontend/ir"
 	msg "mpc/frontend/messages"
 )
 
@@ -79,12 +79,14 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 			d = &ir.Symbol{
 				Name: decl.Text,
 				N:    decl,
+				T:    ST.Arg,
 				Type: T.I64,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ir.Symbol{
 				Name: decl.Leaves[0].Text,
 				N:    decl,
+				T:    ST.Arg,
 				Type: getType(decl.Leaves[1]),
 			}
 		}
@@ -92,9 +94,9 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 		if err != nil {
 			return err
 		}
+		decl.T = d.Type
 		proc.ArgMap[d.Name] = ir.PositionalSymbol{Position: i, Symbol: d}
 		proc.Args = append(proc.Args, d)
-		decl.T = d.Type
 	}
 	return nil
 }
@@ -106,12 +108,14 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 			d = &ir.Symbol{
 				Name: decl.Text,
 				N:    decl,
+				T:    ST.Var,
 				Type: T.I64,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ir.Symbol{
 				Name: decl.Leaves[0].Text,
 				N:    decl,
+				T:    ST.Var,
 				Type: getType(decl.Leaves[1]),
 			}
 		}
@@ -119,8 +123,8 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 		if err != nil {
 			return err
 		}
-		proc.Vars[d.Name] = d
 		decl.T = d.Type
+		proc.Vars[d.Name] = d
 	}
 	return nil
 }
@@ -295,24 +299,28 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerEr
 		return err
 	}
 
-	err = checkExprList(M, proc, right)
+	err = checkExpr(M, proc, right)
 	if err != nil {
 		return err
 	}
 
-	if len(right.Leaves) == 1 &&
-		right.Leaves[0].T == T.MultiRet {
-		err := checkMultiAssignment(M, left, right.Leaves[0])
+	if right.T != T.MultiRet && len(left.Leaves) > 1 ||
+		right.T == T.MultiRet && len(left.Leaves) == 1 {
+		return msg.ErrorMismatchedAssignment(M, left)
+	}
+
+	if right.T == T.Void {
+		return msg.ErrorCannotUseVoid(M, right)
+	}
+
+	if right.T == T.MultiRet {
+		err := checkMultiAssignment(M, left, right)
 		if err != nil {
 			return err
 		}
-	} else if len(right.Leaves) != len(left.Leaves) {
-		return msg.ErrorMismatchedAssignment(M, n)
 	} else {
-		for i, assignee := range left.Leaves {
-			if assignee.T != right.Leaves[i].T {
-				return msg.ErrorMismatchedTypesInAssignment(M, assignee, right.Leaves[i])
-			}
+		if left.Leaves[0].T != right.T {
+			return msg.ErrorMismatchedTypesInAssignment(M, left, right)
 		}
 	}
 
@@ -340,8 +348,8 @@ func checkAssignees(M *ir.Module, proc *ir.Proc, left *ir.Node) *errors.Compiler
 			if err != nil {
 				return err
 			}
-		case lex.LEFTBRACKET:
-			err := checkMemAccessAssignee(M, proc, assignee)
+		case lex.AT:
+			err := checkDeref(M, proc, assignee)
 			if err != nil {
 				return err
 			}
@@ -394,8 +402,8 @@ func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *errors.Compi
 func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	switch n.Lex {
 	case lex.IDENTIFIER:
-		return checkExprID(M, proc, n)
-	case lex.INT, lex.FALSE, lex.TRUE, lex.SYSCALL:
+		return checkID(M, proc, n)
+	case lex.INT_LIT, lex.FALSE, lex.TRUE, lex.PTR_LIT:
 		n.T = termToType(n.Lex)
 		return nil
 	case lex.PLUS, lex.MINUS:
@@ -413,38 +421,13 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 			return err
 		}
 		n.T = getType(n.Leaves[0])
+		n.Leaves[0].T = n.T
 	case lex.CALL:
 		return checkCall(M, proc, n)
-	case lex.LEFTBRACKET:
-		return checkMemAccess(M, proc, n)
+	case lex.AT:
+		return checkDeref(M, proc, n)
 	case lex.NOT:
 		return unaryOp(M, proc, n, _bool, outBool)
-	}
-	return nil
-}
-
-func checkMemAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	tp := n.Leaves[1]
-	mem := n.Leaves[2]
-	local := getVarOrArg(proc, mem.Text)
-	if local != nil {
-		return msg.ErrorExpectedMemGotLocal(M, local, mem)
-	}
-	global, ok := M.Globals[mem.Text]
-	if !ok {
-		return msg.ErrorNameNotDefined(M, mem)
-	}
-	if global.T != ST.Mem {
-		return msg.ErrorExpectedMem(M, global, mem)
-	}
-	err := checkExpr(M, proc, n.Leaves[0])
-	if err != nil {
-		return err
-	}
-	if tp == nil {
-		n.T = T.I8
-	} else {
-		n.T = getType(tp)
 	}
 	return nil
 }
@@ -489,25 +472,30 @@ func checkCallProc(M *ir.Module, proc, callee *ir.Proc, n *ir.Node) *errors.Comp
 	return nil
 }
 
-func checkExprID(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	local := getVarOrArg(proc, n.Text)
+func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
+	local := getVarOrArg(proc, id.Text)
 	if local != nil {
-		n.T = local.Type
+		id.T = local.Type
 		return nil
 	}
-	return msg.ErrorNameNotDefined(M, n)
+	global, ok := M.Globals[id.Text]
+	if ok {
+		id.T = global.Type
+		return nil
+	}
+	return msg.ErrorNameNotDefined(M, id)
 }
 
 func termToType(tp lex.TkType) T.Type {
 	switch tp {
-	case lex.INT:
+	case lex.INT_LIT:
 		return T.I64
 	case lex.TRUE:
 		return T.Bool
 	case lex.FALSE:
 		return T.Bool
-	case lex.SYSCALL:
-		return T.Syscall
+	case lex.PTR_LIT:
+		return T.Ptr
 	}
 	return T.Invalid
 }
@@ -532,26 +520,27 @@ func outBool(a ...T.Type) T.Type {
 
 type class struct {
 	Description string
-	Checker func(t T.Type) bool
+	Checker     func(t T.Type) bool
 }
 
 var any = class{
 	Description: "i8, i16, i32, i64, bool or ptr",
-	Checker: T.IsAny,
+	Checker:     T.IsAny,
 }
 
 var _bool = class{
 	Description: "bool",
-	Checker: T.IsBool,
+	Checker:     T.IsBool,
 }
 
 var number = class{
-	Description: "i8, i16, i32 or i64",
-	Checker: T.IsNumber,
-}  
-var ptr = class {
+	Description: "i8, i16, i32, i64 or ptr",
+	Checker:     T.IsNumber,
+}
+
+var ptr = class{
 	Description: "ptr",
-	Checker: T.IsPtr,
+	Checker:     T.IsPtr,
 }
 
 // a op b where type(a) = type(b) and type(a op b) = deriver(type(a), type(b))
@@ -600,9 +589,6 @@ func checkExprType(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	if n.T == T.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
-	if n.T == T.Syscall {
-		return msg.ErrorCannotUseSyscallAsValue(M, n)
-	}
 	if n.T == T.Void {
 		return msg.ErrorCannotUseVoid(M, n)
 	}
@@ -636,31 +622,18 @@ func unaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *er
 	return nil
 }
 
-func checkMemAccessAssignee(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	id := n.Leaves[0]
-	if id.Lex != lex.IDENTIFIER {
-		return msg.ErrorBadIndex(M, id)
-	}
+func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	exp := n.Leaves[1]
+	t := n.Leaves[0]
+	t.T = getType(t)
+	n.T = t.T
 
-	local := getVarOrArg(proc, id.Text)
-	if local != nil {
-		return msg.ErrorCannotIndexLocal(M, local, n)
-	}
-
-	global, ok := M.Globals[id.Text]
-	if !ok {
-		return msg.ErrorNameNotDefined(M, n)
-	}
-
-	if global.T != ST.Mem {
-		return msg.ErrorCanOnlyIndexMemory(M, global, n)
-	}
-
-	err := checkExpr(M, proc, n.Leaves[1])
+	err := checkExpr(M, proc, exp)
 	if err != nil {
 		return err
 	}
-
-	n.T = T.I8
+	if exp.T != T.Ptr {
+		return msg.ErrorBadDeref(M, n)
+	}
 	return nil
 }

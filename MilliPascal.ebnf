@@ -10,9 +10,8 @@ keywords := var|proc|begin|end
 	  |while|if|else|elseif
           |or|and|not|memory
           |i8|i16|i32|i64|bool|ptr
-          |true|false|syscall.
+          |true|false.
 operators := , | : | \( | \) | \[ | \] | = | == | != | > | >= | < | <= | + | - | * | / | %.
-
 
 -- Parser:
 Module := {Symbol}.
@@ -22,7 +21,7 @@ Symbol := Procedure
 Memory := 'memory' id int.
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
-Args := '(' [DeclList] ')'.
+Args := '[' [DeclList] ']'.
 Vars := 'var' DeclList.
 Rets := type {',' type} [','].
 
@@ -46,9 +45,7 @@ If   := 'if' Expr Block {ElseIf} [Else] 'if'.
 ElseIf := 'elseif' Expr Block.
 Else := 'else' Block
 
-Set := 'set' Assignees '=' ExprList.
-Assignees := Assignee {',' Assignee} [','].
-Assignee := id [Indexing].
+Set := 'set' ExprList '=' Expr.
 
 Return := 'return' ExprList.
 
@@ -65,12 +62,12 @@ UnaryPrefix := {Prefix} UnarySuffix.
 UnarySuffix := Factor {Suffix}.
 
 Prefix := 'not' | '+' | '-'.
-Suffix  := Indexing
-	| Conversion
+Suffix := Conversion
+	| Deref
 	| Call.
-Indexing := '[' [Annot] Expr ']'.
 Conversion := Annot.
-Call := '(' [ExprList] ')'.
+Call := '[' [ExprList] ']'.
+Deref := '@' type.
 
 Factor := Terminal
 	| NestedExpr.
@@ -78,4 +75,4 @@ NestedExpr := '(' Expr ')'.
 Terminal := id
           | true | false
           | int
-          | 'syscall'.
+	  | ptr.

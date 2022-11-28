@@ -442,8 +442,7 @@ func allocBlock(s *state) {
 		case IT.Add, IT.Sub, IT.Mult, IT.Div, IT.Rem,
 			IT.Eq, IT.Diff, IT.Less,
 			IT.More, IT.LessEq, IT.MoreEq,
-			IT.Or, IT.And,
-			IT.Offset:
+			IT.Or, IT.And:
 			allocBinary(s, instr, i)
 		case IT.Not,
 			IT.UnaryMinus, IT.UnaryPlus,

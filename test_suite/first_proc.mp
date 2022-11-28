@@ -1,5 +1,5 @@
 proc P
-	(arg1, arg2, arg3)
+	[arg1, arg2, arg3]
 	i64, i64, i64
 var a, b, c
 begin

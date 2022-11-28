@@ -162,22 +162,15 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 
 func genSet(M *ir.Module, c *context, set *ir.Node) {
 	assignees := set.Leaves[0]
-	exprlist := set.Leaves[1]
+	expr := set.Leaves[1]
 
-	if len(assignees.Leaves) > 1 && len(exprlist.Leaves) > 1 {
-		genMultiAssign(M, c, assignees, exprlist)
+	if len(assignees.Leaves) > 1 && len(expr.Leaves) == 1 {
+		genMultiProcAssign(M, c, assignees, expr.Leaves[0])
 		return
 	}
 
-	if len(assignees.Leaves) > 1 && len(exprlist.Leaves) == 1 {
-		genMultiProcAssign(M, c, assignees, exprlist.Leaves[0])
-		return
-	}
-
-	if len(assignees.Leaves) == 1 && len(exprlist.Leaves) == 1 {
-		genSingleAssign(M, c, assignees.Leaves[0], exprlist.Leaves[0])
-		return
-	}
+	genSingleAssign(M, c, assignees.Leaves[0], expr)
+	return
 }
 
 func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
@@ -247,20 +240,10 @@ func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	c.CurrBlock.AddInstr(loadRet)
 }
 
+// TODO: fix this
 func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
-	basePtrOp := genExprID(M, c, ass.Leaves[2]) // CHECK
-	offsetOp := genExpr(M, c, ass.Leaves[0])
-
-	newPtr := c.AllocTemp(T.Ptr)
-	offset := RIU.Offset(basePtrOp, offsetOp, newPtr)
-	c.CurrBlock.AddInstr(offset)
-
-	temp := c.AllocTemp(ass.T)
-	// TODO: try to avoid this COPY instruction
-	loadRet := RIU.Copy(op, temp)
-	c.CurrBlock.AddInstr(loadRet)
-
-	loadPtr := RIU.StorePtr(temp, newPtr)
+	ptrOp := genExpr(M, c, ass.Leaves[1]) // CHECK
+	loadPtr := RIU.StorePtr(op, ptrOp)
 	c.CurrBlock.AddInstr(loadPtr)
 }
 
@@ -277,7 +260,7 @@ func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 		genNormalAssign(M, c, assignee, expr)
 		return
 	}
-	genMemAssign(M, c, assignee, expr)
+	genDerefAssign(M, c, assignee, expr)
 	return
 }
 
@@ -289,19 +272,12 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
 	c.CurrBlock.AddInstr(store)
 }
 
-func genMemAssign(M *ir.Module, c *context, assignee, expr *ir.Node) {
-	assID := assignee.Leaves[0]
-	indexExp := assignee.Leaves[1]
+func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node) {
+	leftExpr := left.Leaves[1]
+	leftOp := genExpr(M, c, leftExpr)
+	rightOp := genExpr(M, c, right)
 
-	indexOp := genExpr(M, c, indexExp)
-	idOp := genExprID(M, c, assID)
-	expOp := genExpr(M, c, expr)
-
-	newPtr := c.AllocTemp(T.Ptr)
-	offset := RIU.Offset(idOp, indexOp, newPtr)
-	c.CurrBlock.AddInstr(offset)
-
-	store := RIU.StorePtr(expOp, newPtr)
+	store := RIU.StorePtr(rightOp, leftOp)
 	c.CurrBlock.AddInstr(store)
 }
 
@@ -309,8 +285,12 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 	switch exp.Lex {
 	case lex.IDENTIFIER:
 		return genExprID(M, c, exp)
-	case lex.INT, lex.FALSE, lex.TRUE:
-		return genLit(M, c, exp)
+	case lex.FALSE, lex.TRUE:
+		return genBoolLit(M, c, exp)
+	case lex.INT_LIT:
+		return genIntLit(M, c, exp)
+	case lex.PTR_LIT:
+		return genPtrLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
 		return genPlusMinus(M, c, exp)
 	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
@@ -322,8 +302,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 		return genConversion(M, c, exp)
 	case lex.CALL:
 		return genCall(M, c, exp)[0]
-	case lex.LEFTBRACKET:
-		return genMemAccess(M, c, exp)
+	case lex.AT:
+		return genDeref(M, c, exp)
 	case lex.NOT:
 		return genUnaryOp(M, c, exp)
 	}
@@ -344,25 +324,14 @@ func genCall(M *ir.Module, c *context, call *ir.Node) []*ir.Operand {
 	return retOps
 }
 
-func genMemAccess(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
-	exp := memAccess.Leaves[0]
-	t := memAccess.Leaves[1]
-	mem := memAccess.Leaves[2]
+func genDeref(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
+	t := memAccess.Leaves[0].T
+	exp := memAccess.Leaves[1]
 
-	basePtrOp := genExprID(M, c, mem)
-	offsetOp := genExpr(M, c, exp)
+	ptrOp := genExpr(M, c, exp)
 
-	newPtr := c.AllocTemp(T.Ptr)
-	offset := RIU.Offset(basePtrOp, offsetOp, newPtr)
-	c.CurrBlock.AddInstr(offset)
-
-	instrT := T.I8
-	if t != nil {
-		instrT = t.T
-	}
-
-	dest := c.AllocTemp(instrT)
-	loadPtr := RIU.LoadPtr(newPtr, dest)
+	dest := c.AllocTemp(t)
+	loadPtr := RIU.LoadPtr(ptrOp, dest)
 	c.CurrBlock.AddInstr(loadPtr)
 
 	return dest
@@ -419,10 +388,35 @@ func genConversion(M *ir.Module, c *context, colon *ir.Node) *ir.Operand {
 	return dest
 }
 
-func genLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+func genIntLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
 	value, err := strconv.Atoi(lit.Text)
 	if err != nil {
 		panic(err)
+	}
+	return &ir.Operand{
+		Hirc: hirc.Lit,
+		Type: lit.T,
+		Num:  value,
+	}
+}
+
+func genPtrLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+	numPart := lit.Text[0:len(lit.Text)-1]
+	value, err := strconv.Atoi(numPart)
+	if err != nil {
+		panic(err)
+	}
+	return &ir.Operand{
+		Hirc: hirc.Lit,
+		Type: lit.T,
+		Num:  value,
+	}
+}
+
+func genBoolLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+	value := 0
+	if lit.Lex == lex.TRUE {
+		value = 1
 	}
 	return &ir.Operand{
 		Hirc: hirc.Lit,

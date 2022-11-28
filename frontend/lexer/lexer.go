@@ -248,6 +248,8 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.PLUS
 	case '-':
 		tp = T.MINUS
+	case '@':
+		tp = T.AT
 	case '/':
 		tp = T.DIVISION
 	case '*':
@@ -336,7 +338,15 @@ func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	return GenNode(st, T.INT), nil
+	r, err := nextRune(st)
+	if err != nil {
+		return nil, err
+	}
+	if r == 'p' {
+		return GenNode(st, T.PTR_LIT), nil
+	}
+	unread(st)
+	return GenNode(st, T.INT_LIT), nil
 }
 
 func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
@@ -379,8 +389,6 @@ func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.END
 	case "set":
 		tp = T.SET
-	case "syscall":
-		tp = T.SYSCALL
 	case "i8":
 		tp = T.I8
 	case "i16":

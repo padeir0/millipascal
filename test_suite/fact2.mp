@@ -1,4 +1,4 @@
-proc fibb(n) i64
+proc fibb[n] i64
 var result
 begin
 	set result = 1

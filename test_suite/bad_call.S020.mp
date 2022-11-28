@@ -1,9 +1,9 @@
-proc P(a:i32) i32
+proc P[a:i32] i32
 begin
 	return a
 end proc
 
 proc B
 begin
-	P(1)
+	P[1]
 end proc

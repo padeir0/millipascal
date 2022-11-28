@@ -26,19 +26,6 @@ func ErrorExportingUndefName(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return NewSemanticError(M, et.ExportingUndefName, ni)
 }
 
-/*
-func ErrorInvalidDependencyCycle(M *ast.Module, prev []*ast.Dependency, dep *ast.Dependency) *errors.CompilerError {
-	ninfoList := []*NodeInfo{}
-	for _, item := range prev {
-		ni := NewNodeInfo(item.Source, "references")
-		ninfoList = append(ninfoList, ni)
-	}
-	ni := NewNodeInfo(dep.Source, "forms a invalid cycle")
-	ninfoList = append(ninfoList, ni)
-	return NewSemanticError(M, et.InvalidDependencyCycle, ninfoList...)
-}
-*/
-
 func ErrorOperationBetweenUnequalTypes(M *ir.Module, op *ir.Node) *errors.CompilerError {
 	left := op.Leaves[0]
 	right := op.Leaves[1]
@@ -70,21 +57,9 @@ func ErrorNameNotDefined(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return NewSemanticError(M, et.NameNotDefined, info)
 }
 
-func ErrorCanOnlyIndexMemory(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "can only index memory")
-	source := NewNodeInfo(global.N, "name is: " + global.T.String())
-	return NewSemanticError(M, et.CanOnlyIndexMemory, info, source)
-}
-
-func ErrorCannotIndexLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "can only index memory")
-	source := NewNodeInfo(local.N, "name is local " + local.Type.String())
-	return NewSemanticError(M, et.CanOnlyIndexMemory, info, source)
-}
-
-func ErrorBadIndex(M *ir.Module, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "can only index memory")
-	return NewSemanticError(M, et.CanOnlyIndexMemory, info)
+func ErrorBadDeref(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "can only index pointers")
+	return NewSemanticError(M, et.CanOnlyDerefPointers, info)
 }
 
 func ErrorCannotAssignGlobal(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
@@ -203,11 +178,6 @@ func ErrorMismatchedAssignment(M *ir.Module, assignee *ir.Node) *errors.Compiler
 func ErrorInvalidClassForExpr(M *ir.Module, n *ir.Node, descr string) *errors.CompilerError {
 	info := NewNodeInfo(n, "invalid type "+n.T.String()+", expected "+descr)
 	return NewSemanticError(M, et.InvalidClassforExpr, info)
-}
-
-func ErrorCannotUseSyscallAsValue(M *ir.Module, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "invalid use of syscall")
-	return NewSemanticError(M, et.CannotUseSyscallInExpr, info)
 }
 
 func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *errors.CompilerError {

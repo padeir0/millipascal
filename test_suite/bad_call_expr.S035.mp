@@ -1,7 +1,7 @@
 proc main
 var a
 begin
-	set a = nothing();
+	set a = nothing[];
 end proc
 
 proc nothing

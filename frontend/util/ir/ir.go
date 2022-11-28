@@ -23,15 +23,6 @@ func Store(source, destination *ir.Operand) *ir.Instr {
 	}
 }
 
-func Offset(basePtr, amount, newPtr *ir.Operand) *ir.Instr {
-	return &ir.Instr {
-		T: IT.Offset,
-		Type: amount.Type,
-		Operands: []*ir.Operand{basePtr, amount},
-		Destination: []*ir.Operand{newPtr},
-	}
-}
-
 func StorePtr(source, ptr *ir.Operand) *ir.Instr {
 	return &ir.Instr{
 		T: IT.StorePtr,

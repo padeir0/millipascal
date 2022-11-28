@@ -109,11 +109,11 @@ type Symbol struct {
 func (v *Symbol) String() string {
 	switch v.T {
 	case ST.Proc:
-		return "proc " + v.Name
+		return "proc " + v.Name 
 	case ST.Var:
-		return "var " + v.Name
+		return "var " + v.Name + ":" + v.Type.String()
 	case ST.Arg:
-		return "arg " + v.Name
+		return "arg " + v.Name + ":" + v.Type.String()
 	case ST.Mem:
 		return "mem " + v.Name
 	default:
@@ -141,6 +141,14 @@ type Proc struct {
 func (p *Proc) StrArgs() string {
 	output := []string{}
 	for _, decl := range p.Args {
+		output = append(output, decl.String())
+	}
+	return strings.Join(output, ", ")
+}
+
+func (p *Proc) StrVars() string {
+	output := []string{}
+	for _, decl := range p.Vars {
 		output = append(output, decl.String())
 	}
 	return strings.Join(output, ", ")

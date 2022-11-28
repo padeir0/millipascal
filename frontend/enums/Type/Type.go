@@ -18,8 +18,6 @@ func (t Type) String() string {
 		return "bool"
 	case Ptr:
 		return "ptr"
-	case Syscall:
-		return "syscall"
 	case Proc:
 		return "Proc"
 	case MultiRet:
@@ -42,7 +40,6 @@ const (
 
 	MultiRet
 	Proc
-	Syscall
 	Void
 )
 
@@ -63,7 +60,8 @@ func IsNumber(t Type) bool {
 	return t == I8 ||
 		t == I16 ||
 		t == I32 ||
-		t == I64
+		t == I64 ||
+		t == Ptr
 }
 
 func IsPtr(t Type) bool {

@@ -8,11 +8,13 @@ const (
 	UNDEFINED TkType = iota
 
 	IDENTIFIER
-	INT
+	INT_LIT
+	PTR_LIT
 
 	// symbols
 	PLUS
 	MINUS
+	AT
 	DIVISION
 	MULTIPLICATION
 	REMAINDER
@@ -49,7 +51,6 @@ const (
 	MEMORY
 	BEGIN
 	END
-	SYSCALL
 	SET
 
 	I8
@@ -68,7 +69,6 @@ const (
 	ARRAYACCESS
 	CALL
 	EXPRLIST
-	ASSIGNEES
 	ELSEIFCHAIN
 
 	EOF
@@ -78,11 +78,13 @@ var tktostr = map[TkType]string{
 	UNDEFINED: "\033[0;31m?\033[0m",
 
 	IDENTIFIER: "IDENTIFIER",
-	INT:        "INT",
+	INT_LIT:    "INT_LIT",
+	PTR_LIT:    "PTR_LIT",
 
 	// symbols:
 	PLUS:           "PLUS",
 	MINUS:          "MINUS",
+	AT:             "AT",
 	DIVISION:       "DIVISION",
 	MULTIPLICATION: "MULTIPLICATION",
 	REMAINDER:      "REMAINDER",
@@ -103,23 +105,22 @@ var tktostr = map[TkType]string{
 	COMMA:          "COMMA",
 
 	// keyword: "keyword"
-	VAR:     "VARS",
-	TRUE:    "TRUE",
-	FALSE:   "FALSE",
-	AND:     "AND",
-	OR:      "OR",
-	NOT:     "NOT",
-	IF:      "IF",
-	ELSE:    "ELSE",
-	WHILE:   "WHILE",
-	RETURN:  "RETURN",
-	ELSEIF:  "ELSEIF",
-	PROC:    "PROC",
-	MEMORY:  "MEMORY",
-	BEGIN:   "BEGIN",
-	END:     "END",
-	SYSCALL: "SYSCALL",
-	SET:     "SET",
+	VAR:    "VARS",
+	TRUE:   "TRUE",
+	FALSE:  "FALSE",
+	AND:    "AND",
+	OR:     "OR",
+	NOT:    "NOT",
+	IF:     "IF",
+	ELSE:   "ELSE",
+	WHILE:  "WHILE",
+	RETURN: "RETURN",
+	ELSEIF: "ELSEIF",
+	PROC:   "PROC",
+	MEMORY: "MEMORY",
+	BEGIN:  "BEGIN",
+	END:    "END",
+	SET:    "SET",
 
 	I8:   "I8",
 	I16:  "I16",
@@ -136,7 +137,6 @@ var tktostr = map[TkType]string{
 	ARRAYACCESS: "ARRAYACCESS",
 	CALL:        "CALL",
 	EXPRLIST:    "EXPRLIST",
-	ASSIGNEES:   "ASSIGNEES",
 	ELSEIFCHAIN: "ELSEIFCHAIN",
 
 	EOF: "EOF",
@@ -160,11 +160,13 @@ func FmtTypes(t ...TkType) string {
 
 var tktosrc = map[TkType]string{
 	UNDEFINED:  "\033[0;31m?\033[0m",
-	INT:        "integer literal",
+	INT_LIT:    "integer literal",
+	PTR_LIT:    "pointer literal",
 	IDENTIFIER: "identifier",
 
 	PLUS:           "+",
 	MINUS:          "-",
+	AT:             "@",
 	DIVISION:       "/",
 	MULTIPLICATION: "*",
 	REMAINDER:      "%",
@@ -184,29 +186,28 @@ var tktosrc = map[TkType]string{
 	DIFFERENT:      "!=",
 	ASSIGNMENT:     "=",
 
-	VAR:     "vars",
-	TRUE:    "true",
-	FALSE:   "false",
-	AND:     "and",
-	OR:      "or",
-	NOT:     "not",
-	IF:      "if",
-	ELSE:    "else",
-	WHILE:   "while",
-	RETURN:  "return",
-	ELSEIF:  "elseif",
-	PROC:    "proc",
-	MEMORY:  "memory",
-	BEGIN:   "begin",
-	END:     "end",
-	SET:     "set",
-	SYSCALL: "syscall",
-	I8:      "i8",
-	I16:     "i16",
-	I32:     "i32",
-	I64:     "i64",
-	PTR:     "ptr",
-	BOOL:    "bool",
+	VAR:    "vars",
+	TRUE:   "true",
+	FALSE:  "false",
+	AND:    "and",
+	OR:     "or",
+	NOT:    "not",
+	IF:     "if",
+	ELSE:   "else",
+	WHILE:  "while",
+	RETURN: "return",
+	ELSEIF: "elseif",
+	PROC:   "proc",
+	MEMORY: "memory",
+	BEGIN:  "begin",
+	END:    "end",
+	SET:    "set",
+	I8:     "i8",
+	I16:    "i16",
+	I32:    "i32",
+	I64:    "i64",
+	PTR:    "ptr",
+	BOOL:   "bool",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
@@ -215,7 +216,6 @@ var tktosrc = map[TkType]string{
 	ARRAYACCESS: "array access",
 	CALL:        "procedure call",
 	EXPRLIST:    "expression list",
-	ASSIGNEES:   "assignees",
 	ELSEIFCHAIN: "else if chain",
 
 	EOF: "EOF",

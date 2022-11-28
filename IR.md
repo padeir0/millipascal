@@ -17,11 +17,11 @@ HIR's primary concern is regarding value flow between operations.
 
 While in HIR, operands can have the following classes:
 
-	temp	lit	local	global
+	temp	lit	local	global arg
 
 And are grouped as:
-	Operable = temp|lit|local|global
-	Result   = temp|local
+	Operable = temp|lit|local|global|arg
+	Result   = temp|local|arg
  
 #### TEMP
 
@@ -36,8 +36,12 @@ Literals are just numbers, nothing fancy.
 
 #### LOCAL
 
-Locals represent values bound inside a procedure.
-They represent both declared variables and arguments
+Locals represent values bound inside a procedure
+and are considered dirty values.
+
+#### ARG
+
+ARGs represent values passed as parameters for a procedure
 and are considered dirty values.
 
 #### GLOBAL
@@ -55,7 +59,7 @@ And are grouped as:
 
 	Any    = i8|i16|i32|i64|ptr|bool
 	NonPtr = i8|i16|i32|i64|bool
-	Number = i8|i16|i32|i64
+	Number = i8|i16|i32|i64|ptr
 	
 The names of groups start with a capital letter to be differentiable from
 single types.
@@ -86,7 +90,6 @@ single types.
 
 	Convert:T of NonPtr [NonPtr'Operable] -> T'Result
 
-	Offset:T of Number [ptr'Operable, T'Operable] -> ptr'Result
 	LoadPtr:T of Any  [ptr'Operable] -> T'Result
 	StorePtr:T of Any [T'Operable], ptr'Operable
 
@@ -108,15 +111,16 @@ between procedures occur.
 
 ### MIR Classes
 
-There are 6 types of storage classes:
+There are 7 types of storage classes:
 
-	register	spill		callee_interproc
-	local		lit		static
+	register		spill			static
+	local			lit
+	caller_interproc	callee_interproc
 	
 They are grouped as:
 
 	Immediate = register|lit|static
-	Addressable = spill|callee_interproc|local
+	Addressable = spill|callee_interproc|local|caller_interproc
 
 Interprocs and Registers are volatile, they can be corrupted on
 procedure calls, so if a value that is currently residing in
@@ -133,8 +137,8 @@ perform most operations. They are volatile between procedure calls.
 
 #### INTERPROC
 
-Interproc areas are corruptible by the Callee procedure simply
-because they are addressable by the Callee. The caller procedure
+Interproc areas are corruptible by the Caller/Callee procedure simply
+because they are addressable by the Caller/Callee. The caller procedure
 cannot bet on the Interproc areas being safe, since they may be
 reused to return values.
 
@@ -208,8 +212,7 @@ to be differentiable.
 	UnaryPlus
 
 	Convert:T of NonPtr [NonPtr'Immediate] -> T'register
-
-	Offset:T of Number [ptr'Immediate, T'Immediate] -> ptr'register
+	
 	LoadPtr:T of Any [ptr'Immediate] -> T'register
 	StorePtr:T of Any [T'Immediate], ptr'Immediate
 
@@ -219,9 +222,6 @@ to be differentiable.
 	Copy:T of Any [T'Immediate] -> T'register
 
 	Call [proc'proc]
-
-	IncFrame [Number'lit]
-	DecFrame [Number'lit]
 ```
 
 TODO: LIR spec for x86

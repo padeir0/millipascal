@@ -50,14 +50,8 @@ func (i InstrType) String() string {
 		return "loadptr"
 	case StorePtr:
 		return "storeptr"
-	case Offset:
-		return "offset"
 	case Call:
 		return "call"
-	case IncFrame:
-		return "incframe"
-	case DecFrame:
-		return "decframe"
 	}
 	panic("Unstringified InstrType: " + strconv.Itoa(int(i)))
 }
@@ -88,7 +82,6 @@ const (
 
 	Convert
 
-	Offset
 	LoadPtr
 	StorePtr
 
@@ -98,7 +91,4 @@ const (
 	Copy
 
 	Call
-
-	IncFrame
-	DecFrame
 )

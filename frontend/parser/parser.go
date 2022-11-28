@@ -1,10 +1,10 @@
 package parser
 
 import (
-	"mpc/frontend/ir"
+	et "mpc/frontend/enums/errType"
 	T "mpc/frontend/enums/lexType"
 	"mpc/frontend/errors"
-	et "mpc/frontend/enums/errType"
+	"mpc/frontend/ir"
 	. "mpc/frontend/lexer"
 	. "mpc/frontend/util/parser"
 )
@@ -36,6 +36,7 @@ func module(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 	return n, nil
 }
+
 // Symbol := Procedure | Memory.
 func symbol(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	var n *ir.Node
@@ -61,7 +62,7 @@ func memDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	size, err := Expect(s, T.INT)
+	size, err := Expect(s, T.INT_LIT)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func procDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	if s.Word.Lex == T.LEFTPAREN {
+	if s.Word.Lex == T.LEFTBRACKET {
 		args, err = procArgs(s)
 		if err != nil {
 			return nil, err
@@ -109,27 +110,27 @@ func procDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return kw, nil
 }
 
-// Args := '(' [DeclList] ')'.
+// Args := '[' [DeclList] ']'.
 func procArgs(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "Args")
-	_, err := Expect(s, T.LEFTPAREN)
+	_, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
 		return nil, err
 	}
 
-	if s.Word.Lex != T.RIGHTPAREN {
+	if s.Word.Lex != T.RIGHTBRACKET {
 		n, err := declList(s)
 		if err != nil {
 			return nil, err
 		}
-		_, err = Expect(s, T.RIGHTPAREN)
+		_, err = Expect(s, T.RIGHTBRACKET)
 		if err != nil {
 			return nil, err
 		}
 		return n, nil
 	}
 
-	_, err = Expect(s, T.RIGHTPAREN)
+	_, err = Expect(s, T.RIGHTBRACKET)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +147,7 @@ func procRets(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if rets == nil {
 		return nil, nil
 	}
-	return &ir.Node {
+	return &ir.Node{
 		Lex:    T.PROCDECLS,
 		Leaves: rets,
 	}, nil
@@ -269,14 +270,14 @@ func code(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 }
 
-// Set := 'set' Assignees '=' ExprList.
+// Set := 'set' ExprList '=' Expr.
 func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "Set")
 	kw, err := Expect(s, T.SET)
 	if err != nil {
 		return nil, err
 	}
-	ass, err := assignees(s)
+	ass, err := exprList(s)
 	if err != nil {
 		return nil, err
 	}
@@ -284,17 +285,17 @@ func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	expList, err := ExpectProd(s, exprList, "expression list")
+	exp, err := ExpectProd(s, expr, "expression")
 	if err != nil {
 		return nil, err
 	}
-	kw.Leaves = []*ir.Node{ass, expList}
+	kw.Leaves = []*ir.Node{ass, exp}
 	return kw, nil
 }
 
-// Assignees := Assignee {',' Assignee} [','].
-func assignees(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	asses, err := RepeatList(s, assignee, isComma)
+// ExprList := Expr {',' Expr} [','].
+func exprList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	asses, err := RepeatList(s, expr, isComma)
 	if err != nil {
 		return nil, err
 	}
@@ -305,26 +306,9 @@ func assignees(s *Lexer) (*ir.Node, *errors.CompilerError) {
 		}
 	}
 	return &ir.Node{
-		Lex: T.ASSIGNEES,
+		Lex:    T.EXPRLIST,
 		Leaves: asses,
 	}, nil
-}
-
-// Assignee := id [Indexing].
-func assignee(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	id, err := Expect(s, T.IDENTIFIER)
-	if err != nil {
-		return nil, err
-	}
-	if s.Word.Lex == T.LEFTBRACKET {
-		n, err := indexing(s)
-		if err != nil {
-			return nil, err
-		}
-		n.Leaves = []*ir.Node{id, n.Leaves[0]}
-		return n, nil
-	}
-	return id, nil
 }
 
 // Return := 'return' [ExprList].
@@ -334,7 +318,7 @@ func _return(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	exp, err := RepeatList(s, expr, isComma)// optional
+	exp, err := RepeatList(s, expr, isComma) // optional
 	if err != nil {
 		return nil, err
 	}
@@ -418,57 +402,44 @@ func unarySuffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 	if suFirst != nil {
 		AddLeaf(suFirst, fact)
-		fact= suLast
+		fact = suLast
 	}
 	return fact, nil
 }
 
 /*
-Suffix  := Indexing
-	| Conversion
+Suffix  := Conversion
+	| Deref
 	| Call.
 */
 func suffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	switch s.Word.Lex {
 	case T.LEFTBRACKET:
-		return indexing(s)
-	case T.LEFTPAREN:
 		return call(s)
+	case T.AT:
+		return Deref(s)
 	case T.COLON:
 		return annot(s)
 	}
 	return nil, nil
 }
 
-// Indexing := '[' [Annot] Expr ']'.
-func indexing(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	n, err := Expect(s, T.LEFTBRACKET)
+func Deref(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	at, err := Expect(s, T.AT)
 	if err != nil {
 		return nil, err
 	}
-	var t *ir.Node
-	if s.Word.Lex == T.COLON {
-		a, err := annot(s)
-		if err != nil {
-			return nil, nil
-		}
-		t = a.Leaves[0]
-	}
-	exp, err := ExpectProd(s, expr, "expression")
+	t, err := ExpectType(s)
 	if err != nil {
 		return nil, err
 	}
-	_, err = Expect(s, T.RIGHTBRACKET)
-	if err != nil {
-		return nil, err
-	}
-	n.Leaves = []*ir.Node{exp, t}
-	return n, nil
+	at.Leaves = []*ir.Node{t}
+	return at, nil
 }
 
-// Call = "(" [ExprList] ")".
+// Call = "[" [ExprList] "]".
 func call(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	_, err := Expect(s, T.LEFTPAREN)
+	_, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
 		return nil, err
 	}
@@ -479,32 +450,18 @@ func call(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 	if explist == nil {
 		explist = &ir.Node{
-			Lex: T.EXPRLIST,
+			Lex:    T.EXPRLIST,
 			Leaves: []*ir.Node{},
 		}
 	}
 
-	_, err = Expect(s, T.RIGHTPAREN)
+	_, err = Expect(s, T.RIGHTBRACKET)
 	if err != nil {
 		return nil, err
 	}
 	return &ir.Node{
 		Lex:    T.CALL,
 		Leaves: []*ir.Node{explist},
-	}, nil
-}
-
-func exprList(s *Lexer)(*ir.Node, *errors.CompilerError)  {
-	explist, err := RepeatList(s, expr, isComma)
-	if err != nil {
-		return nil, err
-	}
-	if explist == nil {
-		return nil, nil
-	}
-	return &ir.Node{
-		Lex: T.EXPRLIST,
-		Leaves: explist,
 	}, nil
 }
 
@@ -531,7 +488,7 @@ func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "factor")
 	switch s.Word.Lex {
 	case T.LEFTPAREN:
-		_, err :=Consume(s)
+		_, err := Consume(s)
 		if err != nil {
 			return nil, err
 		}
@@ -544,7 +501,7 @@ func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
 			return nil, err
 		}
 		return n, nil
-	case T.INT, T.TRUE, T.FALSE, T.IDENTIFIER, T.SYSCALL:
+	case T.INT_LIT, T.TRUE, T.FALSE, T.IDENTIFIER, T.PTR_LIT:
 		return Consume(s)
 	}
 	return nil, nil
@@ -572,7 +529,7 @@ func block(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // CodeSemicolon := Code [';'].
-func codeSemicolon(s *Lexer)(*ir.Node, *errors.CompilerError) {
+func codeSemicolon(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	n, err := code(s)
 	if err != nil {
 		return nil, err
@@ -643,8 +600,8 @@ func elseifchain(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	return &ir.Node {
-		Lex: T.ELSEIFCHAIN,
+	return &ir.Node{
+		Lex:    T.ELSEIFCHAIN,
 		Leaves: elses,
 	}, nil
 }

@@ -236,8 +236,6 @@ func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 		return checkUnaryArith(instr)
 	case IT.Convert:
 		return checkConvert(instr)
-	case IT.Offset:
-		return checkOffset(instr)
 	case IT.LoadPtr:
 		return checkLoadPtr(instr)
 	case IT.StorePtr:
@@ -337,19 +335,6 @@ func checkConvert(instr *ir.Instr) *errors.CompilerError {
 		return err
 	}
 	return checkUnary(instr, nonPtr_imme, nonPtr_reg)
-}
-
-func checkOffset(instr *ir.Instr) *errors.CompilerError {
-	err := checkForm(instr, 2, 1)
-	if err != nil {
-		return err
-	}
-	b := instr.Operands[1]
-	err = checkEqual(instr, instr.Type, b.Type)
-	if err != nil {
-		return err
-	}
-	return checkBinary(instr, ptr_imme, num_imme, ptr_reg)
 }
 
 func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
