@@ -350,7 +350,7 @@ func calcSpill(s *state) {
 	}
 }
 
-// TODO: transformReturn should look if the value is already where it needs to be (in the respective Caller Interproc)
+// TODO: OPT: transformReturn should look if the value is already where it needs to be (in the respective Caller Interproc)
 func transformReturn(s *state) {
 	type RetVal struct {
 		Index int
@@ -550,11 +550,11 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 // ret1 is assumed to be in interproc1
 // retN is assumed to be in interprocN
 func allocCall(s *state, instr *ir.Instr, index int) {
-	// TODO: spillAllLiveInterproc should only spill the ones being corrupted
+	// TODO: OPT: spillAllLiveInterproc should only spill the ones being corrupted
 	spillAllLiveInterproc(s, index)
 	loadArguments(s, instr, index)
 	spillAllLiveRegisters(s, index)
-	// TODO: clearVolatiles should only clear the ones being corrupted
+	// TODO: OPT: clearVolatiles should only clear the ones being corrupted
 	clearVolatiles(s, instr.Operands[0].Symbol.Proc)
 
 	for i, dest := range instr.Destination {
@@ -706,7 +706,7 @@ func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 	instr.Operands = newOps
 }
 
-// TODO: create ensureDestination function that handles the Destination while keeping track of mutation
+// TODO: OPT: create ensureDestination function that handles the Destination while keeping track of mutation
 
 func ensureImmediate(s *state, index int, v value, t T.Type) *ir.Operand {
 	info, ok := s.LiveValues[v]
@@ -905,7 +905,7 @@ func newCallerInterprocOperand(i callerInterproc, t T.Type) *ir.Operand {
 	}
 }
 
-// TODO: whenever freeing dirty values, see if it's necessary to store them back (mutated)
+// TODO: OPT: whenever freeing dirty values, see if it's necessary to store them back (mutated)
 // can only insert free after current instruction
 func freeIfNotNeeded(s *state, index int, v value) {
 	useInfo, ok := s.LiveValues[v]

@@ -489,7 +489,7 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	case mirc.CallerInterproc:
 		s.CallerInterproc.Store(dest.Num, source)
 	case mirc.Local:
-		// TODO: should it do nothing?
+		// TODO: BUG: should it do nothing?
 	}
 	return nil
 }
