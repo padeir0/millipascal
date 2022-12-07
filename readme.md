@@ -120,13 +120,14 @@ works, this language is just a thin wrap over assembly.
 
 Missing features that will be added in the future:
 
-  [ ] String literals: `memory hello "Hello, world!\n"`
-  [ ] `.size` and `.addr` properties for `memory` declarations
-  [ ] `exit` statement: `exit 0`
-  [ ] first-class procedures and procedure types: `proc[add:proc[int, int]int]`
-  [ ] op + assign operators: `+=`, `-=`, `*=`, `/=` and `%=`
-  [ ] literals for all basic types: `8b`, `16w` and `32d`
-  [ ] hex and binary literals: `0xFFFFFF` and `0b10011001`
+ - String literals: `memory hello "Hello, world!\n"`
+ - `.size` and `.addr` properties for `memory` declarations
+ - `exit` statement: `exit 0`
+ - first-class procedures and procedure types: `proc[add:proc[int, int]int]`
+ - op + assign operators: `+=`, `-=`, `*=`, `/=` and `%=`
+ - literals for all basic types: `8b`, `16w` and `32d`
+ - hex and binary literals: `0xFFFFFF` and `0b10011001`
+ - ascii char literals: `a`, `\n` etc
 
 Structs and unions will never be added because that will need a complete
 refactor of the IR, currently, it treats stack frame slots as isomorphic
