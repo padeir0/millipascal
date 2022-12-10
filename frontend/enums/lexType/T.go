@@ -8,16 +8,26 @@ const (
 	UNDEFINED TkType = iota
 
 	IDENTIFIER
-	INT_LIT
+	I64_LIT
+	I32_LIT
+	I16_LIT
+	I8_LIT
 	PTR_LIT
+	STRING_LIT
+	CHAR_LIT
 
 	// symbols
 	PLUS
 	MINUS
-	AT
 	DIVISION
 	MULTIPLICATION
 	REMAINDER
+	PLUS_ASSIGN
+	MINUS_ASSIGN
+	DIVISION_ASSIGN
+	MULTIPLICATION_ASSIGN
+	REMAINDER_ASSIGN
+	AT
 	LESS
 	LESSEQ
 	EQUALS
@@ -34,6 +44,7 @@ const (
 	ASSIGNMENT
 	COMMA
 	SEMICOLON
+	DOT
 
 	// keywords
 	VAR
@@ -52,6 +63,7 @@ const (
 	BEGIN
 	END
 	SET
+	EXIT
 
 	I8
 	I16
@@ -64,6 +76,7 @@ const (
 	BLOCK
 	SYMBOLS
 	PROCDECLS
+	TYPELIST
 	IDLIST
 	TERMLIST
 	ARRAYACCESS
@@ -78,8 +91,13 @@ var tktostr = map[TkType]string{
 	UNDEFINED: "\033[0;31m?\033[0m",
 
 	IDENTIFIER: "IDENTIFIER",
-	INT_LIT:    "INT_LIT",
+	I64_LIT:    "INT_LIT",
+	I32_LIT:    "I32_LIT",
+	I16_LIT:    "I16_LIT",
+	I8_LIT:     "I8_LIT",
 	PTR_LIT:    "PTR_LIT",
+	STRING_LIT: "STRING_LIT",
+	CHAR_LIT:   "CHAR_LIT",
 
 	// symbols:
 	PLUS:           "PLUS",
@@ -160,8 +178,13 @@ func FmtTypes(t ...TkType) string {
 
 var tktosrc = map[TkType]string{
 	UNDEFINED:  "\033[0;31m?\033[0m",
-	INT_LIT:    "integer literal",
+	I64_LIT:    "i64 literal",
+	I32_LIT:    "i32 literal",
+	I16_LIT:    "i16 literal",
+	I8_LIT:     "i8 literal",
 	PTR_LIT:    "pointer literal",
+	STRING_LIT: "string literal",
+	CHAR_LIT:   "char literal",
 	IDENTIFIER: "identifier",
 
 	PLUS:           "+",

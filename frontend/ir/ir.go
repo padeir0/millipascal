@@ -1,12 +1,12 @@
 package ir
 
 import (
-	T "mpc/frontend/enums/Type"
+	T "mpc/frontend/Type"
+	hirc "mpc/frontend/enums/HIRClass"
+	mirc "mpc/frontend/enums/MIRClass"
 	FT "mpc/frontend/enums/flowType"
 	IT "mpc/frontend/enums/instrType"
 	lex "mpc/frontend/enums/lexType"
-	hirc "mpc/frontend/enums/HIRClass"
-	mirc "mpc/frontend/enums/MIRClass"
 	ST "mpc/frontend/enums/symbolType"
 
 	"fmt"
@@ -19,7 +19,7 @@ type Node struct {
 	Lex    lex.TkType
 	Leaves []*Node
 
-	T T.Type
+	T *T.Type
 
 	Line, Col int
 	Length    int
@@ -101,7 +101,7 @@ type Symbol struct {
 	Name string
 	N    *Node
 
-	Type T.Type
+	Type *T.Type
 	Proc *Proc
 	Mem  *Mem
 }
@@ -109,7 +109,7 @@ type Symbol struct {
 func (v *Symbol) String() string {
 	switch v.T {
 	case ST.Proc:
-		return "proc " + v.Name 
+		return "proc " + v.Name
 	case ST.Var:
 		return "var " + v.Name + ":" + v.Type.String()
 	case ST.Arg:
@@ -123,15 +123,16 @@ func (v *Symbol) String() string {
 
 type PositionalSymbol struct {
 	Position int
-	Symbol *Symbol
+	Symbol   *Symbol
 }
 
 type Proc struct {
 	Name   string
-	Args   []*Symbol
 	ArgMap map[string]PositionalSymbol
 	Vars   map[string]*Symbol
-	Rets   []T.Type
+	Args   []*Symbol
+	Rets   []*T.Type
+	T      *T.Type
 
 	N           *Node
 	Code        *BasicBlock
@@ -140,8 +141,8 @@ type Proc struct {
 
 func (p *Proc) StrArgs() string {
 	output := []string{}
-	for _, decl := range p.Args {
-		output = append(output, decl.String())
+	for _, decl := range p.ArgMap {
+		output = append(output, decl.Symbol.String())
 	}
 	return strings.Join(output, ", ")
 }
@@ -298,11 +299,11 @@ func (f *Flow) StrRets() string {
 }
 
 type Operand struct {
-	Hirc     hirc.HIRClass
-	Mirc     mirc.MIRClass
-	Type     T.Type
-	Symbol   *Symbol
-	Num      int
+	Hirc   hirc.HIRClass
+	Mirc   mirc.MIRClass
+	Type   *T.Type
+	Symbol *Symbol
+	Num    int
 }
 
 func (o *Operand) String() string {
@@ -348,9 +349,9 @@ func (o *Operand) MirStr() string {
 	case mirc.Register:
 		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.Spill:
-		return "^" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
+		return "^" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.CallerInterproc:
-		return "~" + strconv.Itoa(o.Num)+ ":" + o.Type.String()
+		return "~" + strconv.Itoa(o.Num) + ":" + o.Type.String()
 	case mirc.Local:
 		return "$" + o.Symbol.Name + ":" + o.Type.String()
 	case mirc.Static:
@@ -367,7 +368,7 @@ type LIRInstrType int
 type Instr struct {
 	T           IT.InstrType
 	LirT        LIRInstrType
-	Type        T.Type
+	Type        *T.Type
 	Operands    []*Operand
 	Destination []*Operand
 }
@@ -377,13 +378,13 @@ func (i *Instr) String() string {
 		return "nil"
 	}
 	if i.Destination != nil {
-		if i.Type != T.Invalid {
+		if i.Type != nil {
 			return fmt.Sprintf("%v:%v %v -> %v", i.T.String(), i.Type.String(), i.StrOps(), i.StrDests())
 		} else {
 			return fmt.Sprintf("%v %v -> %v", i.T.String(), i.StrOps(), i.StrDests())
 		}
 	} else {
-		if i.Type != T.Invalid {
+		if i.Type != nil {
 			return fmt.Sprintf("%v:%v %v", i.T.String(), i.Type.String(), i.StrOps())
 		} else {
 			return fmt.Sprintf("%v %v", i.T.String(), i.StrOps())

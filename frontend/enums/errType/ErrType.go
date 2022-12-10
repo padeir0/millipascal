@@ -59,6 +59,7 @@ const (
 	InvalidClassforExpr
 	CannotUseSyscallInExpr
 	CannotUseVoid
+	ExpectedBasicType
 )
 
 func (et ErrType) String() string {
@@ -130,6 +131,7 @@ var DebugMap = map[ErrType]string{
 	InvalidClassforExpr:            "InvalidClassforExpr",
 	CannotUseSyscallInExpr:         "CannotUseSyscallInExpr",
 	CannotUseVoid:                  "CannotUseVoid",
+	ExpectedBasicType:              "ExpectedBasicType",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -162,7 +164,7 @@ var ErrorCodeMap = map[ErrType]string{
 	FromImportingUnexportedName:    "S011",
 	InvalidInitForMemType:          "S012",
 	NameNotDefined:                 "S013",
-	CanOnlyDerefPointers:             "S014",
+	CanOnlyDerefPointers:           "S014",
 	CanOnlyAssignLocal:             "S015",
 	NotAssignable:                  "S016",
 	InvalidType:                    "S017",
@@ -184,4 +186,5 @@ var ErrorCodeMap = map[ErrType]string{
 	InvalidClassforExpr:            "S033",
 	CannotUseSyscallInExpr:         "S034",
 	CannotUseVoid:                  "S035",
+	ExpectedBasicType:              "S036",
 }

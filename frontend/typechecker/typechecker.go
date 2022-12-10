@@ -1,7 +1,7 @@
 package typechecker
 
 import (
-	T "mpc/frontend/enums/Type"
+	T "mpc/frontend/Type"
 	lex "mpc/frontend/enums/lexType"
 	ST "mpc/frontend/enums/symbolType"
 	"mpc/frontend/errors"
@@ -28,28 +28,33 @@ func Check(M *ir.Module) *errors.CompilerError {
 }
 
 func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
-	var err *errors.CompilerError
 	switch sy.T {
 	case ST.Proc:
-		err = checkProc(M, sy.Proc)
+		err := checkProc(M, sy.Proc)
+		if err != nil {
+			return err
+		}
+		sy.Type = sy.Proc.T
 	}
-	return err
+	return nil
 }
 
 func checkProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {
 	nArgs := proc.N.Leaves[1]
 	nRets := proc.N.Leaves[2]
 	nVars := proc.N.Leaves[3]
+	var err *errors.CompilerError
+	var args, rets []*T.Type
 
 	if nArgs != nil {
-		err := checkProcArgs(M, proc, nArgs)
+		args, err = checkProcArgs(M, proc, nArgs)
 		if err != nil {
 			return err
 		}
 	}
 
 	if nRets != nil {
-		rets := getProcRets(M, nRets)
+		rets = getProcRets(M, nRets)
 		proc.Rets = rets
 	}
 
@@ -59,11 +64,14 @@ func checkProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {
 			return err
 		}
 	}
+	t := &T.Type{Proc: &T.ProcType{Args: args, Rets: rets}}
+	proc.T = t
+	proc.N.T = t
 	return nil
 }
 
-func getProcRets(M *ir.Module, n *ir.Node) []T.Type {
-	types := []T.Type{}
+func getProcRets(M *ir.Module, n *ir.Node) []*T.Type {
+	types := []*T.Type{}
 	for _, tNode := range n.Leaves {
 		t := getType(tNode)
 		types = append(types, t)
@@ -72,7 +80,8 @@ func getProcRets(M *ir.Module, n *ir.Node) []T.Type {
 	return types
 }
 
-func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) ([]*T.Type, *errors.CompilerError) {
+	tps := []*T.Type{}
 	for i, decl := range n.Leaves {
 		var d *ir.Symbol
 		if len(decl.Leaves) == 0 {
@@ -80,7 +89,7 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 				Name: decl.Text,
 				N:    decl,
 				T:    ST.Arg,
-				Type: T.I64,
+				Type: T.T_I64,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ir.Symbol{
@@ -92,13 +101,14 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 		}
 		err := verifyIfDefined(M, proc, d)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		decl.T = d.Type
+		tps = append(tps, d.Type)
 		proc.ArgMap[d.Name] = ir.PositionalSymbol{Position: i, Symbol: d}
 		proc.Args = append(proc.Args, d)
 	}
-	return nil
+	return tps, nil
 }
 
 func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
@@ -109,7 +119,7 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 				Name: decl.Text,
 				N:    decl,
 				T:    ST.Var,
-				Type: T.I64,
+				Type: T.T_I64,
 			}
 		} else if len(decl.Leaves) == 2 {
 			d = &ir.Symbol{
@@ -137,22 +147,45 @@ func verifyIfDefined(M *ir.Module, proc *ir.Proc, d *ir.Symbol) *errors.Compiler
 	return nil
 }
 
-func getType(n *ir.Node) T.Type {
+func getType(n *ir.Node) *T.Type {
 	switch n.Lex {
 	case lex.I8:
-		return T.I8
+		return T.T_I8
 	case lex.I16:
-		return T.I16
+		return T.T_I16
 	case lex.I32:
-		return T.I32
+		return T.T_I32
 	case lex.I64:
-		return T.I64
+		return T.T_I64
 	case lex.PTR:
-		return T.Ptr
+		return T.T_Ptr
 	case lex.BOOL:
-		return T.Bool
+		return T.T_Bool
+	case lex.PROC:
+		return getProcType(n)
 	}
 	panic("getType: what: " + ir.FmtNode(n))
+}
+
+func getProcType(n *ir.Node) *T.Type {
+	args := n.Leaves[0].Leaves
+	argTypes := make([]*T.Type, len(args))
+	for i, arg := range args {
+		argTypes[i] = getType(arg)
+	}
+
+	rets := n.Leaves[1].Leaves
+	retTypes := make([]*T.Type, len(rets))
+	for i, ret := range rets {
+		retTypes[i] = getType(ret)
+	}
+
+	return &T.Type{
+		Proc: &T.ProcType{
+			Args: argTypes,
+			Rets: retTypes,
+		},
+	}
 }
 
 func checkBlock(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
@@ -283,7 +316,7 @@ func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError 
 		if err != nil {
 			return err
 		}
-		if proc.Rets[i] != ret.T {
+		if !ret.T.Equals(proc.Rets[i]) {
 			return msg.ErrorUnmatchingReturns(M, proc, ret, i)
 		}
 	}
@@ -304,23 +337,23 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerEr
 		return err
 	}
 
-	if right.T != T.MultiRet && len(left.Leaves) > 1 ||
-		right.T == T.MultiRet && len(left.Leaves) == 1 {
-		return msg.ErrorMismatchedAssignment(M, left)
+	if !T.IsMultiRet(right.T) && len(left.Leaves) > 1 ||
+		T.IsMultiRet(right.T) && len(left.Leaves) == 1 {
+		return msg.ErrorMismatchedAssignment(M, n)
 	}
 
-	if right.T == T.Void {
+	if T.IsVoid(right.T) {
 		return msg.ErrorCannotUseVoid(M, right)
 	}
 
-	if right.T == T.MultiRet {
+	if T.IsMultiRet(right.T) {
 		err := checkMultiAssignment(M, left, right)
 		if err != nil {
 			return err
 		}
 	} else {
-		if left.Leaves[0].T != right.T {
-			return msg.ErrorMismatchedTypesInAssignment(M, left, right)
+		if !left.Leaves[0].T.Equals(right.T) {
+			return msg.ErrorMismatchedTypesInAssignment(M, left.Leaves[0], right)
 		}
 	}
 
@@ -333,7 +366,7 @@ func checkExprList(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 		if err != nil {
 			return err
 		}
-		if exp.T == T.Void {
+		if T.IsVoid(exp.T) {
 			return msg.ErrorCannotUseVoid(M, exp.Leaves[1])
 		}
 	}
@@ -392,7 +425,7 @@ func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *errors.Compi
 		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n.Leaves[1], left)
 	}
 	for i, assignee := range left.Leaves {
-		if assignee.T != proc.Proc.Rets[i] {
+		if !assignee.T.Equals(proc.Proc.Rets[i]) {
 			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, left, i)
 		}
 	}
@@ -403,7 +436,9 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	switch n.Lex {
 	case lex.IDENTIFIER:
 		return checkID(M, proc, n)
-	case lex.INT_LIT, lex.FALSE, lex.TRUE, lex.PTR_LIT:
+	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
+		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.STRING_LIT,
+		lex.CHAR_LIT:
 		n.T = termToType(n.Lex)
 		return nil
 	case lex.PLUS, lex.MINUS:
@@ -412,16 +447,11 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 		return binaryOp(M, proc, n, number, outSame)
 	case lex.EQUALS, lex.DIFFERENT,
 		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ:
-		return binaryOp(M, proc, n, any, outBool)
+		return binaryOp(M, proc, n, basic, outBool)
 	case lex.AND, lex.OR:
 		return binaryOp(M, proc, n, _bool, outBool)
 	case lex.COLON:
-		err := checkExpr(M, proc, n.Leaves[1])
-		if err != nil {
-			return err
-		}
-		n.T = getType(n.Leaves[0])
-		n.Leaves[0].T = n.T
+		return conversion(M, proc, n)
 	case lex.CALL:
 		return checkCall(M, proc, n)
 	case lex.AT:
@@ -432,23 +462,33 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkCall(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	callee := n.Leaves[1]
-	local := getVarOrArg(proc, callee.Text)
-	if local != nil {
-		return msg.ErrorExpectedProcedureGotLocal(M, local, callee)
+func conversion(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	err := checkExpr(M, proc, n.Leaves[1])
+	if err != nil {
+		return err
 	}
-	global, ok := M.Globals[callee.Text]
-	if ok {
-		if global.T != ST.Proc {
-			return msg.ErrorExpectedProcedure(M, global, callee)
-		}
-		return checkCallProc(M, proc, global.Proc, n)
+	n.T = getType(n.Leaves[0])
+	if !T.IsBasic(n.T) {
+		return msg.ErrorExpectedBasicType(M, n)
 	}
-	return msg.ErrorNameNotDefined(M, callee)
+	n.Leaves[0].T = n.T
+	return nil
 }
 
-func checkCallProc(M *ir.Module, proc, callee *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkCall(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	callee := n.Leaves[1]
+	err := checkExpr(M, proc, callee)
+	if err != nil {
+		return err
+	}
+	if !T.IsProc(callee.T) {
+		return msg.ErrorExpectedProcedure(M, callee)
+	}
+	return checkCallProc(M, proc, n)
+}
+
+func checkCallProc(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	callee := n.Leaves[1].T.Proc
 	exprs := n.Leaves[0]
 	if len(exprs.Leaves) != len(callee.Args) {
 		return msg.ErrorInvalidNumberOfArgs(M, callee, n)
@@ -458,16 +498,16 @@ func checkCallProc(M *ir.Module, proc, callee *ir.Proc, n *ir.Node) *errors.Comp
 		if err != nil {
 			return err
 		}
-		if param.T != callee.Args[i].Type {
+		if !param.T.Equals(callee.Args[i]) {
 			return msg.ErrorMismatchedTypeForArgument(M, param, callee.Args[i])
 		}
 	}
 	if len(callee.Rets) == 1 {
 		n.T = callee.Rets[0]
 	} else if len(callee.Rets) == 0 {
-		n.T = T.Void
+		n.T = T.T_Void
 	} else {
-		n.T = T.MultiRet
+		n.T = T.T_MultiRet
 	}
 	return nil
 }
@@ -486,18 +526,28 @@ func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
 	return msg.ErrorNameNotDefined(M, id)
 }
 
-func termToType(tp lex.TkType) T.Type {
+func termToType(tp lex.TkType) *T.Type {
 	switch tp {
-	case lex.INT_LIT:
-		return T.I64
+	case lex.I64_LIT:
+		return T.T_I64
+	case lex.I32_LIT:
+		return T.T_I32
+	case lex.I16_LIT:
+		return T.T_I16
+	case lex.I8_LIT:
+		return T.T_I8
+	case lex.CHAR_LIT:
+		return T.T_I8
+	case lex.STRING_LIT:
+		return T.T_Ptr
 	case lex.TRUE:
-		return T.Bool
+		return T.T_Bool
 	case lex.FALSE:
-		return T.Bool
+		return T.T_Bool
 	case lex.PTR_LIT:
-		return T.Ptr
+		return T.T_Ptr
 	}
-	return T.Invalid
+	panic("termToType: invalid type")
 }
 
 func plusMinus(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
@@ -507,25 +557,25 @@ func plusMinus(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return binaryOp(M, proc, n, number, outSame)
 }
 
-type deriver func(types ...T.Type) T.Type
+type deriver func(types ...*T.Type) *T.Type
 
-func outSame(a ...T.Type) T.Type {
+func outSame(a ...*T.Type) *T.Type {
 	// a homogeneous, all items must be of the same type
 	return a[0]
 }
 
-func outBool(a ...T.Type) T.Type {
-	return T.Bool
+func outBool(a ...*T.Type) *T.Type {
+	return T.T_Bool
 }
 
 type class struct {
 	Description string
-	Checker     func(t T.Type) bool
+	Checker     func(t *T.Type) bool
 }
 
-var any = class{
+var basic = class{
 	Description: "i8, i16, i32, i64, bool or ptr",
-	Checker:     T.IsAny,
+	Checker:     T.IsBasic,
 }
 
 var _bool = class{
@@ -577,7 +627,7 @@ func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *e
 		return msg.ErrorInvalidClassForExpr(M, right, c.Description)
 	}
 
-	if left.T != right.T {
+	if !left.T.Equals(right.T) {
 		return msg.ErrorOperationBetweenUnequalTypes(M, op)
 	}
 
@@ -586,13 +636,13 @@ func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *e
 }
 
 func checkExprType(M *ir.Module, n *ir.Node) *errors.CompilerError {
-	if n.T == T.MultiRet {
+	if T.IsMultiRet(n.T) {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
-	if n.T == T.Void {
+	if T.IsVoid(n.T) {
 		return msg.ErrorCannotUseVoid(M, n)
 	}
-	if n.T == T.Invalid {
+	if T.IsInvalid(n.T) {
 		return msg.ErrorInvalidType(M, n)
 	}
 	return nil
@@ -632,8 +682,8 @@ func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	if exp.T != T.Ptr {
-		return msg.ErrorBadDeref(M, n)
+	if !T.IsPtr(exp.T) {
+		return msg.ErrorBadDeref(M, n, exp.T)
 	}
 	return nil
 }

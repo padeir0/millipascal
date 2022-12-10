@@ -224,5 +224,102 @@ to be differentiable.
 	Call [proc'proc]
 ```
 
-TODO: LIR spec for x86
+TODO: LIR spec for Linux-x86
 ## LIR
+
+Instructions:
+
+```
+Add:
+	add dest/a, b
+Sub:
+	sub dest/a, b
+Div:
+	xor rdx, rdx
+	mov rax, a
+	idiv b
+	mov dest, rax
+Rem:
+	xor rdx, rdx
+	mov rax, a
+	idiv b
+	mov dest, rdx
+Mult:
+	imul dest/a, b
+
+Eq:
+	cmp a, b;
+	sete dest
+Diff:
+	cmp a, b;
+	setne dest
+Less:
+	cmp a, b;
+	setl dest
+More:
+	cmp a, b;
+	setg dest
+LessEq:
+	cmp a, b;
+	setle dest
+MoreEq:
+	cmp a, b;
+	setge dest
+
+And:
+	and dest/a, b
+Or:
+	or  dest/a, b
+Not?
+
+UnaryMinus:
+	neg a
+UnaryPlus:
+	does nothing?
+
+LoadPtr:
+	mov dest, type [a]
+StorePtr:
+	mov type [dest], a
+Load:
+	mov dest, type [a]
+Store:
+	mov type [dest], a
+Copy:
+	mov dest, a
+
+Convert i8 -> i16:
+	movsx ax, al
+Convert i8 -> i32:
+	movsx eax, al
+Convert i8 -> i64:
+	movsx rax, al
+Convert i16 -> i32:
+	movsx eax, ax
+Convert i16 -> i64:
+	movsx rax, ax
+Convert i32 -> i64:
+	movsx rax, eax
+Convert i64 -> i32
+Convert i64 -> i16
+Convert i64 -> i8
+Convert i32 -> i16
+Convert i32 -> i8
+Convert i16 -> i8
+	just change the register name lol
+Convert t -> t
+	ignore
+Convert bool -> numerical
+	just change the register name?
+Call:
+	call a
+```
+
+Built-in procedures
+
+```
+write:
+read:
+error:
+```
+

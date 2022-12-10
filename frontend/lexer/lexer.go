@@ -182,8 +182,10 @@ func Selected(l *Lexer) string {
 
 const (
 	insideStr  = `\"`
-	insideRune = `\'`
+	insideChar = `\'`
 	digits     = "0123456789"
+	hex_digits = "0123456789ABCDEFabcdef"
+	bin_digits = "01"
 	letters    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_" // yes _ is a letter, fuck you
 )
 
@@ -237,25 +239,82 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 
 	if isNumber(r) {
+		unread(st)
 		return number(st)
 	}
 	if isLetter(r) {
 		return identifier(st)
 	}
+	if r == '\'' {
+		return charLit(st)
+	}
+	if r == '"' {
+		return strLit(st)
+	}
 
 	switch r {
 	case '+':
-		tp = T.PLUS
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case '=':
+			tp = T.PLUS_ASSIGN
+		default:
+			unread(st)
+			tp = T.PLUS
+		}
 	case '-':
-		tp = T.MINUS
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case '=':
+			tp = T.MINUS_ASSIGN
+		default:
+			unread(st)
+			tp = T.MINUS
+		}
+	case '/':
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case '=':
+			tp = T.DIVISION_ASSIGN
+		default:
+			unread(st)
+			tp = T.DIVISION
+		}
+	case '*':
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case '=':
+			tp = T.MULTIPLICATION_ASSIGN
+		default:
+			unread(st)
+			tp = T.MULTIPLICATION
+		}
+	case '%':
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case '=':
+			tp = T.REMAINDER_ASSIGN
+		default:
+			unread(st)
+			tp = T.REMAINDER
+		}
 	case '@':
 		tp = T.AT
-	case '/':
-		tp = T.DIVISION
-	case '*':
-		tp = T.MULTIPLICATION
-	case '%':
-		tp = T.REMAINDER
 	case '(':
 		tp = T.LEFTPAREN
 	case ')':
@@ -274,6 +333,8 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.COLON
 	case ';':
 		tp = T.SEMICOLON
+	case '.':
+		tp = T.DOT
 	case '>': // >  >=
 		r, err := nextRune(st)
 		if err != nil {
@@ -333,20 +394,49 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	return GenNode(st, tp), nil
 }
 
+// sorry
 func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
-	err := acceptRun(st, digits)
-	if err != nil {
-		return nil, err
-	}
 	r, err := nextRune(st)
 	if err != nil {
 		return nil, err
 	}
-	if r == 'p' {
+	if r == '0' {
+		r, err = nextRune(st)
+		switch r {
+		case 'x': // he x
+			err = acceptRun(st, hex_digits)
+		case 'b': // b inary
+			err = acceptRun(st, bin_digits)
+		default:
+			unread(st)
+			err = acceptRun(st, digits)
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		unread(st)
+		err = acceptRun(st, digits)
+		if err != nil {
+			return nil, err
+		}
+	}
+	r, err = nextRune(st)
+	if err != nil {
+		return nil, err
+	}
+	switch r {
+	case 'p': // p ointer
 		return GenNode(st, T.PTR_LIT), nil
+	case 'r': // cha r
+		return GenNode(st, T.I8_LIT), nil
+	case 't': // shor t
+		return GenNode(st, T.I16_LIT), nil
+	case 'g': // lon g
+		return GenNode(st, T.I32_LIT), nil
 	}
 	unread(st)
-	return GenNode(st, T.INT_LIT), nil
+	return GenNode(st, T.I64_LIT), nil
 }
 
 func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
@@ -389,6 +479,8 @@ func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.END
 	case "set":
 		tp = T.SET
+	case "exit":
+		tp = T.EXIT
 	case "i8":
 		tp = T.I8
 	case "i16":
@@ -420,6 +512,56 @@ func comment(st *Lexer) *errors.CompilerError {
 		unread(st)
 	}
 	return nil
+}
+
+func strLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
+	for {
+		acceptUntil(st, insideStr)
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		if r == '"' {
+			return &ir.Node{
+				Text: Selected(st),
+				Lex:  T.STRING_LIT,
+				Line: st.Line,
+				Col:  st.Col,
+			}, nil
+		}
+		if r == '\\' {
+			_, err = nextRune(st) // escaped rune
+			if err != nil {
+				return nil, err
+			}
+		}
+		unread(st)
+	}
+}
+
+func charLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
+	for {
+		acceptUntil(st, insideChar)
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		if r == '\'' {
+			return &ir.Node{
+				Text: Selected(st),
+				Lex:  T.CHAR_LIT,
+				Line: st.Line,
+				Col:  st.Col,
+			}, nil
+		}
+		if r == '\\' {
+			_, err = nextRune(st) // escaped
+			if err != nil {
+				return nil, err
+			}
+		}
+		unread(st)
+	}
 }
 
 func IsValidIdentifier(s string) bool {

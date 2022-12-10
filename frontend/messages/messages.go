@@ -5,6 +5,7 @@ import (
 	"mpc/frontend/errors"
 	. "mpc/frontend/util/errors"
 	et "mpc/frontend/enums/errType"
+	T "mpc/frontend/Type"
 	"strconv"
 )
 
@@ -57,8 +58,8 @@ func ErrorNameNotDefined(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return NewSemanticError(M, et.NameNotDefined, info)
 }
 
-func ErrorBadDeref(M *ir.Module, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "can only index pointers")
+func ErrorBadDeref(M *ir.Module, n *ir.Node, t *T.Type) *errors.CompilerError {
+	info := NewNodeInfo(n, "can only index pointers (type: "+t.String()+")")
 	return NewSemanticError(M, et.CanOnlyDerefPointers, info)
 }
 
@@ -94,28 +95,25 @@ func ErrorMemResAllowsOnlyIntAndChar(M *ir.Module, n *ir.Node) *errors.CompilerE
 	return NewSemanticError(M, et.InvalidMemResTerm, info)
 }
 
-func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *ir.Symbol) *errors.CompilerError {
-	info := NewNodeInfo(param, "mismatched type in Call, has type: " + param.T.String())
-	source := NewNodeInfo(arg.N, "expected type: " + arg.Type.String())
-	return NewSemanticError(M, et.MismatchedTypeForArgument, info, source)
+func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *T.Type) *errors.CompilerError {
+	info := NewNodeInfo(param, "mismatched type in Call, has type: " + param.T.String()+ ", expected: " + arg.String())
+	return NewSemanticError(M, et.MismatchedTypeForArgument, info)
 }
 
-func ErrorInvalidNumberOfArgs(M *ir.Module, callee *ir.Proc, n *ir.Node) *errors.CompilerError {
+func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *errors.CompilerError {
 	expected := strconv.Itoa(len(callee.Args))
 	info := NewNodeInfo(n, "invalid number of arguments, expected: " + expected)
 	return NewSemanticError(M, et.InvalidNumberOfArgs, info)
 }
 
-func ErrorExpectedProcedure(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "is not a procedure")
-	source := NewNodeInfo(global.N, "defined here")
-	return NewSemanticError(M, et.ExpectedProcedure, info, source)
+func ErrorExpectedProcedure(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "is not a procedure (type: "+n.String()+")")
+	return NewSemanticError(M, et.ExpectedProcedure, info)
 }
 
-func ErrorExpectedProcedureGotLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "is not a procedure")
-	source := NewNodeInfo(local.N, "defined here")
-	return NewSemanticError(M, et.ExpectedProcedure, info, source)
+func ErrorExpectedBasicType(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "is not of a basic type (type: "+n.String()+")")
+	return NewSemanticError(M, et.ExpectedBasicType, info)
 }
 
 func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {

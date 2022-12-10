@@ -1,7 +1,7 @@
 package nameresolution
 
 import (
-	T "mpc/frontend/enums/Type"
+	T "mpc/frontend/Type"
 	lex "mpc/frontend/enums/lexType"
 	ST "mpc/frontend/enums/symbolType"
 	"mpc/frontend/errors"
@@ -39,12 +39,9 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 		return &ir.Symbol{
 			T:    ST.Proc,
 			Name: name,
-			Type: T.Proc,
 			Proc: &ir.Proc{
 				Name:   name,
 				ArgMap: map[string]ir.PositionalSymbol{},
-				Args:   []*ir.Symbol{},
-				Rets:   []T.Type{},
 				Vars:   map[string]*ir.Symbol{},
 				N:      n,
 			},
@@ -67,7 +64,7 @@ func getMemSymbol(n *ir.Node) *ir.Symbol {
 	}
 	return &ir.Symbol{
 		T:    ST.Mem,
-		Type: T.Ptr,
+		Type: T.T_Ptr,
 		Name: getSymbolName(n),
 		Mem:  mem,
 		N:    n,

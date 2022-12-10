@@ -1,33 +1,60 @@
 -- Lexer:
-type := i8|i16|i32|i64|bool|ptr.
 id := [a-zA-Z_][a-zA-Z0-9_]*.
-int := [0-9]+.
+letter = 'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'|'i'|'j'|
+         'k'|'l'|'m'|'n'|'o'|'p'|'q'|'r'|'s'|'t'|
+         'u'|'v'|'w'|'x'|'y'|'z'|'A'|'B'|'C'|'D'|
+         'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'|'M'|'N'|
+         'O'|'P'|'Q'|'R'|'S'|'T'|'U'|'V'|'W'|'X'|
+         'Y'|'Z'|'_'.
+digits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'.
+hexDigits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|
+	    'A'|'B'|'C'|'D'|'E'|'F'|'a'|'b'|'c'|'d'|'e'|'f'.
+binDigits = '0'|'1'.
+numEnding = 'p'|'r'|'t'|'g'.
+base = 'x'|'b'.
+number := ['0' base] digits numEnding.
+escapes := '\\"' | '\\'' | '\\n' | '\\t' | '\\r'.
+string := '"'(ascii|escapes)*'"'.
+char := "'"(ascii|escapes)"'".
 
-true := 'true'.
-false := 'false'.
+keywords
+	var    proc   begin  end
+	while  if     else   elseif
+        or     and    not    memory
+        i8     i16    i32    i64  
+	bool   ptr    true   false.
+	exit
 
-keywords := var|proc|begin|end
-	  |while|if|else|elseif
-          |or|and|not|memory
-          |i8|i16|i32|i64|bool|ptr
-          |true|false.
-operators := , | : | \( | \) | \[ | \] | = | == | != | > | >= | < | <= | + | - | * | / | %.
+ponctuation:
+	,   :   (   )   [   ]
+	=   ==  !=  >   >=  < 
+	<=  +   -   *   /   %
+	-=  +=  *=  /=  %=  .
+
+basicTypes:
+	i8  i16  i32  i64  ptr  bool
 
 -- Parser:
 Module := {Symbol}.
 Symbol := Procedure
 	| Memory.
 
-Memory := 'memory' id int.
+Memory := 'memory' id (number|string).
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
 Args := '[' [DeclList] ']'.
 Vars := 'var' DeclList.
-Rets := type {',' type} [','].
+Rets := TypeList
+TypeList := Type {',' Type} [','].
 
 DeclList := Decl {',' Decl} [','].
 Decl := id [Annot].
-Annot := ':' type.
+Annot := ':' Type.
+
+Type := basic | ProcType.
+ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
+ProcTypeRet := '[' [TypeList] ']'
+             | [Type].
 
 Block := 'begin' {CodeSemicolon} 'end'.
 
@@ -37,6 +64,7 @@ Code := If
       | While
       | Return
       | Set
+      | Exit
       | Expr.
 
 While := 'while' Expr Block 'while'.
@@ -45,9 +73,11 @@ If   := 'if' Expr Block {ElseIf} [Else] 'if'.
 ElseIf := 'elseif' Expr Block.
 Else := 'else' Block
 
-Set := 'set' ExprList '=' Expr.
+Set := 'set' ExprList assignOp Expr.
+assignOp := '=' | '-=' | '+=' | '/=' | '*=' | '%='
 
-Return := 'return' ExprList.
+Return := 'return' [ExprList].
+Exit := 'exit' Expr.
 
 ExprList := Expr {',' Expr} [','].
 Expr := And {'or' And}.
@@ -64,15 +94,16 @@ UnarySuffix := Factor {Suffix}.
 Prefix := 'not' | '+' | '-'.
 Suffix := Conversion
 	| Deref
-	| Call.
+	| Call
+	| PropertyAccess.
 Conversion := Annot.
 Call := '[' [ExprList] ']'.
-Deref := '@' type.
+Deref := '@' Type.
+PropertyAccess := '.' id.
 
 Factor := Terminal
 	| NestedExpr.
 NestedExpr := '(' Expr ')'.
 Terminal := id
           | true | false
-          | int
-	  | ptr.
+          | number.

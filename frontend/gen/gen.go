@@ -2,13 +2,14 @@ package gen
 
 import (
 	hirc "mpc/frontend/enums/HIRClass"
-	T "mpc/frontend/enums/Type"
+	T "mpc/frontend/Type"
 	IT "mpc/frontend/enums/instrType"
 	lex "mpc/frontend/enums/lexType"
 	ST "mpc/frontend/enums/symbolType"
 	"mpc/frontend/ir"
 	RIU "mpc/frontend/util/ir"
 	"strconv"
+	"fmt"
 )
 
 type context struct {
@@ -38,7 +39,7 @@ func (c *context) NewBlock() *ir.BasicBlock {
 	return b
 }
 
-func (c *context) AllocTemp(t T.Type) *ir.Operand {
+func (c *context) AllocTemp(t *T.Type) *ir.Operand {
 	op := &ir.Operand{
 		Hirc: hirc.Temp,
 		Type: t,
@@ -224,9 +225,9 @@ func genArgs(M *ir.Module, c *context, args *ir.Node) []*ir.Operand {
 	return output
 }
 
-func genRets(M *ir.Module, c *context, proc *ir.Proc) []*ir.Operand {
+func genRets(M *ir.Module, c *context, proc *ir.Operand) []*ir.Operand {
 	output := []*ir.Operand{}
-	for _, ret := range proc.Rets {
+	for _, ret := range proc.Type.Proc.Rets {
 		op := c.AllocTemp(ret)
 		output = append(output, op)
 	}
@@ -282,15 +283,20 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node) {
 }
 
 func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
+	if T.IsInvalid(exp.T) {
+		panic("invalid type at: " + exp.String())
+	}
 	switch exp.Lex {
 	case lex.IDENTIFIER:
 		return genExprID(M, c, exp)
 	case lex.FALSE, lex.TRUE:
 		return genBoolLit(M, c, exp)
-	case lex.INT_LIT:
+	case lex.I64_LIT:
 		return genIntLit(M, c, exp)
-	case lex.PTR_LIT:
+	case lex.PTR_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
 		return genPtrLit(M, c, exp)
+	case lex.CHAR_LIT:
+		return genCharLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
 		return genPlusMinus(M, c, exp)
 	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
@@ -307,6 +313,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 	case lex.NOT:
 		return genUnaryOp(M, c, exp)
 	}
+	fmt.Println(ir.FmtNode(exp))
 	return nil
 }
 
@@ -315,10 +322,10 @@ func genCall(M *ir.Module, c *context, call *ir.Node) []*ir.Operand {
 	proc := call.Leaves[1]
 	args := call.Leaves[0]
 
-	procOp := genExprID(M, c, proc)
+	procOp := genExpr(M, c, proc)
 
 	argOps := genArgs(M, c, args)
-	retOps := genRets(M, c, procOp.Symbol.Proc)
+	retOps := genRets(M, c, procOp)
 	genCallInstr(c, procOp, argOps, retOps)
 
 	return retOps
@@ -368,13 +375,13 @@ func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 		return &ir.Operand{
 			Hirc:   hirc.Global,
 			Symbol: global,
-			Type:   T.Proc,
+			Type:   global.Proc.T,
 		}
 	case ST.Mem:
 		return &ir.Operand{
 			Hirc:   hirc.Global,
 			Symbol: global,
-			Type:   T.Ptr,
+			Type:   T.T_Ptr,
 		}
 	}
 	panic("wht jus heppn?")
@@ -405,6 +412,35 @@ func genPtrLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
 	value, err := strconv.Atoi(numPart)
 	if err != nil {
 		panic(err)
+	}
+	return &ir.Operand{
+		Hirc: hirc.Lit,
+		Type: lit.T,
+		Num:  value,
+	}
+}
+
+func genCharLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
+	text := lit.Text[1:len(lit.Text)-1]
+	value := int(text[0])
+	if len(text) > 1 {
+		if text[0] != '\\' {
+		}
+		switch text {
+		case "\\n":
+			value = '\n'
+		case "\\t":
+			value = '\t'
+		case "\\r":
+			value = '\r'
+		case "\\'":
+			value = '\''
+		case "\\\"":
+			value = '"'
+		default:
+			fmt.Println(ir.FmtNode(lit))
+			panic("too many chars in char :C")
+		}
 	}
 	return &ir.Operand{
 		Hirc: hirc.Lit,

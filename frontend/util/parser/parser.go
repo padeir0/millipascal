@@ -97,10 +97,6 @@ func ExpectProd(st *Lexer, prod Production, name string) (*ir.Node, *errors.Comp
 	return n, err
 }
 
-func ExpectType(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	return Expect(s, T.I8, T.I16, T.I32, T.I64, T.BOOL, T.PTR)
-}
-
 type Production func(st *Lexer) (*ir.Node, *errors.CompilerError)
 type Validator func(*ir.Node) bool
 

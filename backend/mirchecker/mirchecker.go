@@ -2,7 +2,7 @@ package mirchecker
 
 import (
 	mirc "mpc/frontend/enums/MIRClass"
-	T "mpc/frontend/enums/Type"
+	T "mpc/frontend/Type"
 	FT "mpc/frontend/enums/flowType"
 	IT "mpc/frontend/enums/instrType"
 	ST "mpc/frontend/enums/symbolType"
@@ -147,7 +147,7 @@ func checkRet(s *state) *errors.CompilerError {
 		if op == nil {
 			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.Returns())
 		}
-		if op.Type != ret {
+		if !ret.Equals(op.Type) {
 			return eu.NewInternalSemanticError("return of type " + ret.String() + " doesn't match value in stack: " + s.CallerInterproc.String())
 		}
 		s.CallerInterproc.Clear(i)
@@ -157,26 +157,41 @@ func checkRet(s *state) *errors.CompilerError {
 
 type Checker struct {
 	Class func(mirc.MIRClass) bool
-	Type  func(T.Type) bool
+	Type  func(*T.Type) bool
 }
 
 func (c *Checker) Check(op *ir.Operand) bool {
 	return c.Type(op.Type) && c.Class(op.Mirc)
 }
 
-var any_imme = Checker{
+var basicOrProc_imme = Checker{
 	Class: mirc.IsImmediate,
-	Type:  T.IsAny,
+	Type:  T.IsBasicOrProc,
 }
 
-var any_reg = Checker{
+var basicOrProc_reg = Checker{
 	Class: mirc.IsRegister,
-	Type:  T.IsAny,
+	Type:  T.IsBasicOrProc,
 }
 
-var any_addr = Checker{
+var basicOrProc_addr = Checker{
 	Class: mirc.IsAddressable,
-	Type:  T.IsAny,
+	Type:  T.IsBasicOrProc,
+}
+
+var basic_imme = Checker{
+	Class: mirc.IsImmediate,
+	Type:  T.IsBasic,
+}
+
+var basic_reg = Checker{
+	Class: mirc.IsRegister,
+	Type:  T.IsBasic,
+}
+
+var basic_addr = Checker{
+	Class: mirc.IsAddressable,
+	Type:  T.IsBasic,
 }
 
 var num_imme = Checker{
@@ -197,16 +212,6 @@ var bool_imme = Checker{
 var bool_reg = Checker{
 	Class: mirc.IsRegister,
 	Type:  T.IsBool,
-}
-
-var nonPtr_imme = Checker{
-	Class: mirc.IsImmediate,
-	Type:  T.IsNonPtr,
-}
-
-var nonPtr_reg = Checker{
-	Class: mirc.IsRegister,
-	Type:  T.IsNonPtr,
 }
 
 var ptr_imme = Checker{
@@ -278,7 +283,7 @@ func checkComp(instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkBinary(instr, any_imme, any_imme, bool_reg)
+	return checkBinary(instr, basic_imme, basic_imme, bool_reg)
 }
 
 func checkLogical(instr *ir.Instr) *errors.CompilerError {
@@ -334,7 +339,7 @@ func checkConvert(instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, nonPtr_imme, nonPtr_reg)
+	return checkUnary(instr, basic_imme, basic_reg)
 }
 
 func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
@@ -347,7 +352,7 @@ func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, ptr_imme, any_reg)
+	return checkUnary(instr, ptr_imme, basicOrProc_reg)
 }
 
 func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
@@ -361,7 +366,7 @@ func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	if any_reg.Check(a) &&
+	if basicOrProc_reg.Check(a) &&
 		ptr_imme.Check(dest) {
 		return nil
 	}
@@ -379,7 +384,7 @@ func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	err = checkUnary(instr, any_addr, any_reg)
+	err = checkUnary(instr, basicOrProc_addr, basicOrProc_reg)
 	if err != nil {
 		return err
 	}
@@ -398,7 +403,7 @@ func checkStore(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	err = checkUnary(instr, any_imme, any_addr)
+	err = checkUnary(instr, basicOrProc_imme, basicOrProc_addr)
 	if err != nil {
 		return err
 	}
@@ -417,7 +422,7 @@ func checkCopy(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	err = checkUnary(instr, any_imme, any_reg)
+	err = checkUnary(instr, basicOrProc_imme, basicOrProc_reg)
 	if err != nil {
 		return err
 	}
@@ -434,14 +439,14 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	if procOp.Symbol == nil {
 		return procNotFound(instr)
 	}
-	proc := procOp.Symbol.Proc
+	proc := procOp.Type.Proc
 
 	for i, formal_arg := range proc.Args {
 		real_arg := s.CalleeInterproc.Load(i)
 		if real_arg == nil {
 			return errorLoadingGarbage(instr)
 		}
-		if formal_arg.Type != real_arg.Type {
+		if !formal_arg.Equals(real_arg.Type) {
 			return procBadArg(instr, formal_arg, real_arg)
 		}
 		s.CalleeInterproc.Clear(i)
@@ -494,13 +499,13 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	return nil
 }
 
-func checkEqual(instr *ir.Instr, types ...T.Type) *errors.CompilerError {
+func checkEqual(instr *ir.Instr, types ...*T.Type) *errors.CompilerError {
 	if len(types) == 0 {
 		return nil
 	}
 	first := types[0]
 	for _, t := range types[1:] {
-		if first != t {
+		if !first.Equals(t) {
 			return malformedEqualTypes(instr)
 		}
 	}
@@ -580,8 +585,8 @@ func procInvalidNumOfRets(instr *ir.Instr, p *ir.Proc) *errors.CompilerError {
 	beepBop := strconv.Itoa(len(instr.Destination))
 	return eu.NewInternalSemanticError("expected " + n + " returns, instead found: " + beepBop)
 }
-func procBadArg(instr *ir.Instr, d *ir.Symbol, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter " + d.Name + " in: " + instr.String())
+func procBadArg(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerError {
+	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String()+ ") in: " + instr.String())
 }
 func procBadRet(instr *ir.Instr, d T.Type, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
