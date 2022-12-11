@@ -174,10 +174,13 @@ func getProcType(n *ir.Node) *T.Type {
 		argTypes[i] = getType(arg)
 	}
 
-	rets := n.Leaves[1].Leaves
-	retTypes := make([]*T.Type, len(rets))
-	for i, ret := range rets {
-		retTypes[i] = getType(ret)
+	retTypes := make([]*T.Type, 0)
+	if len(n.Leaves) > 1 && n.Leaves[1] != nil {
+		rets := n.Leaves[1].Leaves
+		retTypes = make([]*T.Type, len(rets))
+		for i, ret := range rets {
+			retTypes[i] = getType(ret)
+		}
 	}
 
 	return &T.Type{
@@ -210,6 +213,8 @@ func checkStatement(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErr
 		return checkReturn(M, proc, n)
 	case lex.SET:
 		return checkAssignment(M, proc, n)
+	case lex.EXIT:
+		return checkExit(M, proc, n)
 	default:
 		return checkExpr(M, proc, n)
 	}
@@ -323,9 +328,23 @@ func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError 
 	return nil
 }
 
+func checkExit(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	exp := n.Leaves[0]
+	err := checkExpr(M, proc, exp)
+	if err != nil {
+		return err
+	}
+	if !exp.T.Equals(T.T_I8) {
+		return msg.ExitMustBeI8(M, exp)
+	}
+	n.T = T.T_Void
+	return nil
+}
+
 func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	left := n.Leaves[0]
-	right := n.Leaves[1]
+	op := n.Leaves[1]
+	right := n.Leaves[2]
 
 	err := checkAssignees(M, proc, left)
 	if err != nil {
@@ -335,6 +354,11 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerEr
 	err = checkExpr(M, proc, right)
 	if err != nil {
 		return err
+	}
+
+	if (T.IsMultiRet(right.T) || len(left.Leaves) > 1) &&
+		op.Lex != lex.ASSIGNMENT {
+		return msg.ErrorCanOnlyUseNormalAssignment(M, op)
 	}
 
 	if !T.IsMultiRet(right.T) && len(left.Leaves) > 1 ||
@@ -354,6 +378,9 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerEr
 	} else {
 		if !left.Leaves[0].T.Equals(right.T) {
 			return msg.ErrorMismatchedTypesInAssignment(M, left.Leaves[0], right)
+		}
+		if op.Lex != lex.ASSIGNMENT && !T.IsNumber(left.Leaves[0].T) {
+			return msg.ExpectedNumber(M, op, left.T)
 		}
 	}
 

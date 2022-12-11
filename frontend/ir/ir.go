@@ -224,8 +224,19 @@ func (b *BasicBlock) Return(rets []*Operand) {
 	}
 }
 
+func (b *BasicBlock) Exit(code *Operand) {
+	b.Out = Flow{
+		V: []*Operand{code},
+		T: FT.Exit,
+	}
+}
+
 func (b *BasicBlock) HasFlow() bool {
 	return b.Out.T != FT.InvalidFlow
+}
+
+func (b *BasicBlock) IsTerminal() bool {
+	return b.Out.T == FT.Return || b.Out.T == FT.Exit
 }
 
 func (b *BasicBlock) String() string {
@@ -303,7 +314,7 @@ type Operand struct {
 	Mirc   mirc.MIRClass
 	Type   *T.Type
 	Symbol *Symbol
-	Num    int
+	Num    int64
 }
 
 func (o *Operand) String() string {
@@ -312,23 +323,23 @@ func (o *Operand) String() string {
 	}
 	switch o.Mirc {
 	case mirc.Lit:
-		return strconv.Itoa(o.Num)
+		return strconv.FormatInt(o.Num, 10)
 	case mirc.Local:
 		return "$" + o.Symbol.Name + ":" + o.Type.String()
 	case mirc.Spill:
-		return "s" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "s" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Register:
-		return "r" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "r" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Static:
-		return "%" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "%" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.CallerInterproc:
-		return "caller#" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "caller#" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.CalleeInterproc:
-		return "callee#" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "callee#" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	}
 	switch o.Hirc {
 	case hirc.Temp:
-		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "'" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case hirc.Local:
 		return "local#" + o.Symbol.Name + ":" + o.Type.String()
 	case hirc.Arg:
@@ -336,7 +347,7 @@ func (o *Operand) String() string {
 	case hirc.Global:
 		return o.Symbol.Name + ":" + o.Type.String()
 	case hirc.Lit:
-		return strconv.Itoa(o.Num)
+		return strconv.FormatInt(o.Num, 10)
 	}
 	return "?"
 }
@@ -347,11 +358,11 @@ func (o *Operand) MirStr() string {
 	}
 	switch o.Mirc {
 	case mirc.Register:
-		return "'" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "'" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Spill:
-		return "^" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "^" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.CallerInterproc:
-		return "~" + strconv.Itoa(o.Num) + ":" + o.Type.String()
+		return "~" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Local:
 		return "$" + o.Symbol.Name + ":" + o.Type.String()
 	case mirc.Static:
@@ -359,7 +370,7 @@ func (o *Operand) MirStr() string {
 	case mirc.Lit:
 		return o.Symbol.Name
 	default:
-		return o.Symbol.Name + "?" + strconv.Itoa(o.Num)
+		return o.Symbol.Name + "?" + strconv.FormatInt(o.Num, 10)
 	}
 }
 

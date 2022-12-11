@@ -32,7 +32,7 @@ func Check(M *ir.Module) *errors.CompilerError {
 
 type region []*ir.Operand
 
-func newRegion(size int) region {
+func newRegion(size int64) region {
 	return make(region, size)
 }
 
@@ -44,15 +44,15 @@ func (r *region) String() string {
 	return strings.Join(output, ", ")
 }
 
-func (r *region) Store(i int, op *ir.Operand) {
-	if i >= len(*r) {
-		*r = append(*r, newRegion(i-len(*r)+1)...)
+func (r *region) Store(i int64, op *ir.Operand) {
+	if i >= int64(len(*r)) {
+		*r = append(*r, newRegion(i-int64(len(*r)+1))...)
 	}
 	(*r)[i] = op
 }
 
-func (r *region) Load(i int) *ir.Operand {
-	if i >= len(*r) {
+func (r *region) Load(i int64) *ir.Operand {
+	if i >= int64(len(*r)) {
 		return nil
 	}
 	return (*r)[i]
@@ -86,12 +86,12 @@ func newState(M *ir.Module) *state {
 
 func (s *state) InitArgs() {
 	for i, arg := range s.proc.Args {
-		argOp := newCallerOperand(arg, i)
-		s.CallerInterproc.Store(i, argOp)
+		argOp := newCallerOperand(arg, int64(i))
+		s.CallerInterproc.Store(int64(i), argOp)
 	}
 }
 
-func newCallerOperand(arg *ir.Symbol, i int) *ir.Operand {
+func newCallerOperand(arg *ir.Symbol, i int64) *ir.Operand {
 	return &ir.Operand{
 		Mirc:   mirc.CallerInterproc,
 		Num:    i,
@@ -143,7 +143,7 @@ func checkJump(s *state) *errors.CompilerError {
 
 func checkRet(s *state) *errors.CompilerError {
 	for i, ret := range s.proc.Rets {
-		op := s.CallerInterproc.Load(i)
+		op := s.CallerInterproc.Load(int64(i))
 		if op == nil {
 			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.Returns())
 		}
@@ -442,7 +442,7 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	proc := procOp.Type.Proc
 
 	for i, formal_arg := range proc.Args {
-		real_arg := s.CalleeInterproc.Load(i)
+		real_arg := s.CalleeInterproc.Load(int64(i))
 		if real_arg == nil {
 			return errorLoadingGarbage(instr)
 		}
@@ -453,8 +453,8 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 
 	for i, formal_ret := range proc.Rets {
-		op := &ir.Operand{Mirc: mirc.CallerInterproc, Num: i, Type: formal_ret}
-		s.CalleeInterproc.Store(i, op)
+		op := &ir.Operand{Mirc: mirc.CallerInterproc, Num: int64(i), Type: formal_ret}
+		s.CalleeInterproc.Store(int64(i), op)
 	}
 	return nil
 }

@@ -377,7 +377,7 @@ func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = Expect(s, T.ASSIGNMENT, T.PLUS_ASSIGN, T.MINUS_ASSIGN,
+	op, err := Expect(s, T.ASSIGNMENT, T.PLUS_ASSIGN, T.MINUS_ASSIGN,
 		T.MULTIPLICATION_ASSIGN, T.DIVISION_ASSIGN, T.REMAINDER_ASSIGN)
 	if err != nil {
 		return nil, err
@@ -386,7 +386,7 @@ func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	kw.Leaves = []*ir.Node{ass, exp}
+	kw.Leaves = []*ir.Node{ass, op, exp}
 	return kw, nil
 }
 

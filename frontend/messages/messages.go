@@ -182,3 +182,17 @@ func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "cannot use void as value")
 	return NewSemanticError(M, et.CannotUseVoid, info)
 }
+func ErrorCanOnlyUseNormalAssignment(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "can only use normal assignment when assigning multiple values")
+	return NewSemanticError(M, et.CanOnlyUseNormalAssignment, info)
+}
+
+func ExpectedNumber(M *ir.Module, op *ir.Node, t *T.Type) *errors.CompilerError {
+	info := NewNodeInfo(op, "operation can only be done on numbers (type: "+t.String()+")")
+	return NewSemanticError(M, et.ExpectedNumber, info)
+}
+
+func ExitMustBeI8(M *ir.Module, exp *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(exp, "exit must be type i8 (type: "+exp.T.String()+")")
+	return NewSemanticError(M, et.ExitMustBeI8, info)
+}

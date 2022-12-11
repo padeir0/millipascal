@@ -67,6 +67,8 @@ func checkJump(s *state) *errors.CompilerError {
 		return checkCode(s, bb.Out.False)
 	case FT.Return:
 		return checkRet(s, bb.Out.V)
+	case FT.Exit:
+		return checkExit(s, bb.Out)
 	}
 	return nil
 }
@@ -84,6 +86,19 @@ func checkRet(s *state, rets []*ir.Operand) *errors.CompilerError {
 			wants := wanted_ret.String()
 			return eu.NewInternalSemanticError("invalid return for procedure: has "+has+" wanted "+wants)
 		}
+	}
+	return nil
+}
+
+func checkExit(s *state, branch ir.Flow) *errors.CompilerError {
+	if branch.V == nil {
+		return eu.NewInternalSemanticError("invalid exit with zero operands")
+	}
+	if len(branch.V) != 1 {
+		return eu.NewInternalSemanticError("exit should have one operand")
+	}
+	if !branch.V[0].Type.Equals(T.T_I8) {
+		return eu.NewInternalSemanticError("exit operand must be I8")
 	}
 	return nil
 }

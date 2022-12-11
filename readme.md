@@ -12,9 +12,7 @@ i8	i16 	i32	i64	bool	ptr
 
 `ptr` is an untyped pointer, similar to `void *`
 
-Procedures are not first-class
-(for no good reason, maybe i'll fix this in the future),
-but can have multiple arguments and multiple returns:
+Procedures are first-class and can have multiple arguments and multiple returns:
 
 ```
 proc Split[p:ptr, size] ptr, ptr
@@ -38,7 +36,7 @@ That will be parsed as `1 - 2` instead of `1; -2;`.
 But i don't know why would you write code like that in the first place.
 In that case, you can use semicolons.
 
-Control flow is only `if`, `while` and `return`.
+Control flow is `if`, `while`, `return` and `exit`.
 
 ```
 proc iffi[a] i64
@@ -57,46 +55,34 @@ begin
 end proc
 ```
 
-It's incredibly verbose so that it will never be used by anyone.
 If you notice, omiting the type of an argument makes it default to `i64`.
 The compiler allocates on the stack every type as 8 byte chunks
-anyway so fuck it.
+anyway, so it doesn't matter.
 
 To change the value of a variable, you use `set`, similar to Lisp.
-You can't use `+=`, `-=` etc, again, for no good reason.
-
 You can declare static memory with `memory`:
 
 ```
-memory write_buffer 32
+memory w 32
 
 proc main
-var w:ptr
 begin
-	set w = write_buffer
-	set w@i8 = 72:i8
-	set w = w + 1
-	set w@i8 = 69:i8
-	set w = w + 1
-	set w@i8 = 89:i8
-	set w = w + 1
-	set w@i8 = 10:i8
+	set (w + 0p)@i8 = 'H'
+	set (w + 1p)@i8 = 'e'
+	set (w + 2p)@i8 = 'y'
+	set (w + 3p)@i8 = '\n'
 
-	write[write_buffer, 4]
+	write[w, 4]
 end proc
 ```
 
 If anything worked at all, this would print `Hey\n` to the console.
-There are no string literals for now, i will eventually fix this issues.
 
 There are [will be] three built-in procedures:
-`write[str:ptr, size:int]`, `read[buffer:ptr, amount:int]` and
-`error[str:ptr, size:int]`.
+`write[str:ptr, size:i64]`, `read[buffer:ptr, amount:i64]` and
+`error[str:ptr, size:i64]`.
 They will `write` to `STDOUT`, `read` from `STDIN` and
 write to `STDERR`, respectivelly.
-The `exit` syscall will be implemented as an language
-feature, so that the inner intermediate representation
-can be aware of termination.
 
 Pointer indirection is with the `@` operator, the right side is the type
 expected at that location. `p@i64` reads 8 bytes from the pointer `p` as an
@@ -106,10 +92,10 @@ Variables are declared together with the procedure, and cannot be
 declared inside any block.
 
 ```
-proc MyProc[] i64
+proc MyProc[]
 var this, is, the, only, place, you, can, declare, variables
 begin
-	return only + you + can + declare + variables;
+	exit 0r;
 end proc
 ```
 
@@ -122,12 +108,9 @@ Missing features that will be added:
 
  - String literals: `memory hello "Hello, world!\n"`
  - `.size` property for `memory` declarations
- - `exit` statement: `exit 0`
  - `write`, `read` and `error` built-in procedures
- - op + assign operators: `+=`, `-=`, `*=`, `/=` and `%=`
- - hex and binary literals: `0xFFFFFF` and `0b10011001`
  
-Improvements:
+Optimizations:
  - Properly deal with dirty values in the register allocator
  - Generate minimum amount of copies in the frontend
 

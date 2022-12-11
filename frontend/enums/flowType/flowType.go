@@ -20,4 +20,5 @@ const (
 	Jmp
 	If
 	Return
+	Exit
 )

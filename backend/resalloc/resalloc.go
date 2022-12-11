@@ -16,22 +16,22 @@ import (
 	"strings"
 )
 
-type reg int
-type spill int
-type calleeInterproc int
-type callerInterproc int
+type reg int64
+type spill int64
+type calleeInterproc int64
+type callerInterproc int64
 
 type value struct {
 	Class  hirc.HIRClass
 	Symbol *ir.Symbol
-	Num    int
+	Num    int64
 }
 
 func (v value) String() string {
 	if v.Symbol != nil {
-		return v.Class.String() + " " + v.Symbol.Name + " " + strconv.Itoa(v.Num)
+		return v.Class.String() + " " + v.Symbol.Name + " " + strconv.FormatInt(v.Num, 10)
 	}
-	return v.Class.String() + " " + strconv.Itoa(v.Num)
+	return v.Class.String() + " " + strconv.FormatInt(v.Num, 10)
 }
 
 type stack struct {
@@ -131,12 +131,12 @@ const (
 
 type useInfo struct {
 	Place StorageClass
-	Num   int
+	Num   int64
 	T     *T.Type
 }
 
 func (u useInfo) String() string {
-	return u.Place.String() + " " + strconv.Itoa(u.Num) + " " + u.T.String()
+	return u.Place.String() + " " + strconv.FormatInt(u.Num, 10) + " " + u.T.String()
 }
 
 type deferredInstr struct {
@@ -246,7 +246,7 @@ func (s *state) FreeSpill(a spill) {
 func (s *state) AllocReg(v value, t *T.Type) reg {
 	r := reg(s.AvailableRegs.Pop())
 	s.UsedRegs[r] = v
-	s.LiveValues[v] = useInfo{Place: Register, Num: int(r), T: t}
+	s.LiveValues[v] = useInfo{Place: Register, Num: int64(r), T: t}
 	return r
 }
 
@@ -275,7 +275,7 @@ func (s *state) Spill(r reg, t *T.Type) spill {
 	s.FreeReg(r)
 	a := spill(s.AvailableSpills.Pop())
 	s.UsedSpills[a] = v
-	s.LiveValues[v] = useInfo{Place: Spill, Num: int(a), T: t}
+	s.LiveValues[v] = useInfo{Place: Spill, Num: int64(a), T: t}
 	return a
 }
 
@@ -332,7 +332,7 @@ func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
 		s := newState(numRegs, p, curr)
 		findUses(s)
 		allocBlock(s)
-		if s.bb.Out.T != FT.Return {
+		if !s.bb.IsTerminal() {
 			storeLiveLocals(s) 
 		}
 		if s.bb.Out.T == FT.Return {
@@ -353,7 +353,7 @@ func calcSpill(s *state) {
 // TODO: OPT: transformReturn should look if the value is already where it needs to be (in the respective Caller Interproc)
 func transformReturn(s *state) {
 	type RetVal struct {
-		Index int
+		Index int64
 		Op *ir.Operand
 	}
 
@@ -365,12 +365,12 @@ func transformReturn(s *state) {
 		info, ok := s.LiveValues[rVal]
 		if ok && info.Place == Register {
 			regOp := newRegOp(reg(info.Num), info.T)
-			callerInterproc := newOp(ret, mirc.CallerInterproc, i)
+			callerInterproc := newOp(ret, mirc.CallerInterproc, int64(i))
 			loadRet := IRU.Store(regOp, callerInterproc)
 			s.QueueInstr(end, loadRet)
 			s.Free(rVal)
 		} else {
-			rv := RetVal{Index: i, Op: ret}
+			rv := RetVal{Index: int64(i), Op: ret}
 			notAlive = append(notAlive, rv)
 		}
 	}
@@ -562,7 +562,7 @@ func allocCall(s *state, instr *ir.Instr, index int) {
 		callee := calleeInterproc(i)
 		switch dest.Hirc {
 		case hirc.Temp:
-			s.LiveValues[v] = useInfo{Place: CalleeInterProc, Num: i, T: dest.Type}
+			s.LiveValues[v] = useInfo{Place: CalleeInterProc, Num: int64(i), T: dest.Type}
 		case hirc.Arg:
 			op := loadCalleeInterproc(s, callee, v, dest.Type, index)
 			r := reg(op.Num)
@@ -598,12 +598,12 @@ func loadArguments(s *state, instr *ir.Instr, index int) {
 	for i, op := range instr.Operands[1:] {
 		v := toValue(op)
 		info, ok := s.LiveValues[v]
-		if ok && info.Place == CalleeInterProc && info.Num == i {
+		if ok && info.Place == CalleeInterProc && info.Num == int64(i) {
 			// if it's already where it needs to be
 			continue
 		}
 		immediate := ensureImmediate(s, index, v, op.Type)
-		arg := newOp(op, mirc.CalleeInterproc, i)
+		arg := newOp(op, mirc.CalleeInterproc, int64(i))
 		storeArg := IRU.Store(immediate, arg)
 		s.QueueInstr(index, storeArg)
 		freeIfNotNeeded(s, index, toValue(op))
@@ -742,7 +742,7 @@ func ensureImmediate(s *state, index int, v value, t *T.Type) *ir.Operand {
 	panic("ensureImmediate: Invalid HIRClass")
 }
 
-func newOpFromValue(v value, t *T.Type, m mirc.MIRClass, num int) *ir.Operand {
+func newOpFromValue(v value, t *T.Type, m mirc.MIRClass, num int64) *ir.Operand {
 	return &ir.Operand{
 		Hirc:   v.Class,
 		Mirc:   m,
@@ -752,7 +752,7 @@ func newOpFromValue(v value, t *T.Type, m mirc.MIRClass, num int) *ir.Operand {
 	}
 }
 
-func newOp(op *ir.Operand, m mirc.MIRClass, num int) *ir.Operand {
+func newOp(op *ir.Operand, m mirc.MIRClass, num int64) *ir.Operand {
 	return &ir.Operand{
 		Hirc:   op.Hirc,
 		Mirc:   m,
@@ -868,7 +868,7 @@ func storeArg(s *state, r reg, num callerInterproc, t *T.Type, index int) {
 func newRegOp(r reg, t *T.Type) *ir.Operand {
 	return &ir.Operand{
 		Mirc: mirc.Register,
-		Num:  int(r),
+		Num:  int64(r),
 		Type: t,
 	}
 }
@@ -876,7 +876,7 @@ func newRegOp(r reg, t *T.Type) *ir.Operand {
 func newSpillOperand(sNum spill, t *T.Type) *ir.Operand {
 	return &ir.Operand{
 		Mirc: mirc.Spill,
-		Num:  int(sNum),
+		Num:  int64(sNum),
 		Type: t,
 	}
 }
@@ -893,7 +893,7 @@ func newCalleeInterprocOperand(i calleeInterproc, t *T.Type) *ir.Operand {
 	return &ir.Operand{
 		Mirc: mirc.CalleeInterproc,
 		Type: t,
-		Num:  int(i),
+		Num:  int64(i),
 	}
 }
 
@@ -901,7 +901,7 @@ func newCallerInterprocOperand(i callerInterproc, t *T.Type) *ir.Operand {
 	return &ir.Operand{
 		Mirc: mirc.CallerInterproc,
 		Type: t,
-		Num:  int(i),
+		Num:  int64(i),
 	}
 }
 
@@ -915,7 +915,7 @@ func freeIfNotNeeded(s *state, index int, v value) {
 	if isNeeded(s, index, v, useInfo) {
 		return
 	}
-	if s.bb.Out.T != FT.Return { // no need to restore in returns
+	if !s.bb.IsTerminal() { // no need to restore if is terminal
 		if v.Class == hirc.Local {
 			r := reg(useInfo.Num)
 			storeLocal(s, r, v.Symbol, index+1)

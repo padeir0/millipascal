@@ -60,6 +60,9 @@ const (
 	CannotUseSyscallInExpr
 	CannotUseVoid
 	ExpectedBasicType
+	CanOnlyUseNormalAssignment
+	ExpectedNumber
+	ExitMustBeI8
 )
 
 func (et ErrType) String() string {
@@ -109,7 +112,7 @@ var DebugMap = map[ErrType]string{
 	InvalidDependencyCycle:         "InvalidDependencyCycle",
 	InvalidInitForMemType:          "InvalidInitForMemType",
 	NameNotDefined:                 "NameNotDefined",
-	CanOnlyDerefPointers:             "CanOnlyIndexMemory",
+	CanOnlyDerefPointers:           "CanOnlyIndexMemory",
 	CanOnlyAssignLocal:             "CanOnlyAssignLocal",
 	NotAssignable:                  "NotAssignable",
 	InvalidType:                    "InvalidType",
@@ -132,6 +135,9 @@ var DebugMap = map[ErrType]string{
 	CannotUseSyscallInExpr:         "CannotUseSyscallInExpr",
 	CannotUseVoid:                  "CannotUseVoid",
 	ExpectedBasicType:              "ExpectedBasicType",
+	CanOnlyUseNormalAssignment:     "CanOnlyUseNormalAssignment",
+	ExpectedNumber:                 "ExpectedNumber",
+	ExitMustBeI8:                   "ExitMustBeI8",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -187,4 +193,7 @@ var ErrorCodeMap = map[ErrType]string{
 	CannotUseSyscallInExpr:         "S034",
 	CannotUseVoid:                  "S035",
 	ExpectedBasicType:              "S036",
+	CanOnlyUseNormalAssignment:     "S037",
+	ExpectedNumber:                 "S038",
+	ExitMustBeI8:                   "S039",
 }
