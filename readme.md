@@ -86,7 +86,7 @@ write to `STDERR`, respectivelly.
 
 Pointer indirection is with the `@` operator, the right side is the type
 expected at that location. `p@i64` reads 8 bytes from the pointer `p` as an
-`i64`.
+`i64`. For amd64 any `proc` type has 8 bytes of size.
 
 Variables are declared together with the procedure, and cannot be
 declared inside any block.
@@ -104,12 +104,6 @@ to find names in the frontend, but not by much.
 I won't change this, however, since this is how the stack frame
 works, this language is just a thin wrap over assembly.
 
-Missing features that will be added:
-
- - String literals: `memory hello "Hello, world!\n"`
- - `.size` property for `memory` declarations
- - `write`, `read` and `error` built-in procedures
- 
 Optimizations:
  - Properly deal with dirty values in the register allocator
  - Generate minimum amount of copies in the frontend

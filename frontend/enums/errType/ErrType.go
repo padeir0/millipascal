@@ -63,6 +63,8 @@ const (
 	CanOnlyUseNormalAssignment
 	ExpectedNumber
 	ExitMustBeI8
+	PtrCantBeUsedAsMemSize
+	InvalidProp
 )
 
 func (et ErrType) String() string {
@@ -138,6 +140,8 @@ var DebugMap = map[ErrType]string{
 	CanOnlyUseNormalAssignment:     "CanOnlyUseNormalAssignment",
 	ExpectedNumber:                 "ExpectedNumber",
 	ExitMustBeI8:                   "ExitMustBeI8",
+	PtrCantBeUsedAsMemSize:         "PtrCantBeUsedAsMemSize",
+	InvalidProp:                    "InvalidProp",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -196,4 +200,6 @@ var ErrorCodeMap = map[ErrType]string{
 	CanOnlyUseNormalAssignment:     "S037",
 	ExpectedNumber:                 "S038",
 	ExitMustBeI8:                   "S039",
+	PtrCantBeUsedAsMemSize:         "S040",
+	InvalidProp:                    "S41",
 }

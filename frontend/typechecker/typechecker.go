@@ -10,6 +10,7 @@ import (
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
+	addBuiltins(M)
 	for _, sy := range M.Globals {
 		err := checkSymbol(M, sy)
 		if err != nil {
@@ -27,6 +28,16 @@ func Check(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
+func addBuiltins(M *ir.Module) {
+	t := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{}}}
+	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: t, Proc: nil}
+	read  := &ir.Symbol{Name: "read", T: ST.Builtin, Type: t, Proc: nil}
+	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: t, Proc: nil}
+	M.Globals["write"] = write
+	M.Globals["read"] = read
+	M.Globals["error"] = error
+}
+
 func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 	switch sy.T {
 	case ST.Proc:
@@ -35,8 +46,52 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 			return err
 		}
 		sy.Type = sy.Proc.T
+	case ST.Mem:
+		err := checkMem(M, sy.Mem)
+		if err != nil {
+			return err
+		}
+		sy.Type = T.T_Ptr
 	}
 	return nil
+}
+
+func checkMem(M *ir.Module, mem *ir.Mem) *errors.CompilerError {
+	switch mem.Init.Lex {
+		case lex.STRING_LIT:
+			b := decodeString(mem.Init.Text)
+			mem.Size = int64(len(b))
+			mem.Contents = b
+		case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
+			mem.Size = mem.Init.Value
+		case lex.PTR_LIT:
+			return msg.ErrorPtrCantBeUsedAsMemSize(M, mem.Init)
+	}
+	return nil
+}
+
+func decodeString(oldtext string) []byte {
+	text := oldtext[1:len(oldtext)-1]
+	output := make([]byte, len(text))[:0]
+	for i := 0; i < len(text); i++ {
+		if text[i] == '\\' {
+			i++
+			r := text[i]
+			switch r {
+			case 'n':
+				output = append(output, '\n')
+			case 't':
+				output = append(output, '\t')
+			case 'r':
+				output = append(output, '\r')
+			default:
+				output = append(output, r)
+			}
+		} else {
+			output = append(output, text[i])
+		}
+	}
+	return output
 }
 
 func checkProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {
@@ -485,6 +540,8 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 		return checkDeref(M, proc, n)
 	case lex.NOT:
 		return unaryOp(M, proc, n, _bool, outBool)
+	case lex.DOT:
+		return propertyAccess(M, proc, n)
 	}
 	return nil
 }
@@ -713,4 +770,22 @@ func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 		return msg.ErrorBadDeref(M, n, exp.T)
 	}
 	return nil
+}
+
+func propertyAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+	mem := n.Leaves[1]
+	prop := n.Leaves[0]
+	_, ok := M.Globals[mem.Text]
+	if mem.Lex != lex.IDENTIFIER || !ok {
+		return msg.ErrorExpectedMem(M, mem)
+	}
+	if prop.Lex != lex.IDENTIFIER || isInvalidProp(prop.Text) {
+		return msg.ErrorInvalidProp(M, mem)
+	}
+	n.T = T.T_I64
+	return nil
+}
+
+func isInvalidProp(text string) bool {
+	return text != "size"
 }

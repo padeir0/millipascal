@@ -7,8 +7,6 @@ import (
 	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 	msg "mpc/frontend/messages"
-
-	"strconv"
 )
 
 func ResolveNames(M *ir.Module) *errors.CompilerError {
@@ -54,13 +52,8 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 }
 
 func getMemSymbol(n *ir.Node) *ir.Symbol {
-	size, err := strconv.Atoi(n.Leaves[1].Text)
-	if err != nil {
-		panic("getMemSymbol: " + err.Error())
-	}
 	mem := &ir.Mem{
-		Size: size,
-		Init: []*ir.Node{},
+		Init: n.Leaves[1],
 	}
 	return &ir.Symbol{
 		T:    ST.Mem,

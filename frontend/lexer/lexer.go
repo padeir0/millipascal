@@ -1,11 +1,11 @@
 package lexer
 
 import (
-	"mpc/frontend/ir"
 	T "mpc/frontend/enums/lexType"
+	"mpc/frontend/ir"
 
-	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
+	"mpc/frontend/errors"
 
 	"fmt"
 	"strings"
@@ -97,6 +97,19 @@ func ReadAll(s *Lexer) ([]*ir.Node, *errors.CompilerError) {
 		}
 	}
 	return output, nil
+}
+
+func GenNumNode(l *Lexer, tp T.TkType, value int64) *ir.Node {
+	text := Selected(l)
+	n := &ir.Node{
+		Lex:    tp,
+		Text:   text,
+		Line:   l.Line,
+		Value:  value,
+		Col:    l.Col - len(text),
+		Length: len(text),
+	}
+	return n
 }
 
 func GenNode(l *Lexer, tp T.TkType) *ir.Node {
@@ -400,19 +413,29 @@ func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
+	var value int64
 	if r == '0' {
 		r, err = nextRune(st)
 		switch r {
 		case 'x': // he x
 			err = acceptRun(st, hex_digits)
+			if err != nil {
+				return nil, err
+			}
+			value = parseHex(Selected(st))
 		case 'b': // b inary
 			err = acceptRun(st, bin_digits)
+			if err != nil {
+				return nil, err
+			}
+			value = parseBin(Selected(st))
 		default:
 			unread(st)
 			err = acceptRun(st, digits)
-		}
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
+			value = parseNormal(Selected(st))
 		}
 	} else {
 		unread(st)
@@ -420,6 +443,7 @@ func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		if err != nil {
 			return nil, err
 		}
+		value = parseNormal(Selected(st))
 	}
 	r, err = nextRune(st)
 	if err != nil {
@@ -427,16 +451,16 @@ func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 	switch r {
 	case 'p': // p ointer
-		return GenNode(st, T.PTR_LIT), nil
+		return GenNumNode(st, T.PTR_LIT, value), nil
 	case 'r': // cha r
-		return GenNode(st, T.I8_LIT), nil
+		return GenNumNode(st, T.I8_LIT, value), nil
 	case 't': // shor t
-		return GenNode(st, T.I16_LIT), nil
+		return GenNumNode(st, T.I16_LIT, value), nil
 	case 'g': // lon g
-		return GenNode(st, T.I32_LIT), nil
+		return GenNumNode(st, T.I32_LIT, value), nil
 	}
 	unread(st)
-	return GenNode(st, T.I64_LIT), nil
+	return GenNumNode(st, T.I64_LIT, value), nil
 }
 
 func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
@@ -502,7 +526,7 @@ func comment(st *Lexer) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	for !strings.ContainsRune("#\n"+string(eof), r) {
+	for !strings.ContainsRune("\n"+string(eof), r) {
 		r, err = nextRune(st)
 		if err != nil {
 			return err
@@ -516,7 +540,10 @@ func comment(st *Lexer) *errors.CompilerError {
 
 func strLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	for {
-		acceptUntil(st, insideStr)
+		err := acceptUntil(st, insideStr)
+		if err != nil {
+			return nil, err
+		}
 		r, err := nextRune(st)
 		if err != nil {
 			return nil, err
@@ -547,11 +574,13 @@ func charLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
 			return nil, err
 		}
 		if r == '\'' {
+			text := Selected(st)
 			return &ir.Node{
-				Text: Selected(st),
-				Lex:  T.CHAR_LIT,
-				Line: st.Line,
-				Col:  st.Col,
+				Text:  text,
+				Lex:   T.CHAR_LIT,
+				Line:  st.Line,
+				Value: parseCharLit(text[1:len(text)-1]),
+				Col:   st.Col,
 			}, nil
 		}
 		if r == '\\' {
@@ -574,4 +603,74 @@ func IsValidIdentifier(s string) bool {
 		return false
 	}
 	return tks[0].Lex == T.IDENTIFIER
+}
+
+func parseNormal(text string) int64 {
+	var output int64 = 0
+	for i := range text {
+		output *= 10
+		char := text[i]
+		if char >= '0' || char <= '9' {
+			output += int64(char - '0')
+		} else {
+			panic(text)
+		}
+	}
+	return output
+}
+
+func parseHex(oldText string) int64 {
+	text := oldText[2:]
+	var output int64 = 0
+	for i := range text {
+		output *= 16
+		char := text[i]
+		if char >= '0' && char <= '9' {
+			output += int64(char - '0')
+		} else if char >= 'a' && char <= 'f' {
+			output += int64(char-'a') + 10
+		} else if char >= 'A' && char <= 'F' {
+			output += int64(char-'A') + 10
+		} else {
+			panic(text)
+		}
+	}
+	return output
+}
+
+func parseBin(oldText string) int64 {
+	text := oldText[2:]
+	var output int64 = 0
+	for i := range text {
+		output *= 2
+		char := text[i]
+		if char == '0' || char == '1' {
+			output += int64(char - '0')
+		} else {
+			panic(text)
+		}
+	}
+	return output
+}
+
+func parseCharLit(text string) int64 {
+	value := int64(text[0])
+	if len(text) > 1 {
+		switch text {
+		case "\\n":
+			value = '\n'
+		case "\\t":
+			value = '\t'
+		case "\\r":
+			value = '\r'
+		case "\\'":
+			value = '\''
+		case "\\\"":
+			value = '"'
+		default:
+			fmt.Println(text)
+			panic("too many chars in char :C")
+		}
+	}
+	return value
 }

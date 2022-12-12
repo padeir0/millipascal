@@ -20,6 +20,7 @@ const (
 	Invalid SymbolType = iota
 
 	Proc
+	Builtin
 	Mem
 	Var
 	Arg

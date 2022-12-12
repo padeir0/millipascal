@@ -1,7 +1,6 @@
 package gen
 
 import (
-	"fmt"
 	T "mpc/frontend/Type"
 	hirc "mpc/frontend/enums/HIRClass"
 	IT "mpc/frontend/enums/instrType"
@@ -10,6 +9,7 @@ import (
 	"mpc/frontend/ir"
 	RIU "mpc/frontend/util/ir"
 	"strconv"
+
 )
 
 type context struct {
@@ -174,8 +174,8 @@ func genSet(M *ir.Module, c *context, set *ir.Node) {
 	op := set.Leaves[1]
 	expr := set.Leaves[2]
 
-	if len(assignees.Leaves) > 1 && len(expr.Leaves) == 1 {
-		genMultiProcAssign(M, c, assignees, expr.Leaves[0])
+	if len(assignees.Leaves) > 1 {
+		genMultiProcAssign(M, c, assignees, expr)
 		return
 	}
 
@@ -207,7 +207,7 @@ func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node, ops []*ir.O
 			genCallAssign(M, c, ass, op)
 			continue
 		}
-		if ass.Lex == lex.LEFTBRACKET {
+		if ass.Lex == lex.AT {
 			genCallAssignMem(M, c, ass, op)
 			continue
 		}
@@ -255,14 +255,6 @@ func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	ptrOp := genExpr(M, c, ass.Leaves[1]) // CHECK
 	loadPtr := RIU.StorePtr(op, ptrOp)
 	c.CurrBlock.AddInstr(loadPtr)
-}
-
-func genMultiAssign(M *ir.Module, c *context, assignees, exprlist *ir.Node) {
-	for i := range assignees.Leaves {
-		ass := assignees.Leaves[i]
-		exp := exprlist.Leaves[i]
-		genSingleAssign(M, c, ass, exp, lex.ASSIGNMENT)
-	}
 }
 
 func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.TkType) {
@@ -346,10 +338,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 		return genExprID(M, c, exp)
 	case lex.FALSE, lex.TRUE:
 		return genBoolLit(M, c, exp)
-	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
+	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT, lex.CHAR_LIT:
 		return genNumLit(M, c, exp)
-	case lex.CHAR_LIT:
-		return genCharLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
 		return genPlusMinus(M, c, exp)
 	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
@@ -369,6 +359,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 		return genDeref(M, c, exp)
 	case lex.NOT:
 		return genUnaryOp(M, c, exp)
+	case lex.DOT:
+		return genDot(M, c, exp)
 	}
 	panic("invalid or unimplemented expression type: " + exp.String())
 }
@@ -427,11 +419,11 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 
 func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
 	switch global.T {
-	case ST.Proc:
+	case ST.Proc, ST.Builtin:
 		return &ir.Operand{
 			Hirc:   hirc.Global,
 			Symbol: global,
-			Type:   global.Proc.T,
+			Type:   global.Type,
 		}
 	case ST.Mem:
 		return &ir.Operand{
@@ -452,106 +444,10 @@ func genConversion(M *ir.Module, c *context, colon *ir.Node) *ir.Operand {
 }
 
 func genNumLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
-	text := lit.Text
-	if lit.Lex != lex.I64_LIT {
-		text = lit.Text[0 : len(lit.Text)-1]
-	}
-	value := convertNum(text)
 	return &ir.Operand{
 		Hirc: hirc.Lit,
 		Type: lit.T,
-		Num:  value,
-	}
-}
-
-func convertNum(text string) int64 {
-	if len(text) == 0 {
-		panic(text)
-	}
-	if len(text) < 3 {
-		return parseNormal(text)
-	}
-	if text[0] == '0' && text[1] == 'x' {
-		return parseHex(text[2:])
-	}
-	if text[0] == '0' && text[1] == 'b' {
-		return parseBin(text[2:])
-	}
-	return parseNormal(text)
-}
-
-func parseNormal(text string) int64 {
-	var output int64 = 0
-	for i := range text {
-		output *= 10
-		char := text[i]
-		if char >= '0' || char <= '9' {
-			output += int64(char - '0')
-		} else {
-			panic(text)
-		}
-	}
-	return output
-}
-
-func parseHex(text string) int64 {
-	var output int64 = 0
-	for i := range text {
-		output *= 16
-		char := text[i]
-		if (char >= '0' && char <= '9') {
-			output += int64(char - '0')
-		} else if (char >= 'a' && char <= 'f') {
-			output += int64(char - 'a') + 10
-		} else if (char >= 'A' && char <= 'F') {
-			output += int64(char - 'A') + 10
-		} else {
-			panic(text)
-		}
-	}
-	return output
-}
-
-func parseBin(text string) int64 {
-	var output int64 = 0
-	for i := range text {
-		output *= 2
-		char := text[i]
-		if (char == '0' || char == '1') {
-			output += int64(char - '0')
-		} else {
-			panic(text)
-		}
-	}
-	return output
-}
-
-func genCharLit(M *ir.Module, c *context, lit *ir.Node) *ir.Operand {
-	text := lit.Text[1 : len(lit.Text)-1]
-	value := int64(text[0])
-	if len(text) > 1 {
-		if text[0] != '\\' {
-		}
-		switch text {
-		case "\\n":
-			value = '\n'
-		case "\\t":
-			value = '\t'
-		case "\\r":
-			value = '\r'
-		case "\\'":
-			value = '\''
-		case "\\\"":
-			value = '"'
-		default:
-			fmt.Println(ir.FmtNode(lit))
-			panic("too many chars in char :C")
-		}
-	}
-	return &ir.Operand{
-		Hirc: hirc.Lit,
-		Type: lit.T,
-		Num:  value,
+		Num:  lit.Value,
 	}
 }
 
@@ -645,4 +541,17 @@ func lexToUnaryOp(op lex.TkType) IT.InstrType {
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected binOp")
+}
+
+func genDot(M *ir.Module, c *context, dot *ir.Node) *ir.Operand {
+	mem := dot.Leaves[1]
+	s, ok := M.Globals[mem.Text]
+	if !ok {
+		panic("oh my god")
+	}
+	return &ir.Operand{
+		Hirc: hirc.Lit,
+		Type: T.T_I64,
+		Num:  int64(s.Mem.Size),
+	}
 }

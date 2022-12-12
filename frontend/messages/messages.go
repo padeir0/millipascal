@@ -130,10 +130,9 @@ func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *
 	return NewSemanticError(M, et.MismatchedReturnType, info, source)
 }
 
-func ErrorExpectedMem(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
+func ErrorExpectedMem(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "is not a memory region")
-	source := NewNodeInfo(global.N, "defined here")
-	return NewSemanticError(M, et.ExpectedMem, info, source)
+	return NewSemanticError(M, et.ExpectedMem, info)
 }
 
 func ErrorExpectedMemGotLocal(M *ir.Module, local *ir.Symbol, n *ir.Node) *errors.CompilerError {
@@ -195,4 +194,14 @@ func ExpectedNumber(M *ir.Module, op *ir.Node, t *T.Type) *errors.CompilerError 
 func ExitMustBeI8(M *ir.Module, exp *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(exp, "exit must be type i8 (type: "+exp.T.String()+")")
 	return NewSemanticError(M, et.ExitMustBeI8, info)
+}
+
+func ErrorPtrCantBeUsedAsMemSize(M *ir.Module, init *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(init, "can't use pointer type as size of memory")
+	return NewSemanticError(M, et.PtrCantBeUsedAsMemSize, info)
+}
+
+func ErrorInvalidProp(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	info := NewNodeInfo(n, "is not a valid property (only 'size' allowed)")
+	return NewSemanticError(M, et.ExpectedMem, info)
 }

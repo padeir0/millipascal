@@ -121,6 +121,7 @@ var tktostr = map[TkType]string{
 	COLON:          "COLON",
 	ASSIGNMENT:     "ASSIGNMENT",
 	COMMA:          "COMMA",
+	DOT: "DOT",
 
 	// keyword: "keyword"
 	VAR:    "VARS",
@@ -209,6 +210,7 @@ var tktosrc = map[TkType]string{
 	MORE:           ">",
 	DIFFERENT:      "!=",
 	ASSIGNMENT:     "=",
+	DOT: ".",
 
 	VAR:    "vars",
 	TRUE:   "true",

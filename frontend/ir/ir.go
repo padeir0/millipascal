@@ -21,6 +21,8 @@ type Node struct {
 
 	T *T.Type
 
+	Value int64 // for literals
+
 	Line, Col int
 	Length    int
 }
@@ -184,9 +186,10 @@ func resetCheckBB(bb *BasicBlock) {
 }
 
 type Mem struct {
-	Size int
+	Size int64
+	Contents []byte
 	Type T.Type
-	Init []*Node
+	Init *Node
 }
 
 type BasicBlock struct {
