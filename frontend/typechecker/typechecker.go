@@ -29,10 +29,11 @@ func Check(M *ir.Module) *errors.CompilerError {
 }
 
 func addBuiltins(M *ir.Module) {
-	t := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{}}}
-	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: t, Proc: nil}
-	read  := &ir.Symbol{Name: "read", T: ST.Builtin, Type: t, Proc: nil}
-	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: t, Proc: nil}
+	w := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{}}}
+	r := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{T.T_I64}}}
+	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: w, Proc: nil}
+	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: w, Proc: nil}
+	read  := &ir.Symbol{Name: "read", T: ST.Builtin,  Type: r, Proc: nil}
 	M.Globals["write"] = write
 	M.Globals["read"] = read
 	M.Globals["error"] = error

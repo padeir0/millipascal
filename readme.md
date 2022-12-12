@@ -4,6 +4,15 @@ Small procedural language so i can learn code generation.
 Don't use it, if you do, be prepared for it to blow up in your face.
 In fact, it's not even working right now :D
 
+```
+memory hello "Hello, World!\n"
+
+proc main
+begin
+	write[hello, hello.size]
+end proc
+```
+
 It has only 6 basic types:
 
 ```
@@ -15,26 +24,39 @@ i8	i16 	i32	i64	bool	ptr
 Procedures are first-class and can have multiple arguments and multiple returns:
 
 ```
-proc Split[p:ptr, size] ptr, ptr
-begin
-	return ptr, (size/2):ptr + p
-end proc
-```
+memory buff "am i uppercase yet?\n"
 
-Procedures use square brackets `[]` instead of parenthesis `()`, so that
-there's little need for semicolons, except in code like:
-
-```
 proc main
 begin
-	1
-	-2
+	byte_map[buff, buff.size, upper_case]
+	write[buff, buff.size]
+end proc
+
+proc byte_map[b:ptr, bsize:i64, op:proc[i8]i8]
+var i:ptr
+begin
+	set i = 0p
+	while i < bsize
+	begin
+		set (b+i)@i8 = op[(b+i)@i8]
+		set i += 1p
+	end while
+end proc
+
+proc upper_case[a:i8] i8
+begin
+	if a >= 'a' and a <= 'z'
+	begin
+		return a - 32r
+	end if
+	return a
 end proc
 ```
 
-That will be parsed as `1 - 2` instead of `1; -2;`.
-But i don't know why would you write code like that in the first place.
-In that case, you can use semicolons.
+Globals can be declared in any order, similar to ASM.
+
+Procedures use square brackets `[]` instead of parenthesis `()`, so that
+it doesn't share parenthesis in the middle of expressions, being easier to read.
 
 Control flow is `if`, `while`, `return` and `exit`.
 
@@ -78,8 +100,8 @@ end proc
 
 If anything worked at all, this would print `Hey\n` to the console.
 
-There are [will be] three built-in procedures:
-`write[str:ptr, size:i64]`, `read[buffer:ptr, amount:i64]` and
+There are three built-in procedures:
+`write[str:ptr, size:i64]`, `read[buffer:ptr, amount:i64] i64` and
 `error[str:ptr, size:i64]`.
 They will `write` to `STDOUT`, `read` from `STDIN` and
 write to `STDERR`, respectivelly.
@@ -89,7 +111,7 @@ expected at that location. `p@i64` reads 8 bytes from the pointer `p` as an
 `i64`. For amd64 any `proc` type has 8 bytes of size.
 
 Variables are declared together with the procedure, and cannot be
-declared inside any block.
+declared inside any inner block.
 
 ```
 proc MyProc[]
@@ -110,4 +132,5 @@ Optimizations:
 
 Structs and unions will never be added because that will need a complete
 refactor of the IR, currently, it treats stack frame slots as isomorphic
-8 byte cells, which doesn't work well with those compound types.
+8 byte cells, which doesn't work well with those compound types. Allocating
+these types on the "heap" would be a weird behaviour.
