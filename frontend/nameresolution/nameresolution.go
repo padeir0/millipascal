@@ -52,13 +52,15 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 }
 
 func getMemSymbol(n *ir.Node) *ir.Symbol {
+	name := getSymbolName(n)
 	mem := &ir.Mem{
+		Name: name,
 		Init: n.Leaves[1],
 	}
 	return &ir.Symbol{
 		T:    ST.Mem,
 		Type: T.T_Ptr,
-		Name: getSymbolName(n),
+		Name: name,
 		Mem:  mem,
 		N:    n,
 	}

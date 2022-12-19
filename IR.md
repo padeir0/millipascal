@@ -20,6 +20,7 @@ While in HIR, operands can have the following classes:
 	temp	lit	local	global arg
 
 And are grouped as:
+
 	Operable = temp|lit|local|global|arg
 	Result   = temp|local|arg
  
@@ -125,10 +126,9 @@ They are grouped as:
 Interprocs and Registers are volatile, they can be corrupted on
 procedure calls, so if a value that is currently residing in
 the Interproc area or in a register is needed after a procedure call,
-it's the job of the register allocator to make sure the value is preserved.
+it's the job of the resource allocator to make sure the value is preserved.
 
 Spills and locals are always preserved between procedure calls.
-Literals are literally just numbers, really.
 
 #### REGISTER
 
@@ -137,13 +137,10 @@ perform most operations. They are volatile between procedure calls.
 
 #### INTERPROC
 
-Interproc areas are corruptible by the Caller/Callee procedure simply
-because they are addressable by the Caller/Callee. The caller procedure
+Interproc areas are corruptible by the Callee procedure simply
+because they are addressable by both Caller and Callee. The caller procedure
 cannot bet on the Interproc areas being safe, since they may be
 reused to return values.
-
-Furthemore, Interproc size is variable, they may change to allocate
-space for another procedure call.
 
 #### LOCAL
 
@@ -224,16 +221,21 @@ to be differentiable.
 	Call [proc'proc]
 ```
 
-TODO: LIR spec for Linux-x86
 ## LIR
 
-Instructions:
+### Instructions
 
 ```
 Add:
 	add dest/a, b
+
+	mov dest, a
+	add dest, b
 Sub:
 	sub dest/a, b
+	
+	mov dest, a
+	sub dest, b
 Div:
 	xor rdx, rdx
 	mov rax, a
@@ -247,6 +249,8 @@ Rem:
 Mult:
 	imul dest/a, b
 
+	mov dest, a
+	imul dest, b
 Eq:
 	cmp a, b;
 	sete dest
@@ -268,12 +272,23 @@ MoreEq:
 
 And:
 	and dest/a, b
+
+	mov dest, a
+	and dest, b
 Or:
 	or  dest/a, b
-Not?
+
+	mov dest, a
+	or dest, b
+Not:
+	cmp a, 0
+	sete a
 
 UnaryMinus:
-	neg a
+	neg dest/a
+
+	mov dest, a
+	neg dest
 UnaryPlus:
 	does nothing?
 
@@ -300,13 +315,6 @@ Convert i16 -> i64:
 	movsx rax, ax
 Convert i32 -> i64:
 	movsx rax, eax
-Convert i64 -> i32
-Convert i64 -> i16
-Convert i64 -> i8
-Convert i32 -> i16
-Convert i32 -> i8
-Convert i16 -> i8
-	just change the register name lol
 Convert t -> t
 	ignore
 Convert bool -> numerical
@@ -315,11 +323,70 @@ Call:
 	call a
 ```
 
-Built-in procedures
+these are not allowed:
+convert Big -> small
+convert Numerical -> Bool
+
+### Built-in procedures
 
 ```
 write:
+	push 	rbp
+	mov	rbp, rsp
+
+	mov	rdx, [rbp+16]
+	mov	rsi, [rbp+24]
+	mov	rdi, 1 ; STDOUT
+	mov	rax, 1 ; SYS_WRITE
+	syscall
+
+	mov 	rsp, rbp
+	pop 	rbp
+	ret
+
 read:
 error:
 ```
 
+### Control Flow
+
+```
+exit:
+	mov	rdi, a
+	mov	rax, SYS_EXIT
+	syscall
+```
+
+### Stack frame
+
+The address always points to the end of the slot
+so "ARP" points to the end of "Caller ARP" and
+the beginning of the "Local#0"
+
+`#local`  -> "number of locals"
+`#spill`  -> "number of spills"
+`#callerarg` -> "number of caller arguments"
+`#calleearg` -> "number of callee arguments"
+
+```
+    Stack frame     |    Address
+|-------------------|----------------------------
+| CallerInterproc#N | <- ARP + 16 + (N*8)
+| ...               |
+| CallerInterproc#0 | <- ARP + 16
+| Return Address    |
+| Caller ARP        | <- ARP (rbp)
+| Local#0           |
+| ...               |
+| Local#N           | <- ARP - (8 + N*8)
+| Spill#0           |
+| ...               |
+| Spill#N           | <- ARP - (8 + #local*8 + N*8)
+| CalleeInterproc#N | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-N)*8)
+| ...               |
+| CalleeInterproc#1 | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-1)*8)
+| CalleeInterproc#0 | <- ARP - (8 + #local*8 + #spill*8 + #calleearg*8)
+```
+
+`Interproc` means interprocedural regions where both caller and callee can
+access, they are corruptible by the callee.

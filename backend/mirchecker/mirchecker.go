@@ -19,7 +19,7 @@ func Check(M *ir.Module) *errors.CompilerError {
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
 			s.proc = sy.Proc
-			s.proc.ResetCheck()
+			s.proc.ResetVisited()
 			s.InitArgs()
 			err := checkCode(s, sy.Proc.Code)
 			if err != nil {
@@ -110,7 +110,7 @@ func newLocalOperand(arg *ir.Symbol) *ir.Operand {
 }
 
 func checkCode(s *state, bb *ir.BasicBlock) *errors.CompilerError {
-	if bb.Checked {
+	if bb.Visited {
 		return nil
 	}
 	s.bb = bb
@@ -120,7 +120,7 @@ func checkCode(s *state, bb *ir.BasicBlock) *errors.CompilerError {
 			return err
 		}
 	}
-	bb.Checked = true
+	bb.Visited = true
 	return checkJump(s)
 }
 
@@ -227,6 +227,10 @@ var ptr_reg = Checker{
 func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 	if instr == nil {
 		return nilInstr(s)
+	}
+	err := checkInvalidClass(instr)
+	if err != nil {
+		return err
 	}
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
@@ -536,6 +540,20 @@ func checkUnary(instr *ir.Instr, checkA, checkC Checker) *errors.CompilerError {
 	return malformedTypeOrClass(instr)
 }
 
+func checkInvalidClass(instr *ir.Instr) *errors.CompilerError {
+	for _, op := range instr.Operands {
+		if op.Mirc == mirc.InvalidMIRClass {
+			return invalidClass(instr)
+		}
+	}
+	for _, dest := range instr.Destination {
+		if dest.Mirc == mirc.InvalidMIRClass {
+			return invalidClass(instr)
+		}
+	}
+	return nil
+}
+
 func checkForm(instr *ir.Instr, numOperands int, numDest int) *errors.CompilerError {
 	if len(instr.Operands) != numOperands ||
 		len(instr.Destination) != numDest {
@@ -562,6 +580,9 @@ func malformedEqualTypes(instr *ir.Instr) *errors.CompilerError {
 }
 func malformedTypeOrClass(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
+}
+func invalidClass(instr *ir.Instr) *errors.CompilerError {
+	return eu.NewInternalSemanticError("invalid class: " + instr.String())
 }
 func errorLoadingGarbage(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("loading garbage: " + instr.String())

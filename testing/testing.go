@@ -81,7 +81,7 @@ func All(file string) TestResult {
 		if err != nil {
 			return compareError(file, err, expectedErr)
 		}
-		err = backend.Generate(M)
+		_, err = backend.Generate(M)
 		if err != nil {
 			return TestResult{
 				File: file,

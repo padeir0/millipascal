@@ -40,7 +40,7 @@ func newState(M *ir.Module) *state {
 }
 
 func checkCode(s *state, bb *ir.BasicBlock) *errors.CompilerError {
-	if bb.Checked {
+	if bb.Visited {
 		return nil
 	}
 	s.bb = bb
@@ -50,7 +50,7 @@ func checkCode(s *state, bb *ir.BasicBlock) *errors.CompilerError {
 			return err
 		}
 	}
-	bb.Checked = true
+	bb.Visited = true
 	return checkJump(s)
 }
 

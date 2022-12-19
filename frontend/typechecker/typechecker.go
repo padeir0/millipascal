@@ -60,9 +60,9 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 func checkMem(M *ir.Module, mem *ir.Mem) *errors.CompilerError {
 	switch mem.Init.Lex {
 		case lex.STRING_LIT:
-			b := decodeString(mem.Init.Text)
-			mem.Size = int64(len(b))
-			mem.Contents = b
+			size := stringSize(mem.Init.Text)
+			mem.Size = int64(size)
+			mem.Contents = mem.Init.Text
 		case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
 			mem.Size = mem.Init.Value
 		case lex.PTR_LIT:
@@ -71,28 +71,16 @@ func checkMem(M *ir.Module, mem *ir.Mem) *errors.CompilerError {
 	return nil
 }
 
-func decodeString(oldtext string) []byte {
+func stringSize(oldtext string) int {
 	text := oldtext[1:len(oldtext)-1]
-	output := make([]byte, len(text))[:0]
+	size := 0
 	for i := 0; i < len(text); i++ {
 		if text[i] == '\\' {
 			i++
-			r := text[i]
-			switch r {
-			case 'n':
-				output = append(output, '\n')
-			case 't':
-				output = append(output, '\t')
-			case 'r':
-				output = append(output, '\r')
-			default:
-				output = append(output, r)
-			}
-		} else {
-			output = append(output, text[i])
 		}
+		size += 1
 	}
-	return output
+	return size
 }
 
 func checkProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {

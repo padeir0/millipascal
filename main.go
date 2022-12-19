@@ -75,9 +75,9 @@ func normalMode(s string) {
 	default:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
-		err = backend.Generate(m)
-		Stdout(m.StringifyCode())
+		s, err = backend.Generate(m)
 		OkOrBurst(err)
+		Stdout(s)
 	}
 }
 

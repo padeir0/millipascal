@@ -274,6 +274,7 @@ func (s *state) Spill(r reg, t *T.Type) spill {
 	}
 	s.FreeReg(r)
 	a := spill(s.AvailableSpills.Pop())
+	s.UpdateMaxSpill(int(a))
 	s.UsedSpills[a] = v
 	s.LiveValues[v] = useInfo{Place: Spill, Num: int64(a), T: t}
 	return a
@@ -285,6 +286,12 @@ func (s *state) UpdateMaxCalleeInterproc(numargs int, numrets int) {
 	}
 	if numrets > s.MaxCalleeInterproc {
 		s.MaxCalleeInterproc = numrets
+	}
+}
+
+func (s *state) UpdateMaxSpill(spill int) {
+	if spill > s.p.NumOfSpills {
+		s.p.NumOfSpills = spill
 	}
 }
 
@@ -335,18 +342,25 @@ func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
 		if !s.bb.IsTerminal() {
 			storeLiveLocals(s) 
 		}
-		if s.bb.Out.T == FT.Return {
-			transformReturn(s)
-		}
+		transformFlow(s)
 		insertQueuedInstrs(s)
-		calcSpill(s)
+		calcRegions(s)
+	}
+	p.NumOfVars = len(p.Vars)
+}
+
+func calcRegions(s *state) {
+	if s.p.NumOfMaxCalleeArguments < s.MaxCalleeInterproc {
+		s.p.NumOfMaxCalleeArguments = s.MaxCalleeInterproc
 	}
 }
 
-func calcSpill(s *state) {
-	top := s.AvailableSpills.Size()
-	if int(top) > s.p.NumOfSpills {
-		s.p.NumOfSpills = int(top)
+func transformFlow(s *state) {
+	switch s.bb.Out.T {
+	case FT.Return:
+		transformReturn(s)
+	case FT.Exit, FT.If:
+		s.bb.Out.V = []*ir.Operand{toMirc(s, s.bb.Out.V[0])}
 	}
 }
 
@@ -577,7 +591,7 @@ func allocCall(s *state, instr *ir.Instr, index int) {
 
 	s.UpdateMaxCalleeInterproc(len(instr.Operands)-1, len(instr.Destination))
 	// removes operands from instruction
-	instr.Operands = instr.Operands[0:1]
+	instr.Operands = []*ir.Operand{toMirc(s, instr.Operands[0])}
 	instr.Destination = nil
 }
 

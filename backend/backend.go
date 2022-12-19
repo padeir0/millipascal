@@ -5,10 +5,15 @@ import (
 	"mpc/frontend/ir"
 	"mpc/backend/resalloc"
 	"mpc/backend/mirchecker"
+	"mpc/backend/amd64"
 )
 
-// TODO: Write_Stdout and Read_Stdin procedures
-func Generate(M *ir.Module) *errors.CompilerError {
-	resalloc.Allocate(M, 2)
-	return mirchecker.Check(M)
+func Generate(M *ir.Module) (string, *errors.CompilerError) {
+	resalloc.Allocate(M, len(amd64.Registers))
+	err := mirchecker.Check(M)
+	if err != nil {
+		return "", err
+	}
+	out := amd64.Generate(M)
+	return out.Fasmify(), nil
 }

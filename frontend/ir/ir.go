@@ -138,7 +138,10 @@ type Proc struct {
 
 	N           *Node
 	Code        *BasicBlock
+
+	NumOfVars int
 	NumOfSpills int
+	NumOfMaxCalleeArguments int
 }
 
 func (p *Proc) StrArgs() string {
@@ -165,29 +168,30 @@ func (p *Proc) Returns() string {
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) ResetCheck() {
-	resetCheckBB(p.Code)
+func (p *Proc) ResetVisited() {
+	resetVisitedBB(p.Code)
 }
 
-func resetCheckBB(bb *BasicBlock) {
-	if !bb.Checked {
+func resetVisitedBB(bb *BasicBlock) {
+	if !bb.Visited {
 		return
 	}
-	bb.Checked = false
+	bb.Visited = false
 	switch bb.Out.T {
 	case FT.If:
-		resetCheckBB(bb.Out.True)
-		resetCheckBB(bb.Out.False)
+		resetVisitedBB(bb.Out.True)
+		resetVisitedBB(bb.Out.False)
 	case FT.Return:
 		return
 	case FT.Jmp:
-		resetCheckBB(bb.Out.True)
+		resetVisitedBB(bb.Out.True)
 	}
 }
 
 type Mem struct {
+	Name string
 	Size int64
-	Contents []byte
+	Contents string
 	Type T.Type
 	Init *Node
 }
@@ -196,7 +200,7 @@ type BasicBlock struct {
 	Label   string
 	Code    []*Instr
 	Out     Flow
-	Checked bool
+	Visited bool
 }
 
 func (b *BasicBlock) AddInstr(i *Instr) {
@@ -377,11 +381,8 @@ func (o *Operand) MirStr() string {
 	}
 }
 
-type LIRInstrType int
-
 type Instr struct {
 	T           IT.InstrType
-	LirT        LIRInstrType
 	Type        *T.Type
 	Operands    []*Operand
 	Destination []*Operand
