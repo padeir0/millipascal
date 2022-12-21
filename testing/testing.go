@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"mpc/frontend/errors"
+	et "mpc/frontend/enums/errType"
 	parser "mpc/frontend/parser"
 	lexer "mpc/frontend/lexer"
 	"mpc/frontend"
@@ -18,9 +19,9 @@ import (
 //
 // the test data is located directly in the name
 // of the file:
-// 	module_name.E001.anu
+// 	module_name.E001.mp
 // 	            ^ error code
-// 	module_name.anu
+// 	module_name.mp
 // 	           ^ no error code (file must exit normally)
 
 type TestResult struct {
@@ -79,6 +80,13 @@ func Mir(file string) TestResult {
 	if stage <= errors.Semantic {
 		M, err := frontend.All(file)
 		if err != nil {
+			if err.Type == et.InternalCompilerError {
+				return TestResult{
+					File: file,
+					Ok:   false,
+					Message: err.Debug,
+				}
+			}
 			return compareError(file, err, expectedErr)
 		}
 		err = backend.Mir(M)
@@ -100,6 +108,13 @@ func All(file string) TestResult {
 	if stage <= errors.Semantic {
 		M, err := frontend.All(file)
 		if err != nil {
+			if err.Type == et.InternalCompilerError {
+				return TestResult{
+					File: file,
+					Ok:   false,
+					Message: err.Debug,
+				}
+			}
 			return compareError(file, err, expectedErr)
 		}
 		_, err = backend.Generate(M)

@@ -159,9 +159,11 @@ type register struct {
 	Byte  string
 }
 
-// we use this two as scratch space, IDIV already needs these, so no matter
+// we use this three as scratch space, IDIV already needs rax and rdx,
+// and very rarely will a block need more than 3~5 registers
 var RAX = &register{QWord: "rax", DWord: "eax", Word: "ax", Byte: "al"}
 var RDX = &register{QWord: "rdx", DWord: "edx", Word: "dx", Byte: "dl"}
+var RBX = &register{QWord: "rbx", DWord: "ebx", Word: "bx", Byte: "bl"}
 
 var Registers = []*register{
 	{QWord: "r15", DWord: "r15d", Word: "r15w", Byte: "r15b"},
@@ -177,7 +179,6 @@ var Registers = []*register{
 	{QWord: "rdi", DWord: "edi", Word: "di", Byte: "dil"},
 	{QWord: "rsi", DWord: "esi", Word: "si", Byte: "sil"},
 	{QWord: "rcx", DWord: "ecx", Word: "cx", Byte: "cl"},
-	{QWord: "rbx", DWord: "ebx", Word: "bx", Byte: "bl"},
 }
 
 // write[ptr, int]
@@ -329,6 +330,14 @@ func genFalseBranches(proc *ir.Proc, block *ir.BasicBlock, trueBranches *[]*ir.B
 
 func genCondJmp(proc *ir.Proc, block *ir.BasicBlock, op *ir.Operand) []*amd64Instr {
 	newOp := convertOperandProc(proc, op)
+	if op.Mirc == mirc.Lit || op.Mirc == mirc.Static {
+		rbx := genReg(RBX, op.Type)
+		return []*amd64Instr{
+			genBinInstr(Mov, rbx, newOp),
+			genBinInstr(Cmp, rbx, "1"),
+			genUnaryInstr(Je, block.Label),
+		}
+	}
 	return []*amd64Instr{
 		genBinInstr(Cmp, newOp, "1"),
 		genUnaryInstr(Je, block.Label),
@@ -404,6 +413,29 @@ func genConvert(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 			genBinInstr(Movsx, newDest, newA),
 		}
 	}
+	if a.Mirc == mirc.Lit {
+		newA := convertOperandProc(proc, a)
+		newDest := convertOperandProc(proc, dest)
+		return []*amd64Instr{
+			genBinInstr(Mov, newDest, newA),
+		}
+	}
+	if a.Mirc == mirc.Static {
+		newA := convertOperandProc(proc, a)
+		newDest := convertOperandProc(proc, dest)
+		res := genReg(RAX, dest.Type)
+		return []*amd64Instr{
+			genBinInstr(Mov, "rax", newA),
+			genBinInstr(Mov, newDest, res),
+		}
+	}
+	if !areOpEqual(a, dest) {
+		newA := getReg(a.Num, dest.Type)
+		newDest := convertOperandProc(proc, dest)
+		return []*amd64Instr{
+			genBinInstr(Mov, newDest, newA),
+		}
+	}
 	return []*amd64Instr{}
 }
 
@@ -426,7 +458,7 @@ func genLoadPtr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 	newA := convertOperandProc(proc, instr.Operands[0])
 	newDest := convertOperandProc(proc, instr.Destination[0])
 	return []*amd64Instr{
-		genMov(newDest, genType(instr.Type) + "[" + newA + "]"), // xD
+		genMov(newDest, genType(instr.Type)+"["+newA+"]"), // xD
 	}
 }
 
@@ -434,7 +466,7 @@ func genStorePtr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 	newA := convertOperandProc(proc, instr.Operands[0])
 	newDest := convertOperandProc(proc, instr.Operands[1])
 	return []*amd64Instr{
-		genMov(genType(instr.Type) + "[" + newDest + "]", newA),
+		genMov(genType(instr.Type)+"["+newDest+"]", newA),
 	}
 }
 
@@ -461,15 +493,24 @@ var compInstrMap = map[IT.InstrType]string{
 	IT.Diff:   Setne,
 	IT.Less:   Setl,
 	IT.More:   Setg,
-	IT.MoreEq: Setle,
-	IT.LessEq: Setge,
+	IT.MoreEq: Setge,
+	IT.LessEq: Setle,
 }
 
 func genComp(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
-	newOp1 := convertOperandProc(proc, instr.Operands[0])
+	a := instr.Operands[0]
+	newOp1 := convertOperandProc(proc, a)
 	newOp2 := convertOperandProc(proc, instr.Operands[1])
 	newDest := convertOperandProc(proc, instr.Destination[0])
 	newInstr := compInstrMap[instr.T]
+	if a.Mirc == mirc.Lit || a.Mirc == mirc.Static {
+		rbx := genReg(RBX, a.Type)
+		return []*amd64Instr{
+			genBinInstr(Mov, rbx, newOp1),
+			genBinInstr(Cmp, rbx, newOp2),
+			genUnaryInstr(newInstr, newDest),
+		}
+	}
 	return []*amd64Instr{
 		genBinInstr(Cmp, newOp1, newOp2),
 		genUnaryInstr(newInstr, newDest),
@@ -477,9 +518,20 @@ func genComp(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 }
 
 func genDiv(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
+	b := instr.Operands[1]
 	newOp1 := convertOperandProc(proc, instr.Operands[0])
-	newOp2 := convertOperandProc(proc, instr.Operands[1])
+	newOp2 := convertOperandProc(proc, b)
 	newDest := convertOperandProc(proc, instr.Destination[0])
+	if b.Mirc == mirc.Lit || b.Mirc == mirc.Static {
+		rbx := genReg(RBX, instr.Type)
+		return []*amd64Instr{
+			genBinInstr(Xor, RDX.QWord, RDX.QWord),
+			genMov(genReg(RAX, instr.Type), newOp1),
+			genMov(rbx, newOp2),
+			genUnaryInstr(IDiv, rbx),
+			genMov(newDest, genReg(RAX, instr.Type)),
+		}
+	}
 	return []*amd64Instr{
 		genBinInstr(Xor, RDX.QWord, RDX.QWord),
 		genMov(genReg(RAX, instr.Type), newOp1),
@@ -489,9 +541,20 @@ func genDiv(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 }
 
 func genRem(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
+	b := instr.Operands[1]
 	newOp1 := convertOperandProc(proc, instr.Operands[0])
-	newOp2 := convertOperandProc(proc, instr.Operands[1])
+	newOp2 := convertOperandProc(proc, b)
 	newDest := convertOperandProc(proc, instr.Destination[0])
+	if b.Mirc == mirc.Lit || b.Mirc == mirc.Static {
+		rbx := genReg(RBX, instr.Type)
+		return []*amd64Instr{
+			genBinInstr(Xor, RDX.QWord, RDX.QWord),
+			genMov(genReg(RAX, instr.Type), newOp1),
+			genMov(rbx, newOp2),
+			genUnaryInstr(IDiv, rbx),
+			genMov(newDest, genReg(RDX, instr.Type)),
+		}
+	}
 	return []*amd64Instr{
 		genBinInstr(Xor, RDX.QWord, RDX.QWord),
 		genMov(genReg(RAX, instr.Type), newOp1),

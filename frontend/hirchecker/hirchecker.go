@@ -14,10 +14,11 @@ import (
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
-	s := newState(M)
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
+			s := newState(M)
 			s.proc = sy.Proc
+			s.proc.ResetVisited()
 			err := checkCode(s, sy.Proc.Code)
 			if err != nil {
 				return err

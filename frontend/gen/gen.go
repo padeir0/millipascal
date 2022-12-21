@@ -324,6 +324,7 @@ func mapOpToInstr(l lex.TkType) IT.InstrType {
 
 func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.TkType) {
 	leftExpr := left.Leaves[1]
+	leftType := left.Leaves[0]
 	leftOp := genExpr(M, c, leftExpr)
 	rightOp := genExpr(M, c, right)
 	if op == lex.ASSIGNMENT {
@@ -332,12 +333,12 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.TkTyp
 		return
 	}
 
-	temp := c.AllocTemp(leftExpr.T)
+	temp := c.AllocTemp(leftType.T)
 	load := RIU.LoadPtr(leftOp, temp)
 	c.CurrBlock.AddInstr(load) // load left -> temp
 
 	instrT := mapOpToInstr(op)
-	temp2 := c.AllocTemp(leftExpr.T)
+	temp2 := c.AllocTemp(leftType.T)
 	instr := &ir.Instr{
 		T: instrT,
 		Type: temp.Type,

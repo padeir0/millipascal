@@ -74,6 +74,9 @@ type Module struct {
 }
 
 func (M *Module) String() string {
+	if M == nil {
+		return "nil"
+	}
 	return fmt.Sprintf("%v{\nRoot:\n\t%v,\nSymbols: %v\n}", M.ID, ast(M.Root, 1), M.StrGlobals())
 }
 
@@ -87,6 +90,9 @@ func (M *Module) StrGlobals() string {
 }
 
 func (M *Module) StringifyCode() string {
+	if M == nil {
+		return "nil\n"
+	}
 	output := ""
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {

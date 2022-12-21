@@ -10,7 +10,6 @@ const (
 	/* internal (bad) errors */
 	InvalidErrType ErrType = iota
 	InternalCompilerError
-	UnmatchingTypesInInstr
 
 	/* lexer errors */
 	InvalidUTF8Rune
@@ -90,7 +89,6 @@ func (et ErrType) Debug() string {
 var DebugMap = map[ErrType]string{
 	InvalidErrType:         "InvalidErrType",
 	InternalCompilerError:  "InternalCompilerError",
-	UnmatchingTypesInInstr: "UnmatchingTypesInInstr",
 
 	/* resolver errors */
 	FileError:                   "FileError",
@@ -150,7 +148,6 @@ var ErrorCodeMap = map[ErrType]string{
 	/* internal (bad) errors */
 	InvalidErrType:         "I001",
 	InternalCompilerError:  "I002",
-	UnmatchingTypesInInstr: "I003",
 
 	/* resolver errors */
 	/* lexer errors */

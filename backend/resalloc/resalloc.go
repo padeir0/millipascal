@@ -932,12 +932,12 @@ func freeIfNotNeeded(s *state, index int, v value) {
 	if !s.bb.IsTerminal() { // no need to restore if is terminal
 		if v.Class == hirc.Local {
 			r := reg(useInfo.Num)
-			storeLocal(s, r, v.Symbol, index+1)
+			storeLocal(s, r, v.Symbol, index)
 		}
 		if v.Class == hirc.Arg {
 			r := reg(useInfo.Num)
 			arg := callerInterproc(v.Num)
-			storeArg(s, r, arg, useInfo.T, index+1)
+			storeArg(s, r, arg, useInfo.T, index)
 		}
 	}
 	s.Free(v)

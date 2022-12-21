@@ -459,13 +459,12 @@ func checkStorePtr(s *state, instr *ir.Instr) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	s.SetReg(dest)
 
 	err = checkEqual(instr, instr.Type, a.Type)
 	if err != nil {
 		return err
 	}
-	if basicOrProc_reg.Check(a) &&
+	if basicOrProc_imme.Check(a) &&
 		ptr_imme.Check(dest) {
 		return nil
 	}
@@ -625,8 +624,8 @@ func checkRegs(s *state, instr *ir.Instr) *errors.CompilerError {
 			if o == nil {
 				return errorUsingRegisterGarbage(instr, op)
 			}
-			if o != op {
-				return errorIncorrectValueInRegister(instr, op)
+			if o.Num != op.Num || o.Mirc != op.Mirc || !o.Type.Equals(op.Type) {
+				return errorIncorrectValueInRegister(instr, o, op)
 			}
 		}
 	}
@@ -723,8 +722,8 @@ func errorCallLoadingGarbage(instr *ir.Instr) *errors.CompilerError {
 func errorUsingRegisterGarbage(instr *ir.Instr, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("using register garbage: " + op.String() + " of " + instr.String())
 }
-func errorIncorrectValueInRegister(instr *ir.Instr, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("incorrect value in register: " + op.String() + " of " + instr.String())
+func errorIncorrectValueInRegister(instr *ir.Instr, o, op *ir.Operand) *errors.CompilerError {
+	return eu.NewInternalSemanticError("incorrect value in register ("+o.String()+"): " + op.String() + " of " + instr.String())
 }
 func errorLoadingIncorrectType(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("load of incorrect type: " + instr.String())

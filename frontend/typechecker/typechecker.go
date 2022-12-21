@@ -7,6 +7,7 @@ import (
 	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 	msg "mpc/frontend/messages"
+
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
@@ -687,6 +688,7 @@ func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *e
 	if err != nil {
 		return err
 	}
+
 	err = checkExprType(M, right)
 	if err != nil {
 		return err
