@@ -10,6 +10,8 @@ func (f FlowType) String() string {
 		return "if"
 	case Return:
 		return "ret"
+	case Exit:
+		return "exit"
 	}
 	return "invalid FlowType"
 }

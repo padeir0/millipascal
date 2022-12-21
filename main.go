@@ -13,7 +13,8 @@ import (
 
 var lexOnly = flag.Bool("lex", false, "runs the lexer and prints the tokens")
 var parseOnly = flag.Bool("parse", false, "runs the lexer and parser, prints AST output")
-var frontendOnly = flag.Bool("frontend", false, "runs the full frontend, prints the fully typed module")
+var hirOnly = flag.Bool("hir", false, "runs the full frontend, prints hir")
+var mirOnly = flag.Bool("mir", false, "runs the full frontend, prints mir")
 
 var test = flag.Bool("test", false, "runs tests for all files in a folder,"+
 	" you can specify the stage to test using the other flags\n"+
@@ -45,8 +46,10 @@ func testingMode() testing.Tester {
 		return testing.Lex
 	case *parseOnly:
 		return testing.Parse
-	case *frontendOnly:
-		return testing.Frontend
+	case *hirOnly:
+		return testing.Hir
+	case *mirOnly:
+		return testing.Mir
 	default:
 		return testing.All
 	}
@@ -63,15 +66,31 @@ func normalMode(s string) {
 		}
 	case *parseOnly:
 		n, err := frontend.Parse(s)
-		OkOrBurst(err)
+		Stdout("\n-----AST\n")
 		Stdout(ir.FmtNode(n))
 		Stdout("\n")
-	case *frontendOnly:
-		m, err := frontend.All(s)
 		OkOrBurst(err)
-		Stdout(m.String() + "\n")
+	case *hirOnly:
+		m, err := frontend.All(s)
+		Stdout("\n-----AST\n")
+		Stdout(m.String())
+		Stdout("\n-----HIR\n")
 		Stdout(m.StringifyCode())
 		Stdout("\n")
+		OkOrBurst(err)
+
+	case *mirOnly:
+		m, err := frontend.All(s)
+		Stdout("\n-----AST\n")
+		Stdout(m.String())
+		Stdout("\n-----HIR\n")
+		Stdout(m.StringifyCode())
+		OkOrBurst(err)
+
+		err = backend.Mir(m)
+		Stdout("\n-----MIR\n")
+		Stdout(m.StringifyCode())
+		OkOrBurst(err)
 	default:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
@@ -82,7 +101,7 @@ func normalMode(s string) {
 }
 
 func checkValid() {
-	var selected = []bool{*lexOnly, *parseOnly, *frontendOnly}
+	var selected = []bool{*lexOnly, *parseOnly, *hirOnly, *mirOnly}
 	var count = 0
 	for _, b := range selected {
 		if b {
@@ -90,7 +109,7 @@ func checkValid() {
 		}
 	}
 	if count > 1 {
-		Fatal("only one of lex, parse, resolve, typecheck, gen or vm flags may be used at a time")
+		Fatal("only one of lex, parse, hir or mir flags may be used at a time")
 	}
 }
 

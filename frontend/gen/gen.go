@@ -8,8 +8,9 @@ import (
 	ST "mpc/frontend/enums/symbolType"
 	"mpc/frontend/ir"
 	RIU "mpc/frontend/util/ir"
+	errors "mpc/frontend/errors"
+	msg "mpc/frontend/messages"
 	"strconv"
-
 )
 
 type context struct {
@@ -49,16 +50,20 @@ func (c *context) AllocTemp(t *T.Type) *ir.Operand {
 	return op
 }
 
-func Generate(M *ir.Module) {
+func Generate(M *ir.Module) *errors.CompilerError {
 	for _, sy := range M.Globals {
 		switch sy.T {
 		case ST.Proc:
-			genProc(M, sy.Proc)
+			err := genProc(M, sy.Proc)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func genProc(M *ir.Module, proc *ir.Proc) {
+func genProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {
 	c := newContext(proc)
 	start := c.NewBlock()
 	proc.Code = start
@@ -66,10 +71,19 @@ func genProc(M *ir.Module, proc *ir.Proc) {
 
 	body := proc.N.Leaves[4]
 	genBlock(M, c, body)
-	if !proc.Code.HasFlow() {
-		proc.Code.Return([]*ir.Operand{})
+	if !ir.ProperlyTerminates(proc.Code) {
+		if proc.DoesReturnSomething() {
+			return msg.NotAllCodePathsReturnAValue(M, proc)
+		}
+		ir.ApplyToBlocks(proc.Code, setReturn)
 	}
-	return
+	return nil
+}
+
+func setReturn(b *ir.BasicBlock) {
+	if !b.HasFlow() {
+		b.Return([]*ir.Operand{})
+	}
 }
 
 func genBlock(M *ir.Module, c *context, body *ir.Node) {
@@ -79,10 +93,10 @@ func genBlock(M *ir.Module, c *context, body *ir.Node) {
 			genIf(M, c, code)
 		case lex.WHILE:
 			genWhile(M, c, code)
-		case lex.RETURN:
-			genReturn(M, c, code)
 		case lex.SET:
 			genSet(M, c, code)
+		case lex.RETURN:
+			genReturn(M, c, code)
 		case lex.EXIT:
 			genExit(M, c, code)
 		default:
@@ -105,7 +119,9 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 
 	c.CurrBlock = truebl
 	genBlock(M, c, block)
-	c.CurrBlock.Jmp(outbl)
+	if !c.CurrBlock.HasFlow() {
+		c.CurrBlock.Jmp(outbl)
+	}
 
 	c.CurrBlock = falsebl
 	if elseifchain != nil {
@@ -114,7 +130,9 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	if else_ != nil {
 		genBlock(M, c, else_.Leaves[0])
 	}
-	c.CurrBlock.Jmp(outbl)
+	if !c.CurrBlock.HasFlow() {
+		c.CurrBlock.Jmp(outbl)
+	}
 	c.CurrBlock = outbl
 }
 
@@ -130,7 +148,9 @@ func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outbl *ir.Ba
 
 		c.CurrBlock = truebl
 		genBlock(M, c, block)
-		c.CurrBlock.Jmp(outbl)
+		if !c.CurrBlock.HasFlow() {
+			c.CurrBlock.Jmp(outbl)
+		}
 		c.CurrBlock = falsebl
 	}
 }
@@ -148,10 +168,11 @@ func genWhile(M *ir.Module, c *context, while *ir.Node) {
 
 	c.CurrBlock = loop_body
 	genBlock(M, c, while.Leaves[1])
-	c.CurrBlock.Jmp(loop_start)
+	if !c.CurrBlock.HasFlow() {
+		c.CurrBlock.Jmp(loop_start)
+	}
 
 	c.CurrBlock = loop_end
-
 }
 
 func genReturn(M *ir.Module, c *context, return_ *ir.Node) {

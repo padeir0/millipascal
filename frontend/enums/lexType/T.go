@@ -145,6 +145,7 @@ var tktostr = map[TkType]string{
 	BEGIN:  "BEGIN",
 	END:    "END",
 	SET:    "SET",
+	EXIT:   "EXIT",
 
 	I8:   "I8",
 	I16:  "I16",
@@ -244,6 +245,7 @@ var tktosrc = map[TkType]string{
 	I64:    "i64",
 	PTR:    "ptr",
 	BOOL:   "bool",
+	EXIT:   "exit",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",

@@ -70,7 +70,7 @@ func checkJump(s *state) *errors.CompilerError {
 	case FT.Exit:
 		return checkExit(s, bb.Out)
 	}
-	return nil
+	return invalidFlow(bb.Out)
 }
 
 func checkRet(s *state, rets []*ir.Operand) *errors.CompilerError {
@@ -436,8 +436,11 @@ func procBadArg(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerErro
 func procBadRet(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("return "+op.String()+" doesn't match formal return "+d.String()+" in: " + instr.String())
 }
-func invalidMirInstr(instr *ir.Instr) *errors.CompilerError {
-	return eu.NewInternalSemanticError("invalid MIR instruction in LIR representation: "+instr.String())
+func invalidMirInstr(i *ir.Instr) *errors.CompilerError {
+	return eu.NewInternalSemanticError("invalid MIR Instr: "+i.String())
+}
+func invalidFlow(f ir.Flow) *errors.CompilerError {
+	return eu.NewInternalSemanticError("invalid flow: "+f.String())
 }
 func expectedProc(instr *ir.Instr, o *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("expected procedure in: "+instr.String()+", instead found: " + o.String())

@@ -160,7 +160,7 @@ func (p *Proc) StrVars() string {
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) Returns() string {
+func (p *Proc) StrRets() string {
 	output := []string{}
 	for _, ret := range p.Rets {
 		output = append(output, ret.String())
@@ -168,24 +168,12 @@ func (p *Proc) Returns() string {
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) ResetVisited() {
-	resetVisitedBB(p.Code)
+func (p *Proc) DoesReturnSomething() bool {
+	return len(p.Rets) > 0
 }
 
-func resetVisitedBB(bb *BasicBlock) {
-	if !bb.Visited {
-		return
-	}
-	bb.Visited = false
-	switch bb.Out.T {
-	case FT.If:
-		resetVisitedBB(bb.Out.True)
-		resetVisitedBB(bb.Out.False)
-	case FT.Return:
-		return
-	case FT.Jmp:
-		resetVisitedBB(bb.Out.True)
-	}
+func (p *Proc) ResetVisited() {
+	resetVisitedBB(p.Code)
 }
 
 type Mem struct {
@@ -255,6 +243,68 @@ func (b *BasicBlock) String() string {
 	return output
 }
 
+func resetVisitedBB(bb *BasicBlock) {
+	if !bb.Visited {
+		return
+	}
+	bb.Visited = false
+	switch bb.Out.T {
+	case FT.If:
+		resetVisitedBB(bb.Out.True)
+		resetVisitedBB(bb.Out.False)
+	case FT.Return:
+		return
+	case FT.Jmp:
+		resetVisitedBB(bb.Out.True)
+	}
+}
+
+
+func ApplyToBlocks(b *BasicBlock, proc func(*BasicBlock)) {
+	resetVisitedBB(b)
+	applyToBlocks(b, proc)
+}
+
+func applyToBlocks(b *BasicBlock, proc func(*BasicBlock)) {
+	if b.Visited {
+		return
+	}
+	proc(b)
+	b.Visited = true
+	switch b.Out.T {
+	case FT.If:
+		applyToBlocks(b.Out.True, proc)
+		applyToBlocks(b.Out.False, proc)
+	case FT.Jmp:
+		applyToBlocks(b.Out.True, proc)
+	case FT.Return, FT.Exit:
+		// do nothing
+	}
+	return 
+}
+
+func ProperlyTerminates(b *BasicBlock) bool {
+	resetVisitedBB(b)
+	return properlyTerminates(b)
+}
+
+func properlyTerminates(b *BasicBlock) bool {
+	if b.Visited {
+		// we just say that this looping branch doesn't matter
+		return true 
+	}
+	b.Visited = true
+	switch b.Out.T {
+	case FT.If:
+		return properlyTerminates(b.Out.True) && properlyTerminates(b.Out.False)
+	case FT.Jmp:
+		return properlyTerminates(b.Out.True)
+	case FT.Return, FT.Exit:
+		return true
+	}
+	return false
+}
+
 func FmtBasicBlock(bb *BasicBlock) string {
 	bblist := FlattenGraph(bb)
 	output := ""
@@ -304,6 +354,8 @@ func (f *Flow) String() string {
 		return "if " + f.StrRets() + "? " + f.True.Label + " : " + f.False.Label
 	case FT.Return:
 		return "ret " + f.StrRets()
+	case FT.Exit:
+		return "exit " + f.StrRets()
 	}
 	return "invalid FlowType"
 }

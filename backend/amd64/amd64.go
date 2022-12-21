@@ -31,7 +31,7 @@ func Generate(M *ir.Module) fasmProgram {
 }
 
 type fasmProgram struct {
-	entry []*amd64Instr
+	entry      []*amd64Instr
 	executable []*fasmProc
 	data       []*fasmData
 }
@@ -223,7 +223,7 @@ func genMem(mem *ir.Mem) *fasmData {
 }
 
 func convertString(original string) string {
-	s := original[1:len(original)-1] // removes quotes
+	s := original[1 : len(original)-1] // removes quotes
 	output := "'"
 	for i := 0; i < len(s); i++ {
 		r := s[i]
@@ -256,14 +256,14 @@ func genEntry() []*amd64Instr {
 	return []*amd64Instr{
 		genUnaryInstr(Call, "main"),
 		genBinInstr(Xor, "rdi", "rdi"), // EXIT CODE 0
-		genBinInstr(Mov, "rax", "60"), // EXIT
+		genBinInstr(Mov, "rax", "60"),  // EXIT
 		{Instr: Syscall},
 	}
 }
 
 func genProc(proc *ir.Proc) *fasmProc {
 	proc.ResetVisited()
-	stackReserve := 8*(proc.NumOfVars+proc.NumOfSpills+proc.NumOfMaxCalleeArguments)
+	stackReserve := 8 * (proc.NumOfVars + proc.NumOfSpills + proc.NumOfMaxCalleeArguments)
 	init := &fasmBlock{
 		label: proc.Name,
 		code: []*amd64Instr{
@@ -324,7 +324,7 @@ func genFalseBranches(proc *ir.Proc, block *ir.BasicBlock, trueBranches *[]*ir.B
 		fb.code = append(fb.code, ret...)
 		return []*fasmBlock{fb}
 	}
-	panic("Invalid flow")
+	panic("Invalid flow: " + block.Out.String())
 }
 
 func genCondJmp(proc *ir.Proc, block *ir.BasicBlock, op *ir.Operand) []*amd64Instr {
@@ -348,7 +348,7 @@ func genExit(proc *ir.Proc, op *ir.Operand) []*amd64Instr {
 	return []*amd64Instr{
 		genBinInstr(Xor, "rdi", "rdi"),
 		genBinInstr(Mov, "dil", exitCode), // EXIT CODE
-		genBinInstr(Mov, "rax", "60"),      // EXIT
+		genBinInstr(Mov, "rax", "60"),     // EXIT
 		{Instr: Syscall},
 	}
 }
@@ -367,8 +367,10 @@ func genInstr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 		return genBin(proc, instr)
 	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
 		return genComp(proc, instr)
-	case IT.Load, IT.Store, IT.Copy, IT.LoadPtr:
+	case IT.Load, IT.Store, IT.Copy:
 		return genLoadStore(proc, instr)
+	case IT.LoadPtr:
+		return genLoadPtr(proc, instr)
 	case IT.StorePtr:
 		return genStorePtr(proc, instr)
 	case IT.UnaryMinus:
@@ -392,11 +394,17 @@ func genInstr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 }
 
 func genConvert(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
-	newA := convertOperandProc(proc, instr.Operands[0])
-	newDest := convertOperandProc(proc, instr.Destination[0])
-	return []*amd64Instr{
-		genBinInstr(Movsx, newDest, newA),
+	a := instr.Operands[0]
+	dest := instr.Destination[0]
+
+	if dest.Type.Size() > a.Type.Size() {
+		newA := convertOperandProc(proc, a)
+		newDest := convertOperandProc(proc, dest)
+		return []*amd64Instr{
+			genBinInstr(Movsx, newDest, newA),
+		}
 	}
+	return []*amd64Instr{}
 }
 
 func genCall(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
@@ -414,11 +422,19 @@ func genLoadStore(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 	}
 }
 
+func genLoadPtr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
+	newA := convertOperandProc(proc, instr.Operands[0])
+	newDest := convertOperandProc(proc, instr.Destination[0])
+	return []*amd64Instr{
+		genMov(newDest, genType(instr.Type) + "[" + newA + "]"), // xD
+	}
+}
+
 func genStorePtr(proc *ir.Proc, instr *ir.Instr) []*amd64Instr {
 	newA := convertOperandProc(proc, instr.Operands[0])
 	newDest := convertOperandProc(proc, instr.Operands[1])
 	return []*amd64Instr{
-		genMov(newDest, newA),
+		genMov(genType(instr.Type) + "[" + newDest + "]", newA),
 	}
 }
 
@@ -571,7 +587,7 @@ func convertOperand(op *ir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArgume
 		offset := 16 + op.Num*8
 		return genType(op.Type) + "[rbp + " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Local:
-		offset := op.Num*8
+		offset := op.Num * 8
 		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Spill:
 		offset := NumOfVars*8 + op.Num*8
@@ -623,25 +639,14 @@ func genReg(r *register, t *T.Type) string {
 }
 
 func genType(t *T.Type) string {
-	if T.IsBasic(t) {
-		switch t.Basic {
-		case T.Ptr:
-			return "qword"
-		case T.I64:
-			return "qword"
-		case T.I32:
-			return "dword"
-		case T.I16:
-			return "word"
-		case T.I8:
-			return "byte"
-		case T.Bool:
-			return "byte"
-		}
-	} else {
-		if !T.IsProc(t) {
-			panic(t.String())
-		}
+	switch t.Size() {
+	case 1:
+		return "byte"
+	case 2:
+		return "word"
+	case 4:
+		return "dword"
+	case 8:
 		return "qword"
 	}
 	panic(t.String())

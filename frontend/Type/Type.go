@@ -52,6 +52,31 @@ func (this *Type) Equals(other *Type) bool {
 	panic("cannot compare " + this.String() + " with " + other.String())
 }
 
+// returns the size of this type in bytes
+// panics if the type is special
+func (this *Type) Size() int {
+	if IsBasic(this) {
+		switch this.Basic {
+		case Bool:
+			return 1
+		case I8:
+			return 1
+		case I16:
+			return 2
+		case I32:
+			return 4
+		case I64:
+			return 8
+		case Ptr:
+			return 8
+		}
+	}
+	if IsProc(this) {
+		return 8
+	}
+	panic("unsizeable type")
+}
+
 type ProcType struct {
 	Args []*Type
 	Rets []*Type
@@ -104,11 +129,11 @@ type BasicType int
 const (
 	InvalidBasicType BasicType = iota
 
+	Bool
 	I8
 	I16
 	I32
 	I64
-	Bool
 	Ptr
 )
 

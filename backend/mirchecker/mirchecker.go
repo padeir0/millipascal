@@ -1,8 +1,8 @@
 package mirchecker
 
 import (
-	mirc "mpc/frontend/enums/MIRClass"
 	T "mpc/frontend/Type"
+	mirc "mpc/frontend/enums/MIRClass"
 	FT "mpc/frontend/enums/flowType"
 	IT "mpc/frontend/enums/instrType"
 	ST "mpc/frontend/enums/symbolType"
@@ -15,9 +15,9 @@ import (
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
-	s := newState(M)
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc {
+			s := newState(M)
 			s.proc = sy.Proc
 			s.proc.ResetVisited()
 			s.InitArgs()
@@ -73,6 +73,7 @@ type state struct {
 	CalleeInterproc region
 	CallerInterproc region
 	Spill           region
+	Registers	region
 }
 
 func newState(M *ir.Module) *state {
@@ -81,6 +82,7 @@ func newState(M *ir.Module) *state {
 		CalleeInterproc: newRegion(8),
 		CallerInterproc: newRegion(8),
 		Spill:           newRegion(8),
+		Registers:       newRegion(8),
 	}
 }
 
@@ -89,6 +91,41 @@ func (s *state) InitArgs() {
 		argOp := newCallerOperand(arg, int64(i))
 		s.CallerInterproc.Store(int64(i), argOp)
 	}
+}
+
+func (s *state) String() string {
+	return	s.proc.Name + s.bb.Label + "\n" + 
+		"callee: " + s.CalleeInterproc.String() + "\n" +
+		"caller: " + s.CallerInterproc.String() + "\n" +
+		"spill: " + s.Spill.String() + "\n" +
+		"registers: " + s.Registers.String() + "\n"
+}
+
+func (s *state) Copy() *state {
+	caller := make(region, len(s.CallerInterproc))
+	callee := make(region, len(s.CalleeInterproc))
+	spill  := make(region, len(s.Spill))
+	registers := make(region, len(s.Registers))
+	copy(caller, s.CallerInterproc)
+	copy(callee, s.CalleeInterproc)
+	copy(spill, s.Spill)
+	copy(registers, s.Registers)
+	return &state{
+		CallerInterproc: caller,
+		CalleeInterproc: callee,
+		Spill: spill,
+		Registers: registers,
+		bb: s.bb,
+		m: s.m,
+		proc: s.proc,
+	}
+}
+
+func (s *state) SetReg(op *ir.Operand) {
+	if op.Mirc != mirc.Register {
+		panic("is not setting a register: " + op.String())
+	}
+	s.Registers.Store(op.Num, op)
 }
 
 func newCallerOperand(arg *ir.Symbol, i int64) *ir.Operand {
@@ -130,11 +167,12 @@ func checkJump(s *state) *errors.CompilerError {
 	case FT.Jmp:
 		return checkCode(s, bb.Out.True)
 	case FT.If:
+		s2 := s.Copy()
 		err := checkCode(s, bb.Out.True)
 		if err != nil {
 			return err
 		}
-		return checkCode(s, bb.Out.False)
+		return checkCode(s2, bb.Out.False)
 	case FT.Return:
 		return checkRet(s)
 	}
@@ -145,7 +183,7 @@ func checkRet(s *state) *errors.CompilerError {
 	for i, ret := range s.proc.Rets {
 		op := s.CallerInterproc.Load(int64(i))
 		if op == nil {
-			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.Returns())
+			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.StrRets())
 		}
 		if !ret.Equals(op.Type) {
 			return eu.NewInternalSemanticError("return of type " + ret.String() + " doesn't match value in stack: " + s.CallerInterproc.String())
@@ -234,21 +272,21 @@ func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
-		return checkArith(instr)
+		return checkArith(s, instr)
 	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
-		return checkComp(instr)
+		return checkComp(s, instr)
 	case IT.Or, IT.And:
-		return checkLogical(instr)
+		return checkLogical(s, instr)
 	case IT.Not:
-		return checkNot(instr)
+		return checkNot(s, instr)
 	case IT.UnaryMinus, IT.UnaryPlus:
-		return checkUnaryArith(instr)
+		return checkUnaryArith(s, instr)
 	case IT.Convert:
-		return checkConvert(instr)
+		return checkConvert(s, instr)
 	case IT.LoadPtr:
-		return checkLoadPtr(instr)
+		return checkLoadPtr(s, instr)
 	case IT.StorePtr:
-		return checkStorePtr(instr)
+		return checkStorePtr(s, instr)
 	case IT.Store:
 		return checkStore(s, instr)
 	case IT.Load:
@@ -261,7 +299,7 @@ func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
 	panic("sumthin' went wong")
 }
 
-func checkArith(instr *ir.Instr) *errors.CompilerError {
+func checkArith(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, 1)
 	if err != nil {
 		return err
@@ -269,6 +307,13 @@ func checkArith(instr *ir.Instr) *errors.CompilerError {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, b.Type, dest.Type)
 	if err != nil {
 		return err
@@ -276,13 +321,21 @@ func checkArith(instr *ir.Instr) *errors.CompilerError {
 	return checkBinary(instr, num_imme, num_imme, num_reg)
 }
 
-func checkComp(instr *ir.Instr) *errors.CompilerError {
+func checkComp(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, 1)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
 	b := instr.Operands[1]
+	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, b.Type)
 	if err != nil {
 		return err
@@ -290,7 +343,7 @@ func checkComp(instr *ir.Instr) *errors.CompilerError {
 	return checkBinary(instr, basic_imme, basic_imme, bool_reg)
 }
 
-func checkLogical(instr *ir.Instr) *errors.CompilerError {
+func checkLogical(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, 1)
 	if err != nil {
 		return err
@@ -298,6 +351,13 @@ func checkLogical(instr *ir.Instr) *errors.CompilerError {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, b.Type, dest.Type)
 	if err != nil {
 		return err
@@ -305,13 +365,20 @@ func checkLogical(instr *ir.Instr) *errors.CompilerError {
 	return checkBinary(instr, bool_imme, bool_imme, bool_reg)
 }
 
-func checkUnaryArith(instr *ir.Instr) *errors.CompilerError {
+func checkUnaryArith(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, 1)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
 	if err != nil {
 		return err
@@ -319,13 +386,20 @@ func checkUnaryArith(instr *ir.Instr) *errors.CompilerError {
 	return checkUnary(instr, num_imme, num_reg)
 }
 
-func checkNot(instr *ir.Instr) *errors.CompilerError {
+func checkNot(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, 1)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
 	if err != nil {
 		return err
@@ -333,12 +407,19 @@ func checkNot(instr *ir.Instr) *errors.CompilerError {
 	return checkUnary(instr, bool_imme, bool_reg)
 }
 
-func checkConvert(instr *ir.Instr) *errors.CompilerError {
+func checkConvert(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, 1)
 	if err != nil {
 		return err
 	}
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, dest.Type)
 	if err != nil {
 		return err
@@ -346,12 +427,19 @@ func checkConvert(instr *ir.Instr) *errors.CompilerError {
 	return checkUnary(instr, basic_imme, basic_reg)
 }
 
-func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
+func checkLoadPtr(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 1, 1)
 	if err != nil {
 		return err
 	}
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, dest.Type)
 	if err != nil {
 		return err
@@ -359,13 +447,20 @@ func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 	return checkUnary(instr, ptr_imme, basicOrProc_reg)
 }
 
-func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
+func checkStorePtr(s *state, instr *ir.Instr) *errors.CompilerError {
 	err := checkForm(instr, 2, 0)
 	if err != nil {
 		return err
 	}
 	a := instr.Operands[0]
 	dest := instr.Operands[1]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type)
 	if err != nil {
 		return err
@@ -384,6 +479,9 @@ func checkLoad(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
+
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
 	if err != nil {
 		return err
@@ -403,6 +501,12 @@ func checkStore(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+
 	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
 	if err != nil {
 		return err
@@ -422,6 +526,13 @@ func checkCopy(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(dest)
+
 	err = checkEqual(instr, instr.Type, a.Type, dest.Type)
 	if err != nil {
 		return err
@@ -448,7 +559,7 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	for i, formal_arg := range proc.Args {
 		real_arg := s.CalleeInterproc.Load(int64(i))
 		if real_arg == nil {
-			return errorLoadingGarbage(instr)
+			return errorCallLoadingGarbage(instr)
 		}
 		if !formal_arg.Equals(real_arg.Type) {
 			return procBadArg(instr, formal_arg, real_arg)
@@ -457,7 +568,7 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 
 	for i, formal_ret := range proc.Rets {
-		op := &ir.Operand{Mirc: mirc.CallerInterproc, Num: int64(i), Type: formal_ret}
+		op := &ir.Operand{Mirc: mirc.CalleeInterproc, Num: int64(i), Type: formal_ret}
 		s.CalleeInterproc.Store(int64(i), op)
 	}
 	return nil
@@ -476,6 +587,8 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 		source = s.CallerInterproc.Load(loadOp.Num)
 	case mirc.Local:
 		source = newLocalOperand(loadOp.Symbol)
+	default:
+		panic("oh no")
 	}
 	if source == nil {
 		return errorLoadingGarbage(instr)
@@ -499,6 +612,23 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 		s.CallerInterproc.Store(dest.Num, source)
 	case mirc.Local:
 		// TODO: BUG: should it do nothing?
+	default:
+		panic("oh no")
+	}
+	return nil
+}
+
+func checkRegs(s *state, instr *ir.Instr) *errors.CompilerError {
+	for _, op := range instr.Operands {
+		if op.Mirc == mirc.Register {
+			o := s.Registers.Load(op.Num)
+			if o == nil {
+				return errorUsingRegisterGarbage(instr, op)
+			}
+			if o != op {
+				return errorIncorrectValueInRegister(instr, op)
+			}
+		}
 	}
 	return nil
 }
@@ -587,6 +717,15 @@ func invalidClass(instr *ir.Instr) *errors.CompilerError {
 func errorLoadingGarbage(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("loading garbage: " + instr.String())
 }
+func errorCallLoadingGarbage(instr *ir.Instr) *errors.CompilerError {
+	return eu.NewInternalSemanticError("call loading garbage: " + instr.String())
+}
+func errorUsingRegisterGarbage(instr *ir.Instr, op *ir.Operand) *errors.CompilerError {
+	return eu.NewInternalSemanticError("using register garbage: " + op.String() + " of " + instr.String())
+}
+func errorIncorrectValueInRegister(instr *ir.Instr, op *ir.Operand) *errors.CompilerError {
+	return eu.NewInternalSemanticError("incorrect value in register: " + op.String() + " of " + instr.String())
+}
 func errorLoadingIncorrectType(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("load of incorrect type: " + instr.String())
 }
@@ -607,7 +746,7 @@ func procInvalidNumOfRets(instr *ir.Instr, p *ir.Proc) *errors.CompilerError {
 	return eu.NewInternalSemanticError("expected " + n + " returns, instead found: " + beepBop)
 }
 func procBadArg(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String()+ ") in: " + instr.String())
+	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
 func procBadRet(instr *ir.Instr, d T.Type, op *ir.Operand) *errors.CompilerError {
 	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())

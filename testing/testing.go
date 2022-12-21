@@ -61,7 +61,7 @@ func Parse(file string) TestResult {
 	return TestResult{File: file, Ok: true}
 }
 
-func Frontend(file string) TestResult {
+func Hir(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
 	stage := discoverStage(expectedErr)
@@ -70,6 +70,27 @@ func Frontend(file string) TestResult {
 		return compareError(file, err, expectedErr)
 	}
 	return TestResult{File: file, Ok: true}
+}
+
+func Mir(file string) TestResult {
+	defer recoverIfFatal()
+	expectedErr := extractError(file)
+	stage := discoverStage(expectedErr)
+	if stage <= errors.Semantic {
+		M, err := frontend.All(file)
+		if err != nil {
+			return compareError(file, err, expectedErr)
+		}
+		err = backend.Mir(M)
+		if err != nil {
+			return TestResult{
+				File: file,
+				Ok:   false,
+				Message: err.Debug,
+			}
+		}
+	}
+	return Hir(file)
 }
 
 func All(file string) TestResult {
@@ -90,7 +111,7 @@ func All(file string) TestResult {
 			}
 		}
 	}
-	return Frontend(file)
+	return Hir(file)
 }
 
 func recoverIfFatal() {

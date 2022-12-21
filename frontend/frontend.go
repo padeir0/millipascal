@@ -77,7 +77,7 @@ func module(M *ir.Module) *errors.CompilerError {
 		return err
 	}
 
-	gen.Generate(M)
+	err = gen.Generate(M)
 	if err != nil {
 		return err
 	}

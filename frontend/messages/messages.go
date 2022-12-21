@@ -205,3 +205,8 @@ func ErrorInvalidProp(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "is not a valid property (only 'size' allowed)")
 	return NewSemanticError(M, et.ExpectedMem, info)
 }
+
+func NotAllCodePathsReturnAValue(M *ir.Module, p *ir.Proc) *errors.CompilerError {
+	info := NewNodeInfo(p.N, "not all code paths return a value")
+	return NewSemanticError(M, et.NotAllCodePathsReturnAValue, info)
+}

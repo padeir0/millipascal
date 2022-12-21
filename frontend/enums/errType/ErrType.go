@@ -65,6 +65,7 @@ const (
 	ExitMustBeI8
 	PtrCantBeUsedAsMemSize
 	InvalidProp
+	NotAllCodePathsReturnAValue
 )
 
 func (et ErrType) String() string {
@@ -142,6 +143,7 @@ var DebugMap = map[ErrType]string{
 	ExitMustBeI8:                   "ExitMustBeI8",
 	PtrCantBeUsedAsMemSize:         "PtrCantBeUsedAsMemSize",
 	InvalidProp:                    "InvalidProp",
+	NotAllCodePathsReturnAValue:    "NotAllCodePathsReturnAValue",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -201,5 +203,6 @@ var ErrorCodeMap = map[ErrType]string{
 	ExpectedNumber:                 "S038",
 	ExitMustBeI8:                   "S039",
 	PtrCantBeUsedAsMemSize:         "S040",
-	InvalidProp:                    "S41",
+	InvalidProp:                    "S041",
+	NotAllCodePathsReturnAValue:    "S042",
 }
