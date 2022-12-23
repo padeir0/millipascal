@@ -647,18 +647,21 @@ func convertOperand(op *ir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArgume
 	case mirc.Register:
 		return getReg(op.Num, op.Type)
 	case mirc.CallerInterproc:
+		//        v must jump last rbp + return address
 		offset := 16 + op.Num*8
 		return genType(op.Type) + "[rbp + " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Local:
-		offset := op.Num * 8
+		//        v begins at 8 because rbp points to the last rbp
+		offset := 8 + op.Num * 8
 		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Spill:
-		offset := NumOfVars*8 + op.Num*8
+		offset := 8 + NumOfVars*8 + op.Num*8
 		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.CalleeInterproc:
-		offset := NumOfVars*8 +
+		offset := 8 + NumOfVars*8 +
 			NumOfSpills*8 +
-			(NumOfMaxCalleeArguments-op.Num)*8
+			// v count                   v index
+			(NumOfMaxCalleeArguments-1-op.Num)*8
 		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Lit:
 		return strconv.FormatInt(op.Num, 10)

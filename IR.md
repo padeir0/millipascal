@@ -384,9 +384,12 @@ the beginning of the "Local#0"
 | Spill#N           | <- ARP - (8 + #local*8 + N*8)
 | CalleeInterproc#N | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-N)*8)
 | ...               |
-| CalleeInterproc#1 | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-1)*8)
-| CalleeInterproc#0 | <- ARP - (8 + #local*8 + #spill*8 + #calleearg*8)
+| CalleeInterproc#1 | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-2)*8)
+| CalleeInterproc#0 | <- ARP - (8 + #local*8 + #spill*8 + (#calleearg-1)*8)
 ```
 
 `Interproc` means interprocedural regions where both caller and callee can
 access, they are corruptible by the callee.
+
+This last line may seem strange: `ARP - (8 + #local*8 + #spill*8 + (#calleearg-1)*8)`
+but it's because `#calleearg` is a quantity, and the `N` is an index, so they're off by 1.
