@@ -137,7 +137,7 @@ type PositionalSymbol struct {
 type Proc struct {
 	Name   string
 	ArgMap map[string]PositionalSymbol
-	Vars   map[string]*Symbol
+	Vars   map[string]PositionalSymbol
 	Args   []*Symbol
 	Rets   []*T.Type
 	T      *T.Type
@@ -161,7 +161,7 @@ func (p *Proc) StrArgs() string {
 func (p *Proc) StrVars() string {
 	output := []string{}
 	for _, decl := range p.Vars {
-		output = append(output, decl.String())
+		output = append(output, decl.Symbol.String())
 	}
 	return strings.Join(output, ", ")
 }
@@ -390,13 +390,13 @@ func (o *Operand) String() string {
 	case mirc.Lit:
 		return strconv.FormatInt(o.Num, 10)
 	case mirc.Local:
-		return "$" + o.Symbol.Name + ":" + o.Type.String()
+		return "$" + strconv.FormatInt(o.Num, 10) + "(" + o.Symbol.Name + "):" + o.Type.String()
 	case mirc.Spill:
 		return "s" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Register:
 		return "r" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.Static:
-		return "%" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
+		return "%" + o.Symbol.Name + ":" + o.Type.String()
 	case mirc.CallerInterproc:
 		return "caller#" + strconv.FormatInt(o.Num, 10) + ":" + o.Type.String()
 	case mirc.CalleeInterproc:

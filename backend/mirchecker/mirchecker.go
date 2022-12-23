@@ -20,7 +20,7 @@ func Check(M *ir.Module) *errors.CompilerError {
 			s := newState(M)
 			s.proc = sy.Proc
 			s.proc.ResetVisited()
-			s.InitArgs()
+			s.Init()
 			err := checkCode(s, sy.Proc.Code)
 			if err != nil {
 				return err
@@ -74,6 +74,7 @@ type state struct {
 	CallerInterproc region
 	Spill           region
 	Registers	region
+	Locals		region
 }
 
 func newState(M *ir.Module) *state {
@@ -83,13 +84,18 @@ func newState(M *ir.Module) *state {
 		CallerInterproc: newRegion(8),
 		Spill:           newRegion(8),
 		Registers:       newRegion(8),
+		Locals:	         newRegion(8),
 	}
 }
 
-func (s *state) InitArgs() {
-	for i, arg := range s.proc.Args {
-		argOp := newCallerOperand(arg, int64(i))
-		s.CallerInterproc.Store(int64(i), argOp)
+func (s *state) Init() {
+	for _, arg := range s.proc.ArgMap {
+		argOp := newCallerOperand(arg.Symbol, int64(arg.Position))
+		s.CallerInterproc.Store(int64(arg.Position), argOp)
+	}
+	for _, loc := range s.proc.Vars {
+		locOp := newCallerOperand(loc.Symbol, int64(loc.Position))
+		s.Locals.Store(int64(loc.Position), locOp)
 	}
 }
 
@@ -98,7 +104,8 @@ func (s *state) String() string {
 		"callee: " + s.CalleeInterproc.String() + "\n" +
 		"caller: " + s.CallerInterproc.String() + "\n" +
 		"spill: " + s.Spill.String() + "\n" +
-		"registers: " + s.Registers.String() + "\n"
+		"registers: " + s.Registers.String() + "\n" +
+		"locals: " + s.Locals.String() + "\n"
 }
 
 func (s *state) Copy() *state {
@@ -106,15 +113,18 @@ func (s *state) Copy() *state {
 	callee := make(region, len(s.CalleeInterproc))
 	spill  := make(region, len(s.Spill))
 	registers := make(region, len(s.Registers))
+	locals := make(region, len(s.Locals))
 	copy(caller, s.CallerInterproc)
 	copy(callee, s.CalleeInterproc)
 	copy(spill, s.Spill)
 	copy(registers, s.Registers)
+	copy(locals, s.Locals)
 	return &state{
 		CallerInterproc: caller,
 		CalleeInterproc: callee,
 		Spill: spill,
 		Registers: registers,
+		Locals: locals,
 		bb: s.bb,
 		m: s.m,
 		proc: s.proc,
@@ -585,7 +595,7 @@ func checkLoadState(s *state, instr *ir.Instr) *errors.CompilerError {
 	case mirc.CallerInterproc:
 		source = s.CallerInterproc.Load(loadOp.Num)
 	case mirc.Local:
-		source = newLocalOperand(loadOp.Symbol)
+		source = s.Locals.Load(loadOp.Num)
 	default:
 		panic("oh no")
 	}
@@ -610,7 +620,7 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 	case mirc.CallerInterproc:
 		s.CallerInterproc.Store(dest.Num, source)
 	case mirc.Local:
-		// TODO: BUG: should it do nothing?
+		s.Locals.Store(dest.Num, source)
 	default:
 		panic("oh no")
 	}
@@ -619,7 +629,8 @@ func checkStoreState(s *state, instr *ir.Instr) *errors.CompilerError {
 
 func checkRegs(s *state, instr *ir.Instr) *errors.CompilerError {
 	for _, op := range instr.Operands {
-		if op.Mirc == mirc.Register {
+		switch op.Mirc {
+		case mirc.Register:
 			o := s.Registers.Load(op.Num)
 			if o == nil {
 				return errorUsingRegisterGarbage(instr, op)

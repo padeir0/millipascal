@@ -6,10 +6,10 @@ import (
 	IT "mpc/frontend/enums/instrType"
 	lex "mpc/frontend/enums/lexType"
 	ST "mpc/frontend/enums/symbolType"
-	"mpc/frontend/ir"
-	RIU "mpc/frontend/util/ir"
 	errors "mpc/frontend/errors"
+	"mpc/frontend/ir"
 	msg "mpc/frontend/messages"
+	RIU "mpc/frontend/util/ir"
 	"strconv"
 )
 
@@ -298,9 +298,9 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.T
 	}
 	instrT := mapOpToInstr(op)
 	instr := &ir.Instr{
-		T: instrT,
-		Type: dest.Type,
-		Operands: []*ir.Operand{dest, exp},
+		T:           instrT,
+		Type:        dest.Type,
+		Operands:    []*ir.Operand{dest, exp},
 		Destination: []*ir.Operand{dest},
 	}
 	c.CurrBlock.AddInstr(instr)
@@ -308,16 +308,16 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.T
 
 func mapOpToInstr(l lex.TkType) IT.InstrType {
 	switch l {
-		case lex.PLUS_ASSIGN:
-			return IT.Add
-		case lex.MINUS_ASSIGN:
-			return IT.Sub
-		case lex.MULTIPLICATION_ASSIGN:
-			return IT.Mult
-		case lex.DIVISION_ASSIGN:
-			return IT.Div
-		case lex.REMAINDER_ASSIGN:
-			return IT.Rem
+	case lex.PLUS_ASSIGN:
+		return IT.Add
+	case lex.MINUS_ASSIGN:
+		return IT.Sub
+	case lex.MULTIPLICATION_ASSIGN:
+		return IT.Mult
+	case lex.DIVISION_ASSIGN:
+		return IT.Div
+	case lex.REMAINDER_ASSIGN:
+		return IT.Rem
 	}
 	panic(l)
 }
@@ -325,8 +325,8 @@ func mapOpToInstr(l lex.TkType) IT.InstrType {
 func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.TkType) {
 	leftExpr := left.Leaves[1]
 	leftType := left.Leaves[0]
-	leftOp := genExpr(M, c, leftExpr)
 	rightOp := genExpr(M, c, right)
+	leftOp := genExpr(M, c, leftExpr)
 	if op == lex.ASSIGNMENT {
 		store := RIU.StorePtr(rightOp, leftOp)
 		c.CurrBlock.AddInstr(store)
@@ -340,9 +340,9 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.TkTyp
 	instrT := mapOpToInstr(op)
 	temp2 := c.AllocTemp(leftType.T)
 	instr := &ir.Instr{
-		T: instrT,
-		Type: temp.Type,
-		Operands: []*ir.Operand{temp, rightOp},
+		T:           instrT,
+		Type:        temp.Type,
+		Operands:    []*ir.Operand{temp, rightOp},
 		Destination: []*ir.Operand{temp2},
 	}
 	c.CurrBlock.AddInstr(instr) // op temp, right -> temp2
@@ -420,7 +420,8 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 		return &ir.Operand{
 			Hirc:   hirc.Local,
 			Type:   id.T,
-			Symbol: decl,
+			Symbol: decl.Symbol,
+			Num:    int64(decl.Position),
 		}
 	}
 	posSy, ok := c.Proc.ArgMap[id.Text]

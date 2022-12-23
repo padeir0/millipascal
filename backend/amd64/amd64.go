@@ -8,7 +8,6 @@ import (
 	ST "mpc/frontend/enums/symbolType"
 	ir "mpc/frontend/ir"
 	"strconv"
-	//"fmt"
 )
 
 func Generate(M *ir.Module) fasmProgram {

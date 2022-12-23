@@ -277,7 +277,7 @@ func (s *state) Spill(r reg, t *T.Type) spill {
 	}
 	s.FreeReg(r)
 	a := spill(s.AvailableSpills.Pop())
-	s.UpdateMaxSpill(int(a))
+	s.UpdateMaxSpill(int(a)+1)
 	s.UsedSpills[a] = v
 	s.LiveValues[v] = useInfo{Place: Spill, Num: int64(a), T: t}
 	return a
@@ -626,7 +626,7 @@ func allocCall(s *state, instr *ir.Instr, index int) {
 			load, op := loadCalleeInterproc(s, callee, v, dest.Type, index)
 			s.AppendInstr(index, load)
 			r := reg(op.Num)
-			store := storeLocal(r, v.Symbol)
+			store := storeLocal(r, v.Num, v.Symbol)
 			s.AppendInstr(index, store)
 		}
 	}
@@ -707,7 +707,7 @@ func storeLiveLocals(s *state) {
 		if info.Place == Register {
 			if val.Class == hirc.Local {
 				r := reg(info.Num)
-				instr := storeLocal(r, val.Symbol)
+				instr := storeLocal(r, val.Num, val.Symbol)
 				s.AppendInstr(len(s.bb.Code), instr)
 			}
 			if val.Class == hirc.Arg {
@@ -740,7 +740,7 @@ func spillAllLiveRegisters(s *state, index int) {
 			switch val.Class {
 			case hirc.Local:
 				r := reg(info.Num)
-				s.PrependInstr(index, storeLocal(r, val.Symbol))
+				s.PrependInstr(index, storeLocal(r, val.Num, val.Symbol))
 			case hirc.Arg:
 				r := reg(info.Num)
 				arg := callerInterproc(val.Num)
@@ -848,7 +848,7 @@ func loadCallerInterproc(s *state, v value, caller callerInterproc, index int) (
 }
 
 func loadLocal(s *state, v value, t *T.Type, index int) (*ir.Instr, *ir.Operand) {
-	newOp := newLocalOperand(v.Symbol)
+	newOp := newLocalOperand(v.Num, v.Symbol)
 	rOp := allocReg(s, v, t, index)
 	load := IRU.Load(newOp, rOp)
 	return load, rOp
@@ -886,7 +886,7 @@ func allocReg(s *state, v value, t *T.Type, index int) *ir.Operand {
 	case hirc.Temp:
 		s.PrependInstr(index, spillTemp(s, r, t))
 	case hirc.Local:
-		s.PrependInstr(index, storeLocal(r, val.Symbol))
+		s.PrependInstr(index, storeLocal(r, val.Num, val.Symbol))
 		s.Free(val)
 	case hirc.Arg:
 		arg := callerInterproc(val.Num)
@@ -910,9 +910,9 @@ func spillTemp(s *state, r reg, t *T.Type) *ir.Instr {
 	return IRU.Store(regOp, spillOp)
 }
 
-func storeLocal(r reg, symbol *ir.Symbol) *ir.Instr {
+func storeLocal(r reg, position int64, symbol *ir.Symbol) *ir.Instr {
 	reg := newRegOp(r, symbol.Type)
-	loc := newLocalOperand(symbol)
+	loc := newLocalOperand(position, symbol)
 	return IRU.Store(reg, loc)
 }
 
@@ -938,11 +938,12 @@ func newSpillOperand(sNum spill, t *T.Type) *ir.Operand {
 	}
 }
 
-func newLocalOperand(sy *ir.Symbol) *ir.Operand {
+func newLocalOperand(position int64, sy *ir.Symbol) *ir.Operand {
 	return &ir.Operand{
 		Mirc:   mirc.Local,
 		Symbol: sy,
 		Type:   sy.Type,
+		Num: position,
 	}
 }
 
@@ -975,7 +976,7 @@ func freeIfNotNeeded(s *state, index int, v value) {
 	if !s.bb.IsTerminal() { // no need to restore if is terminal
 		if v.Class == hirc.Local {
 			r := reg(useInfo.Num)
-			instr := storeLocal(r, v.Symbol)
+			instr := storeLocal(r, v.Num, v.Symbol)
 			s.AppendInstr(index, instr)
 		}
 		if v.Class == hirc.Arg {

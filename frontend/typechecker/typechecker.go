@@ -157,7 +157,7 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) ([]*T.Type, *errors.
 }
 
 func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	for _, decl := range n.Leaves {
+	for i, decl := range n.Leaves {
 		var d *ir.Symbol
 		if len(decl.Leaves) == 0 {
 			d = &ir.Symbol{
@@ -179,7 +179,7 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 			return err
 		}
 		decl.T = d.Type
-		proc.Vars[d.Name] = d
+		proc.Vars[d.Name] = ir.PositionalSymbol{Position: i, Symbol: d}
 	}
 	return nil
 }
@@ -485,7 +485,7 @@ func getVarOrArg(proc *ir.Proc, name string) *ir.Symbol {
 	}
 	def, ok := proc.Vars[name]
 	if ok {
-		return def
+		return def.Symbol
 	}
 	return nil
 }

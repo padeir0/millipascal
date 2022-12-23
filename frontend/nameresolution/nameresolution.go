@@ -40,7 +40,7 @@ func getSymbol(n *ir.Node) *ir.Symbol {
 			Proc: &ir.Proc{
 				Name:   name,
 				ArgMap: map[string]ir.PositionalSymbol{},
-				Vars:   map[string]*ir.Symbol{},
+				Vars:   map[string]ir.PositionalSymbol{},
 				N:      n,
 			},
 			N: n,
