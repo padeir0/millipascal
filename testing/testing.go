@@ -101,6 +101,7 @@ func Mir(file string) TestResult {
 	return Hir(file)
 }
 
+// TODO: fully compile the file and check the exit code
 func All(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)

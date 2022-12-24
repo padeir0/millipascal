@@ -12,6 +12,7 @@ import (
 
 func Generate(M *ir.Module) fasmProgram {
 	output := fasmProgram{
+		// TODO: implement genRead and genError
 		executable: []*fasmProc{genWrite()},
 		data:       []*fasmData{},
 		entry:      genEntry(),
@@ -261,6 +262,7 @@ func genEntry() []*amd64Instr {
 	}
 }
 
+// TODO: protect against FASM keywords
 func genProc(proc *ir.Proc) *fasmProc {
 	proc.ResetVisited()
 	stackReserve := 8 * (proc.NumOfVars + proc.NumOfSpills + proc.NumOfMaxCalleeArguments)

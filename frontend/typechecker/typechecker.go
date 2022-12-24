@@ -10,6 +10,7 @@ import (
 
 )
 
+// TODO: check if there's a 'main' procedure
 func Check(M *ir.Module) *errors.CompilerError {
 	addBuiltins(M)
 	for _, sy := range M.Globals {
