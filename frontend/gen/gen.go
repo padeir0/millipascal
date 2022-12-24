@@ -176,6 +176,9 @@ func genWhile(M *ir.Module, c *context, while *ir.Node) {
 }
 
 func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
+	if c.CurrBlock.IsTerminal() {
+		return;
+	}
 	operands := []*ir.Operand{}
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
@@ -185,6 +188,9 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 }
 
 func genExit(M *ir.Module, c *context, exit_ *ir.Node) {
+	if c.CurrBlock.IsTerminal() {
+		return;
+	}
 	ret := exit_.Leaves[0]
 	op := genExpr(M, c, ret)
 	c.CurrBlock.Exit(op)

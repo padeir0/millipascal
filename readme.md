@@ -2,7 +2,6 @@
 
 Small procedural language so i can learn code generation.
 Don't use it, if you do, be prepared for it to blow up in your face.
-In fact, it's not even working right now :D
 
 ```
 memory hello "Hello, World!\n"
@@ -36,7 +35,7 @@ proc byte_map[b:ptr, bsize:i64, op:proc[i8]i8]
 var i:ptr
 begin
 	set i = 0p
-	while i < bsize
+	while i < bsize:ptr
 	begin
 		set (b+i)@i8 = op[(b+i)@i8]
 		set i += 1p
@@ -53,7 +52,7 @@ begin
 end proc
 ```
 
-Globals can be declared in any order, similar to ASM.
+Globals can be declared in any order.
 
 Procedures use square brackets `[]` instead of parenthesis `()`, so that
 it doesn't share parenthesis in the middle of expressions, being easier to read.
@@ -81,7 +80,7 @@ If you notice, omiting the type of an argument makes it default to `i64`.
 The compiler allocates on the stack every type as 8 byte chunks
 anyway, so it doesn't matter.
 
-To change the value of a variable, you use `set`, similar to Lisp.
+To change the value of a variable, you use `set`.
 You can declare static memory with `memory`:
 
 ```
@@ -98,7 +97,7 @@ begin
 end proc
 ```
 
-If anything worked at all, this would print `Hey\n` to the console.
+This should print `Hey\n` to the console.
 
 There are three built-in procedures:
 `write[str:ptr, size:i64]`, `read[buffer:ptr, amount:i64] i64` and
@@ -122,15 +121,11 @@ end proc
 ```
 
 This comes from old TurboPascal implementations, it just makes it easier
-to find names in the frontend, but not by much.
+to find names in the frontend, and makes lifetimes easier in the IR,
+but not by much.
 I won't change this, however, since this is how the stack frame
 works, this language is just a thin wrap over assembly.
 
 Optimizations:
  - Properly deal with dirty values in the register allocator
  - Generate minimum amount of copies in the frontend
-
-Structs and unions will never be added because that will need a complete
-refactor of the IR, currently, it treats stack frame slots as isomorphic
-8 byte cells, which doesn't work well with those compound types. Allocating
-these types on the "heap" would be a weird behaviour.

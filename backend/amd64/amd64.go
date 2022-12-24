@@ -624,7 +624,8 @@ func convertToTwoAddr(instr *ir.Instr) (dest *ir.Operand, op *ir.Operand) {
 	if areOpEqual(a, c) {
 		return c, b
 	}
-	if areOpEqual(b, c) {
+	// subtraction is not associative
+	if areOpEqual(b, c) && instr.T != IT.Sub {
 		return c, a
 	}
 

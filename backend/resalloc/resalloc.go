@@ -247,6 +247,11 @@ func (s *state) FreeSpill(a spill) {
 }
 
 func (s *state) AllocReg(v value, t *T.Type) reg {
+	info, ok := s.LiveValues[v]
+	if ok && info.Place == Register {
+		// this should be fine, live values shouldn't be corrupt
+		return reg(info.Num)
+	}
 	r := reg(s.AvailableRegs.Pop())
 	s.UsedRegs[r] = v
 	s.LiveValues[v] = useInfo{Place: Register, Num: int64(r), T: t}
@@ -559,6 +564,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 
 	if sourceIsAddr {
 		if destIsAddr {
+			// TODO: OPT: see if value is already in register
 			// LOAD  source -> reg
 			// STORE reg    -> dest
 			instr.T = IT.Load
@@ -567,6 +573,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 			instr.Destination[0] = reg
 
 			destMirc := toMirc(s, dest)
+			corruptOldVersion(s, dest)
 			// insert after the Load instruction
 			s.AppendInstr(index, IRU.Store(reg, destMirc))
 		} else {
@@ -581,6 +588,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 			instr.T = IT.Store
 			instr.Operands[0] = toMirc(s, source)
 			instr.Destination[0] = toMirc(s, dest)
+			corruptOldVersion(s, dest)
 		} else {
 			//fmt.Println(source, dest)
 			// COPY source -> dest
@@ -589,6 +597,14 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 		}
 	}
 	freeOperands(s, index, source)
+}
+
+func corruptOldVersion(s *state, op *ir.Operand) {
+	v := toValue(op)
+	info, ok := s.LiveValues[v]
+	if ok && info.Place == Register {
+		s.Free(v)
+	}
 }
 
 // transforms call instructions from:
@@ -756,11 +772,6 @@ func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 	newOps := make([]*ir.Operand, len(ops))
 	for i, op := range ops {
 		newOps[i] = ensureImmediate(s, index, toValue(op), op.Type)
-	}
-	for _, op := range ops {
-		if op.Hirc == hirc.Temp {
-			freeIfNotNeeded(s, index, toValue(op))
-		}
 	}
 	instr.Operands = newOps
 }
