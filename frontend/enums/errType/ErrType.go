@@ -65,6 +65,8 @@ const (
 	PtrCantBeUsedAsMemSize
 	InvalidProp
 	NotAllCodePathsReturnAValue
+	InvalidMain
+	NoEntryPoint
 )
 
 func (et ErrType) String() string {
@@ -87,8 +89,8 @@ func (et ErrType) Debug() string {
 }
 
 var DebugMap = map[ErrType]string{
-	InvalidErrType:         "InvalidErrType",
-	InternalCompilerError:  "InternalCompilerError",
+	InvalidErrType:        "InvalidErrType",
+	InternalCompilerError: "InternalCompilerError",
 
 	/* resolver errors */
 	FileError:                   "FileError",
@@ -142,12 +144,14 @@ var DebugMap = map[ErrType]string{
 	PtrCantBeUsedAsMemSize:         "PtrCantBeUsedAsMemSize",
 	InvalidProp:                    "InvalidProp",
 	NotAllCodePathsReturnAValue:    "NotAllCodePathsReturnAValue",
+	InvalidMain:                    "InvalidMain",
+	NoEntryPoint:                   "NoEntryPoint",
 }
 
 var ErrorCodeMap = map[ErrType]string{
 	/* internal (bad) errors */
-	InvalidErrType:         "I001",
-	InternalCompilerError:  "I002",
+	InvalidErrType:        "I001",
+	InternalCompilerError: "I002",
 
 	/* resolver errors */
 	/* lexer errors */
@@ -202,4 +206,6 @@ var ErrorCodeMap = map[ErrType]string{
 	PtrCantBeUsedAsMemSize:         "S040",
 	InvalidProp:                    "S041",
 	NotAllCodePathsReturnAValue:    "S042",
+	InvalidMain:                    "S043",
+	NoEntryPoint:                   "S044",
 }

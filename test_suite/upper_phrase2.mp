@@ -12,6 +12,7 @@ begin
 		begin
 			set p@i8 -= 32r
 		end if
+		set p += 1p;
 	end while
 
 	write[hello, hello.size]

@@ -10,7 +10,6 @@ import (
 
 )
 
-// TODO: check if there's a 'main' procedure
 func Check(M *ir.Module) *errors.CompilerError {
 	addBuiltins(M)
 	for _, sy := range M.Globals {
@@ -26,6 +25,17 @@ func Check(M *ir.Module) *errors.CompilerError {
 				return err
 			}
 		}
+	}
+	return checkMain(M)
+}
+
+func checkMain(M *ir.Module) *errors.CompilerError {
+	p, ok := M.Globals["main"]
+	if !ok {
+		return msg.ProgramWithoutEntry(M)
+	}
+	if p.Proc == nil || !T.IsProc(p.Type) || !T.T_MainProc.Equals(p.Type) {
+		return msg.InvalidMain(M, p)
 	}
 	return nil
 }

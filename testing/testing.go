@@ -3,15 +3,16 @@ package testing
 import (
 	"strings"
 
-	"mpc/frontend/errors"
-	et "mpc/frontend/enums/errType"
-	parser "mpc/frontend/parser"
-	lexer "mpc/frontend/lexer"
-	"mpc/frontend"
 	"mpc/backend"
+	"mpc/frontend"
+	et "mpc/frontend/enums/errType"
+	"mpc/frontend/errors"
+	lexer "mpc/frontend/lexer"
+	parser "mpc/frontend/parser"
 	. "mpc/util"
 
 	"fmt"
+	"os"
 )
 
 // files are tested by running them and
@@ -82,8 +83,8 @@ func Mir(file string) TestResult {
 		if err != nil {
 			if err.Type == et.InternalCompilerError {
 				return TestResult{
-					File: file,
-					Ok:   false,
+					File:    file,
+					Ok:      false,
 					Message: err.Debug,
 				}
 			}
@@ -92,8 +93,8 @@ func Mir(file string) TestResult {
 		err = backend.Mir(M)
 		if err != nil {
 			return TestResult{
-				File: file,
-				Ok:   false,
+				File:    file,
+				Ok:      false,
 				Message: err.Debug,
 			}
 		}
@@ -101,7 +102,8 @@ func Mir(file string) TestResult {
 	return Hir(file)
 }
 
-// TODO: fully compile the file and check the exit code
+const testfilename = "./dont_use_this_name_EACDEFG1234"
+
 func All(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
@@ -111,20 +113,35 @@ func All(file string) TestResult {
 		if err != nil {
 			if err.Type == et.InternalCompilerError {
 				return TestResult{
-					File: file,
-					Ok:   false,
+					File:    file,
+					Ok:      false,
 					Message: err.Debug,
 				}
 			}
 			return compareError(file, err, expectedErr)
 		}
-		_, err = backend.Generate(M)
+
+		s, err := backend.Generate(M)
 		if err != nil {
 			return TestResult{
-				File: file,
-				Ok:   false,
+				File:    file,
+				Ok:      false,
 				Message: err.Debug,
 			}
+		}
+		oserror := Fasm(s, testfilename)
+		if oserror != nil {
+			return newResult(file, oserror)
+		}
+		defer os.Remove(testfilename)
+
+		oserror = ExecWithTimeout(testfilename)
+		if oserror != nil {
+			return newResult(file, oserror)
+		}
+		return TestResult{
+			File:    file,
+			Ok:      true,
 		}
 	}
 	return Hir(file)
@@ -200,5 +217,13 @@ func compareError(file string, err *errors.CompilerError, expectedErr string) Te
 	return TestResult{
 		File: file,
 		Ok:   true,
+	}
+}
+
+func newResult(file string, e error) TestResult {
+	return TestResult{
+		File:    file,
+		Ok:      false,
+		Message: e.Error(),
 	}
 }

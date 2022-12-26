@@ -277,9 +277,8 @@ func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
 	c.CurrBlock.AddInstr(loadRet)
 }
 
-// TODO: BUG: fix this
 func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op *ir.Operand) {
-	ptrOp := genExpr(M, c, ass.Leaves[1]) // CHECK
+	ptrOp := genExpr(M, c, ass.Leaves[1])
 	loadPtr := RIU.StorePtr(op, ptrOp)
 	c.CurrBlock.AddInstr(loadPtr)
 }

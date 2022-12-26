@@ -210,3 +210,13 @@ func NotAllCodePathsReturnAValue(M *ir.Module, p *ir.Proc) *errors.CompilerError
 	info := NewNodeInfo(p.N, "not all code paths return a value")
 	return NewSemanticError(M, et.NotAllCodePathsReturnAValue, info)
 }
+
+func InvalidMain(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
+	main := NewNodeInfo(sy.N, "invalid type for main function: must be proc[][]")
+	return NewSemanticError(M, et.InvalidMain, main)
+}
+
+func ProgramWithoutEntry(M *ir.Module) *errors.CompilerError {
+	start := NewNodeInfo(M.Root, "program has no entry point")
+	return NewSemanticError(M, et.NoEntryPoint, start)
+}

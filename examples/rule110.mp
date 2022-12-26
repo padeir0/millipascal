@@ -46,12 +46,12 @@ begin
 	set a = 1
 	while a < size -1
 	begin
-		set (b2+a:ptr)@i8 = rule101[b1, a]
+		set (b2+a:ptr)@i8 = rule110[b1, a]
 		set a += 1
 	end while
 end proc
 
-proc rule101[buff:ptr, index] i8
+proc rule110[buff:ptr, index] i8
 var left:i8, curr:i8, right:i8
 begin
 

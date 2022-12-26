@@ -14,7 +14,8 @@ import (
 var lexOnly = flag.Bool("lex", false, "runs the lexer and prints the tokens")
 var parseOnly = flag.Bool("parse", false, "runs the lexer and parser, prints AST output")
 var hirOnly = flag.Bool("hir", false, "runs the full frontend, prints hir")
-var mirOnly = flag.Bool("mir", false, "runs the full frontend, prints mir")
+var mirOnly = flag.Bool("mir", false, "runs the full compiler, prints mir")
+var asmOnly = flag.Bool("asm", false, "runs the full compiler, prints asm")
 
 var test = flag.Bool("test", false, "runs tests for all files in a folder,"+
 	" you can specify the stage to test using the other flags\n"+
@@ -49,6 +50,8 @@ func testingMode() testing.Tester {
 	case *hirOnly:
 		return testing.Hir
 	case *mirOnly:
+		return testing.Mir
+	case *asmOnly:
 		return testing.Mir
 	default:
 		return testing.All
@@ -91,17 +94,26 @@ func normalMode(s string) {
 		Stdout("\n-----MIR\n")
 		Stdout(m.StringifyCode())
 		OkOrBurst(err)
-	default:
+	case *asmOnly:
 		m, err := frontend.All(s)
 		OkOrBurst(err)
 		s, err = backend.Generate(m)
 		OkOrBurst(err)
 		Stdout(s)
+	default:
+		m, err := frontend.All(s)
+		OkOrBurst(err)
+		s, err = backend.Generate(m)
+		OkOrBurst(err)
+		e := Fasm(s, m.Name)
+		if e != nil {
+			Fatal(e.Error())
+		}
 	}
 }
 
 func checkValid() {
-	var selected = []bool{*lexOnly, *parseOnly, *hirOnly, *mirOnly}
+	var selected = []bool{*lexOnly, *parseOnly, *hirOnly, *mirOnly, *asmOnly}
 	var count = 0
 	for _, b := range selected {
 		if b {
@@ -109,7 +121,7 @@ func checkValid() {
 		}
 	}
 	if count > 1 {
-		Fatal("only one of lex, parse, hir or mir flags may be used at a time")
+		Fatal("only one of lex, parse, hir, mir or asm flags may be used at a time")
 	}
 }
 

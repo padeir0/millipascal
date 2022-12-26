@@ -123,6 +123,7 @@ var T_Bool = &Type{Basic: Bool}
 var T_Ptr = &Type{Basic: Ptr}
 var T_Void = &Type{Special: Void}
 var T_MultiRet = &Type{Special: MultiRet}
+var T_MainProc = &Type{Proc: &ProcType{Args: []*Type{}, Rets: []*Type{}}}
 
 type BasicType int
 

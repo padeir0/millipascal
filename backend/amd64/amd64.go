@@ -12,8 +12,7 @@ import (
 
 func Generate(M *ir.Module) fasmProgram {
 	output := fasmProgram{
-		// TODO: implement genRead and genError
-		executable: []*fasmProc{genWrite()},
+		executable: []*fasmProc{genWrite(), genRead(), genError()},
 		data:       []*fasmData{},
 		entry:      genEntry(),
 	}
@@ -181,6 +180,36 @@ var Registers = []*register{
 	{QWord: "rcx", DWord: "ecx", Word: "cx", Byte: "cl"},
 }
 
+// read[ptr, int] int
+func genRead() *fasmProc {
+	ptrArg := &ir.Operand{Mirc: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
+	sizeArg := &ir.Operand{Mirc: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptr := convertOperand(ptrArg, 0, 0, 0)
+	size := convertOperand(sizeArg, 0, 0, 0)
+	amountRead := ptr
+	return &fasmProc{
+		label: "_read",
+		blocks: []*fasmBlock{
+			{label: "_read", code: []*amd64Instr{
+				genUnaryInstr(Push, "rbp"),
+				genBinInstr(Mov, "rbp", "rsp"),
+
+				genBinInstr(Mov, "rdx", size),
+				genBinInstr(Mov, "rsi", ptr),
+				genBinInstr(Mov, "rdi", "0"), // STDERR
+				genBinInstr(Mov, "rax", "0"), // WRITE
+				{Instr: Syscall},
+
+				genBinInstr(Mov, amountRead, "rax"),
+
+				genBinInstr(Mov, "rsp", "rbp"),
+				genUnaryInstr(Pop, "rbp"),
+				{Instr: Ret},
+			}},
+		},
+	}
+}
+
 // write[ptr, int]
 func genWrite() *fasmProc {
 	ptrArg := &ir.Operand{Mirc: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
@@ -188,9 +217,9 @@ func genWrite() *fasmProc {
 	ptr := convertOperand(ptrArg, 0, 0, 0)
 	size := convertOperand(sizeArg, 0, 0, 0)
 	return &fasmProc{
-		label: "write",
+		label: "_write",
 		blocks: []*fasmBlock{
-			{label: "write", code: []*amd64Instr{
+			{label: "_write", code: []*amd64Instr{
 				genUnaryInstr(Push, "rbp"),
 				genBinInstr(Mov, "rbp", "rsp"),
 
@@ -208,16 +237,43 @@ func genWrite() *fasmProc {
 	}
 }
 
+// error[ptr, int]
+func genError() *fasmProc {
+	ptrArg := &ir.Operand{Mirc: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
+	sizeArg := &ir.Operand{Mirc: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptr := convertOperand(ptrArg, 0, 0, 0)
+	size := convertOperand(sizeArg, 0, 0, 0)
+	return &fasmProc{
+		label: "_error",
+		blocks: []*fasmBlock{
+			{label: "_error", code: []*amd64Instr{
+				genUnaryInstr(Push, "rbp"),
+				genBinInstr(Mov, "rbp", "rsp"),
+
+				genBinInstr(Mov, "rdx", size),
+				genBinInstr(Mov, "rsi", ptr),
+				genBinInstr(Mov, "rdi", "2"), // STDERR
+				genBinInstr(Mov, "rax", "1"), // WRITE
+				{Instr: Syscall},
+
+				genBinInstr(Mov, "rsp", "rbp"),
+				genUnaryInstr(Pop, "rbp"),
+				{Instr: Ret},
+			}},
+		},
+	}
+}
+
 func genMem(mem *ir.Mem) *fasmData {
 	if mem.Contents == "" {
 		return &fasmData{
-			label:    mem.Name,
+			label:    "_" + mem.Name,
 			content:  strconv.FormatInt(mem.Size, 10),
 			declared: false,
 		}
 	}
 	return &fasmData{
-		label:    mem.Name,
+		label:    "_" + mem.Name,
 		content:  convertString(mem.Contents),
 		declared: true,
 	}
@@ -255,26 +311,25 @@ func convertString(original string) string {
 
 func genEntry() []*amd64Instr {
 	return []*amd64Instr{
-		genUnaryInstr(Call, "main"),
+		genUnaryInstr(Call, "_main"),
 		genBinInstr(Xor, "rdi", "rdi"), // EXIT CODE 0
 		genBinInstr(Mov, "rax", "60"),  // EXIT
 		{Instr: Syscall},
 	}
 }
 
-// TODO: protect against FASM keywords
 func genProc(proc *ir.Proc) *fasmProc {
 	proc.ResetVisited()
 	stackReserve := 8 * (proc.NumOfVars + proc.NumOfSpills + proc.NumOfMaxCalleeArguments)
 	init := &fasmBlock{
-		label: proc.Name,
+		label: "_" + proc.Name,
 		code: []*amd64Instr{
 			genUnaryInstr(Push, "rbp"),
 			genBinInstr(Mov, "rbp", "rsp"),
 			genBinInstr(Sub, "rsp", strconv.FormatInt(int64(stackReserve), 10)),
 		},
 	}
-	fproc := &fasmProc{label: proc.Name, blocks: []*fasmBlock{init}}
+	fproc := &fasmProc{label: "_" + proc.Name, blocks: []*fasmBlock{init}}
 	fproc.blocks = append(fproc.blocks, genBlocks(proc, proc.Code)...)
 	return fproc
 }
@@ -668,7 +723,7 @@ func convertOperand(op *ir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArgume
 	case mirc.Lit:
 		return strconv.FormatInt(op.Num, 10)
 	case mirc.Static:
-		return op.Symbol.Name
+		return "_" + op.Symbol.Name
 	}
 	panic("unimplemented: " + op.String())
 }
