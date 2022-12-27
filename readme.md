@@ -126,6 +126,5 @@ but not by much.
 I won't change this, however, since this is how the stack frame
 works, this language is just a thin wrap over assembly.
 
-Optimizations:
- - Properly deal with dirty values in the register allocator
- - Generate minimum amount of copies in the frontend
+TODO: Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
+TODO: Generate minimum amount of copies in the frontend

@@ -130,9 +130,10 @@ const (
 )
 
 type useInfo struct {
-	Place StorageClass
-	Num   int64
-	T     *T.Type
+	Place   StorageClass
+	Num     int64
+	T       *T.Type
+	Mutated bool
 }
 
 func (u useInfo) String() string {
@@ -198,6 +199,15 @@ func (s *state) ExpectValue(v value) useInfo {
 		panic("value not found: " + v.String())
 	}
 	return info
+}
+
+func (s *state) Mark(v value) {
+	info, ok := s.LiveValues[v]
+	if !ok {
+		panic("marking dead value!")
+	}
+	info.Mutated = true
+	s.LiveValues[v] = info
 }
 
 func (s *state) HasFreeRegs() bool {
@@ -280,11 +290,12 @@ func (s *state) Spill(r reg, t *T.Type) spill {
 		sreg := strconv.Itoa(int(r))
 		panic("spilling unused register: " + sreg)
 	}
+	useinfo := s.LiveValues[v]
 	s.FreeReg(r)
 	a := spill(s.AvailableSpills.Pop())
-	s.UpdateMaxSpill(int(a)+1)
+	s.UpdateMaxSpill(int(a) + 1)
 	s.UsedSpills[a] = v
-	s.LiveValues[v] = useInfo{Place: Spill, Num: int64(a), T: t}
+	s.LiveValues[v] = useInfo{Place: Spill, Num: int64(a), T: t, Mutated: useinfo.Mutated}
 	return a
 }
 
@@ -508,7 +519,7 @@ func allocBlock(s *state) {
 }
 
 func freeOperands(s *state, index int, ops ...*ir.Operand) {
-	for _, op := range ops{
+	for _, op := range ops {
 		freeIfNotNeeded(s, index, toValue(op))
 	}
 }
@@ -517,16 +528,20 @@ func allocBinary(s *state, instr *ir.Instr, index int) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination[0]
+	cv := toValue(c)
 	ensureOperands(s, instr, index, a, b)
-	instr.Destination[0] = ensureImmediate(s, index, toValue(c), c.Type)
+	instr.Destination[0] = ensureImmediate(s, index, cv, c.Type)
+	s.Mark(cv)
 	freeOperands(s, index, a, b)
 }
 
 func allocUnary(s *state, instr *ir.Instr, index int) {
 	a := instr.Operands[0]
 	c := instr.Destination[0]
+	cv := toValue(c)
 	ensureOperands(s, instr, index, a)
-	instr.Destination[0] = ensureImmediate(s, index, toValue(c), c.Type)
+	instr.Destination[0] = ensureImmediate(s, index, cv, c.Type)
+	s.Mark(cv)
 	freeOperands(s, index, a)
 }
 
@@ -581,6 +596,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 			instr.T = IT.Load
 			instr.Operands[0] = toMirc(s, source)
 			instr.Destination[0] = toMirc(s, dest)
+			s.Mark(toValue(dest))
 		}
 	} else {
 		if destIsAddr {
@@ -594,6 +610,7 @@ func allocCopy(s *state, instr *ir.Instr, index int) {
 			// COPY source -> dest
 			instr.Operands[0] = toMirc(s, source)
 			instr.Destination[0] = toMirc(s, dest)
+			s.Mark(toValue(dest))
 		}
 	}
 	freeOperands(s, index, source)
@@ -720,7 +737,7 @@ func toMirc(s *state, o *ir.Operand) *ir.Operand {
 
 func storeLiveLocals(s *state) {
 	for val, info := range s.LiveValues {
-		if info.Place == Register {
+		if info.Place == Register && info.Mutated {
 			if val.Class == hirc.Local {
 				r := reg(info.Num)
 				instr := storeLocal(r, val.Num, val.Symbol)
@@ -774,9 +791,11 @@ func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
 		newOps[i] = ensureImmediate(s, index, toValue(op), op.Type)
 	}
 	instr.Operands = newOps
+	for _, op := range ops {
+		freeIfNotNeededAndNotMutated(s, index, toValue(op))
+	}
 }
 
-// TODO: OPT: create ensureDestination function that handles the Destination while keeping track of mutation
 func ensureImmediate(s *state, index int, v value, t *T.Type) *ir.Operand {
 	info, ok := s.LiveValues[v]
 	if ok {
@@ -954,7 +973,7 @@ func newLocalOperand(position int64, sy *ir.Symbol) *ir.Operand {
 		Mirc:   mirc.Local,
 		Symbol: sy,
 		Type:   sy.Type,
-		Num: position,
+		Num:    position,
 	}
 }
 
@@ -974,7 +993,21 @@ func newCallerInterprocOperand(i callerInterproc, t *T.Type) *ir.Operand {
 	}
 }
 
-// TODO: OPT: whenever freeing dirty values, see if it's necessary to store them back (mutated)
+// can only insert free after current instruction
+func freeIfNotNeededAndNotMutated(s *state, index int, v value) {
+	useInfo, ok := s.LiveValues[v]
+	if !ok {
+		return // already freed (i hope)
+	}
+	if isNeeded(s, index, v, useInfo) {
+		return
+	}
+	if useInfo.Mutated {
+		return
+	}
+	s.Free(v)
+}
+
 // can only insert free after current instruction
 func freeIfNotNeeded(s *state, index int, v value) {
 	useInfo, ok := s.LiveValues[v]
@@ -985,12 +1018,12 @@ func freeIfNotNeeded(s *state, index int, v value) {
 		return
 	}
 	if !s.bb.IsTerminal() { // no need to restore if is terminal
-		if v.Class == hirc.Local {
+		if v.Class == hirc.Local && useInfo.Mutated {
 			r := reg(useInfo.Num)
 			instr := storeLocal(r, v.Num, v.Symbol)
 			s.AppendInstr(index, instr)
 		}
-		if v.Class == hirc.Arg {
+		if v.Class == hirc.Arg && useInfo.Mutated {
 			r := reg(useInfo.Num)
 			arg := callerInterproc(v.Num)
 			instr := storeArg(r, arg, useInfo.T)
