@@ -1,12 +1,12 @@
 package main
 
 import (
+	"flag"
+	"mpc/backend"
 	"mpc/frontend"
 	"mpc/frontend/ir"
-	"mpc/backend"
 	"mpc/testing"
 	. "mpc/util"
-	"flag"
 	"os"
 	"strconv"
 )
