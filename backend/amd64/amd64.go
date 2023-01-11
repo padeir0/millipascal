@@ -10,23 +10,37 @@ import (
 	"strconv"
 )
 
-func Generate(M *ir.Module) fasmProgram {
-	output := fasmProgram{
+func Generate(M *ir.Module) *fasmProgram {
+	output := &fasmProgram{
 		executable: []*fasmProc{genWrite(), genRead(), genError()},
 		data:       []*fasmData{},
-		entry:      genEntry(),
+		entry:      genEntry(M),
 	}
+	generate(M, output)
+	M.ResetVisited()
+	return output
+}
+
+func generate(M *ir.Module, output *fasmProgram) {
+	if M.Visited {
+		return
+	}
+	for _, dep := range M.Dependencies {
+		generate(dep.M, output)
+	}
+	M.Visited = true
 	for _, sy := range M.Globals {
-		switch sy.T {
-		case ST.Proc:
-			proc := genProc(sy.Proc)
-			output.executable = append(output.executable, proc)
-		case ST.Mem:
-			mem := genMem(sy.Mem)
-			output.data = append(output.data, mem)
+		if !sy.External {
+			switch sy.T {
+			case ST.Proc:
+				proc := genProc(sy)
+				output.executable = append(output.executable, proc)
+			case ST.Mem:
+				mem := genMem(sy)
+				output.data = append(output.data, mem)
+			}
 		}
 	}
-	return output
 }
 
 type fasmProgram struct {
@@ -264,16 +278,17 @@ func genError() *fasmProc {
 	}
 }
 
-func genMem(mem *ir.Mem) *fasmData {
+func genMem(sy *ir.Symbol) *fasmData {
+	mem := sy.Mem
 	if mem.Contents == "" {
 		return &fasmData{
-			label:    "_" + mem.Name,
+			label:    sy.ModuleName + "_" + mem.Name,
 			content:  strconv.FormatInt(mem.Size, 10),
 			declared: false,
 		}
 	}
 	return &fasmData{
-		label:    "_" + mem.Name,
+		label:    sy.ModuleName + "_" + mem.Name,
 		content:  convertString(mem.Contents),
 		declared: true,
 	}
@@ -309,27 +324,28 @@ func convertString(original string) string {
 	return output
 }
 
-func genEntry() []*amd64Instr {
+func genEntry(M *ir.Module) []*amd64Instr {
 	return []*amd64Instr{
-		genUnaryInstr(Call, "_main"),
+		genUnaryInstr(Call, M.Name+"_main"),
 		genBinInstr(Xor, "rdi", "rdi"), // EXIT CODE 0
 		genBinInstr(Mov, "rax", "60"),  // EXIT
 		{Instr: Syscall},
 	}
 }
 
-func genProc(proc *ir.Proc) *fasmProc {
+func genProc(sy *ir.Symbol) *fasmProc {
+	proc := sy.Proc
 	proc.ResetVisited()
 	stackReserve := 8 * (proc.NumOfVars + proc.NumOfSpills + proc.NumOfMaxCalleeArguments)
 	init := &fasmBlock{
-		label: "_" + proc.Name,
+		label: sy.ModuleName + "_" + proc.Name,
 		code: []*amd64Instr{
 			genUnaryInstr(Push, "rbp"),
 			genBinInstr(Mov, "rbp", "rsp"),
 			genBinInstr(Sub, "rsp", strconv.FormatInt(int64(stackReserve), 10)),
 		},
 	}
-	fproc := &fasmProc{label: "_" + proc.Name, blocks: []*fasmBlock{init}}
+	fproc := &fasmProc{label: sy.ModuleName + "_" + proc.Name, blocks: []*fasmBlock{init}}
 	fproc.blocks = append(fproc.blocks, genBlocks(proc, proc.Code)...)
 	return fproc
 }
@@ -709,7 +725,7 @@ func convertOperand(op *ir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArgume
 		return genType(op.Type) + "[rbp + " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Local:
 		//        v begins at 8 because rbp points to the last rbp
-		offset := 8 + op.Num * 8
+		offset := 8 + op.Num*8
 		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Spill:
 		offset := 8 + NumOfVars*8 + op.Num*8
@@ -723,7 +739,10 @@ func convertOperand(op *ir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArgume
 	case mirc.Lit:
 		return strconv.FormatInt(op.Num, 10)
 	case mirc.Static:
-		return "_" + op.Symbol.Name
+		if op.Symbol.T == ST.Builtin {
+			return "_" + op.Symbol.Name
+		}
+		return op.Symbol.ModuleName + "_" + op.Symbol.Name
 	}
 	panic("unimplemented: " + op.String())
 }

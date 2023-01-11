@@ -12,6 +12,8 @@ func (s SymbolType) String() string {
 		return "Var"
 	case Arg:
 		return "Arg"
+	case Module:
+		return "Module"
 	}
 	return "??"
 }
@@ -24,4 +26,5 @@ const (
 	Mem
 	Var
 	Arg
+	Module
 )

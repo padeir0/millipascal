@@ -64,20 +64,29 @@ func indent(n int) string {
 	return output
 }
 
+type Dependency struct {
+	M      *Module
+	Source *Node
+}
+
 type Module struct {
-	ID   string
-	Name string
+	BasePath string
+	Name     string
+	FullPath string
+	Root     *Node
 
-	Globals map[string]*Symbol
+	Globals      map[string]*Symbol
+	Dependencies map[string]*Dependency
+	Exported     map[string]*Symbol
 
-	Root *Node
+	Visited bool
 }
 
 func (M *Module) String() string {
 	if M == nil {
 		return "nil"
 	}
-	return fmt.Sprintf("%v{\nRoot:\n\t%v,\nSymbols: %v\n}", M.ID, ast(M.Root, 1), M.StrGlobals())
+	return fmt.Sprintf("%v{\nRoot:\n\t%v,\nSymbols: %v\n}", M.Name, ast(M.Root, 1), M.StrGlobals())
 }
 
 func (M *Module) StrGlobals() string {
@@ -104,14 +113,26 @@ func (M *Module) StringifyCode() string {
 	return output
 }
 
-type Symbol struct {
-	T    ST.SymbolType
-	Name string
-	N    *Node
+func (M *Module) ResetVisited() {
+	if !M.Visited {
+		return
+	}
+	M.Visited = false
+	for _, dep := range M.Dependencies {
+		dep.M.ResetVisited()
+	}
+}
 
-	Type *T.Type
-	Proc *Proc
-	Mem  *Mem
+type Symbol struct {
+	T        ST.SymbolType
+	Name     string
+	N        *Node
+	External bool
+
+	Type       *T.Type
+	Proc       *Proc
+	Mem        *Mem
+	ModuleName string
 }
 
 func (v *Symbol) String() string {
@@ -124,6 +145,10 @@ func (v *Symbol) String() string {
 		return "arg " + v.Name + ":" + v.Type.String()
 	case ST.Mem:
 		return "mem " + v.Name
+	case ST.Module:
+		return "module " + v.Name
+	case ST.Builtin:
+		return "builtin " + v.Name
 	default:
 		return "invalid"
 	}
@@ -142,11 +167,11 @@ type Proc struct {
 	Rets   []*T.Type
 	T      *T.Type
 
-	N           *Node
-	Code        *BasicBlock
+	N    *Node
+	Code *BasicBlock
 
-	NumOfVars int
-	NumOfSpills int
+	NumOfVars               int
+	NumOfSpills             int
 	NumOfMaxCalleeArguments int
 }
 
@@ -183,11 +208,11 @@ func (p *Proc) ResetVisited() {
 }
 
 type Mem struct {
-	Name string
-	Size int64
+	Name     string
+	Size     int64
 	Contents string
-	Type T.Type
-	Init *Node
+	Type     T.Type
+	Init     *Node
 }
 
 type BasicBlock struct {
@@ -265,7 +290,6 @@ func resetVisitedBB(bb *BasicBlock) {
 	}
 }
 
-
 func ApplyToBlocks(b *BasicBlock, proc func(*BasicBlock)) {
 	resetVisitedBB(b)
 	applyToBlocks(b, proc)
@@ -286,7 +310,7 @@ func applyToBlocks(b *BasicBlock, proc func(*BasicBlock)) {
 	case FT.Return, FT.Exit:
 		// do nothing
 	}
-	return 
+	return
 }
 
 func ProperlyTerminates(b *BasicBlock) bool {
@@ -297,7 +321,7 @@ func ProperlyTerminates(b *BasicBlock) bool {
 func properlyTerminates(b *BasicBlock) bool {
 	if b.Visited {
 		// we just say that this looping branch doesn't matter
-		return true 
+		return true
 	}
 	b.Visited = true
 	switch b.Out.T {

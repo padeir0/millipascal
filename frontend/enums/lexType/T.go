@@ -41,6 +41,7 @@ const (
 	LEFTBRACKET
 	RIGHTBRACKET
 	COLON
+	DOUBLECOLON
 	ASSIGNMENT
 	COMMA
 	SEMICOLON
@@ -64,6 +65,9 @@ const (
 	END
 	SET
 	EXIT
+	IMPORT
+	FROM
+	EXPORT
 
 	I8
 	I16
@@ -75,6 +79,7 @@ const (
 	// special
 	BLOCK
 	SYMBOLS
+	COUPLINGS
 	PROCDECLS
 	TYPELIST
 	IDLIST
@@ -124,6 +129,7 @@ var tktostr = map[TkType]string{
 	LEFTBRACKET:           "LEFTBRACKETS",
 	RIGHTBRACKET:          "RIGHTBRACKETS",
 	COLON:                 "COLON",
+	DOUBLECOLON:           "DOUBLECOLON",
 	ASSIGNMENT:            "ASSIGNMENT",
 	COMMA:                 "COMMA",
 	DOT:                   "DOT",
@@ -146,6 +152,9 @@ var tktostr = map[TkType]string{
 	END:    "END",
 	SET:    "SET",
 	EXIT:   "EXIT",
+	IMPORT: "IMPORT",
+	FROM:   "FROM",
+	EXPORT: "EXPORT",
 
 	I8:   "I8",
 	I16:  "I16",
@@ -161,6 +170,7 @@ var tktostr = map[TkType]string{
 	TYPELIST:    "TYPELIST",
 	IDLIST:      "IDLIST",
 	ARRAYACCESS: "ARRAYACCESS",
+	COUPLINGS:   "COUPLINGS",
 	CALL:        "CALL",
 	EXPRLIST:    "EXPRLIST",
 	ELSEIFCHAIN: "ELSEIFCHAIN",
@@ -213,6 +223,7 @@ var tktosrc = map[TkType]string{
 	LEFTBRACKET:           "[",
 	RIGHTBRACKET:          "]",
 	COLON:                 ":",
+	DOUBLECOLON:           "::",
 	COMMA:                 ",",
 	LESS:                  "<",
 	LESSEQ:                "<=",
@@ -246,6 +257,9 @@ var tktosrc = map[TkType]string{
 	PTR:    "ptr",
 	BOOL:   "bool",
 	EXIT:   "exit",
+	IMPORT: "import",
+	FROM:   "from",
+	EXPORT: "export",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
@@ -253,6 +267,7 @@ var tktosrc = map[TkType]string{
 	IDLIST:      "id list",
 	TYPELIST:    "type list",
 	ARRAYACCESS: "array access",
+	COUPLINGS:   "module coupling",
 	CALL:        "procedure call",
 	EXPRLIST:    "expression list",
 	ELSEIFCHAIN: "else if chain",

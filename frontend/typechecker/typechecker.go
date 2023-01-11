@@ -7,26 +7,44 @@ import (
 	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 	msg "mpc/frontend/messages"
-
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
-	addBuiltins(M)
-	for _, sy := range M.Globals {
-		err := checkSymbol(M, sy)
+	err := checkModule(M)
+	if err != nil {
+		return err
+	}
+	M.ResetVisited()
+	return checkMain(M) // only for first module
+}
+
+func checkModule(M *ir.Module) *errors.CompilerError {
+	M.Visited = true
+	for _, dep := range M.Dependencies {
+		err := checkModule(dep.M)
 		if err != nil {
 			return err
 		}
 	}
+
+	addBuiltins(M)
 	for _, sy := range M.Globals {
-		if sy.T == ST.Proc {
+		if !sy.External {
+			err := checkSymbol(M, sy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	for _, sy := range M.Globals {
+		if sy.T == ST.Proc && !sy.External {
 			err := checkBlock(M, sy.Proc, sy.N.Leaves[4])
 			if err != nil {
 				return err
 			}
 		}
 	}
-	return checkMain(M)
+	return nil
 }
 
 func checkMain(M *ir.Module) *errors.CompilerError {
@@ -45,7 +63,7 @@ func addBuiltins(M *ir.Module) {
 	r := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{T.T_I64}}}
 	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: w, Proc: nil}
 	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: w, Proc: nil}
-	read  := &ir.Symbol{Name: "read", T: ST.Builtin,  Type: r, Proc: nil}
+	read := &ir.Symbol{Name: "read", T: ST.Builtin, Type: r, Proc: nil}
 	M.Globals["write"] = write
 	M.Globals["read"] = read
 	M.Globals["error"] = error
@@ -71,20 +89,20 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 
 func checkMem(M *ir.Module, mem *ir.Mem) *errors.CompilerError {
 	switch mem.Init.Lex {
-		case lex.STRING_LIT:
-			size := stringSize(mem.Init.Text)
-			mem.Size = int64(size)
-			mem.Contents = mem.Init.Text
-		case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
-			mem.Size = mem.Init.Value
-		case lex.PTR_LIT:
-			return msg.ErrorPtrCantBeUsedAsMemSize(M, mem.Init)
+	case lex.STRING_LIT:
+		size := stringSize(mem.Init.Text)
+		mem.Size = int64(size)
+		mem.Contents = mem.Init.Text
+	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
+		mem.Size = mem.Init.Value
+	case lex.PTR_LIT:
+		return msg.ErrorPtrCantBeUsedAsMemSize(M, mem.Init)
 	}
 	return nil
 }
 
 func stringSize(oldtext string) int {
-	text := oldtext[1:len(oldtext)-1]
+	text := oldtext[1 : len(oldtext)-1]
 	size := 0
 	for i := 0; i < len(text); i++ {
 		if text[i] == '\\' {
@@ -519,6 +537,8 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	switch n.Lex {
 	case lex.IDENTIFIER:
 		return checkID(M, proc, n)
+	case lex.DOUBLECOLON:
+		return checkExternalID(M, proc, n)
 	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
 		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.STRING_LIT,
 		lex.CHAR_LIT:
@@ -597,6 +617,25 @@ func checkCallProc(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 	return nil
 }
 
+func checkExternalID(M *ir.Module, proc *ir.Proc, dcolon *ir.Node) *errors.CompilerError {
+	mod := dcolon.Leaves[0].Text
+	id := dcolon.Leaves[1].Text
+
+	dep, ok := M.Dependencies[mod]
+	if !ok {
+		return msg.ErrorNameNotDefined(M, dcolon.Leaves[0])
+	}
+
+	sy, ok := dep.M.Exported[id]
+	if !ok {
+		return msg.NameNotExported(M, dcolon.Leaves[1])
+	}
+
+	dcolon.Leaves[1].T = sy.Type
+	dcolon.T = sy.Type
+	return nil
+}
+
 func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
 	local := getVarOrArg(proc, id.Text)
 	if local != nil {
@@ -606,6 +645,9 @@ func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
 	global, ok := M.Globals[id.Text]
 	if ok {
 		id.T = global.Type
+		if global.External {
+			id.T = global.N.T
+		}
 		return nil
 	}
 	return msg.ErrorNameNotDefined(M, id)

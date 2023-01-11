@@ -343,7 +343,17 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	case ',':
 		tp = T.COMMA
 	case ':':
-		tp = T.COLON
+		r, err := nextRune(st)
+		if err != nil {
+			return nil, err
+		}
+		switch r {
+		case ':':
+			tp = T.DOUBLECOLON
+		default:
+			unread(st)
+			tp = T.COLON
+		}
 	case ';':
 		tp = T.SEMICOLON
 	case '.':
@@ -505,6 +515,12 @@ func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		tp = T.SET
 	case "exit":
 		tp = T.EXIT
+	case "import":
+		tp = T.IMPORT
+	case "from":
+		tp = T.FROM
+	case "export":
+		tp = T.EXPORT
 	case "i8":
 		tp = T.I8
 	case "i16":
@@ -579,7 +595,7 @@ func charLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
 				Text:  text,
 				Lex:   T.CHAR_LIT,
 				Line:  st.Line,
-				Value: parseCharLit(text[1:len(text)-1]),
+				Value: parseCharLit(text[1 : len(text)-1]),
 				Col:   st.Col,
 			}, nil
 		}

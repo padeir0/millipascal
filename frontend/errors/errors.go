@@ -1,9 +1,9 @@
 package errors
 
 import (
-	et "mpc/frontend/enums/errType"
 	"fmt"
 	"io/ioutil"
+	et "mpc/frontend/enums/errType"
 )
 
 type PipelineStage int

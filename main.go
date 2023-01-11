@@ -149,12 +149,13 @@ func Test(folder string, tester testing.Tester) []*testing.TestResult {
 	results := []*testing.TestResult{}
 	for _, v := range entries {
 		fullpath := folder + "/" + v.Name()
-		Stdout("testing: " + fullpath + "\t")
 		if v.IsDir() {
+			Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
 			res := Test(fullpath, tester)
 			results = append(results, res...)
-			Stdout("\n")
+			Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
 		} else {
+			Stdout("testing: " + fullpath + "\t")
 			res := tester(fullpath)
 			results = append(results, &res)
 			Stdout(res.String() + "\n")

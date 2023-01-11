@@ -1,12 +1,12 @@
 package parser
 
 import (
-	. "mpc/frontend/lexer"
-	"mpc/frontend/ir"
-	"mpc/frontend/errors"
+	"fmt"
 	et "mpc/frontend/enums/errType"
 	T "mpc/frontend/enums/lexType"
-	"fmt"
+	"mpc/frontend/errors"
+	"mpc/frontend/ir"
+	. "mpc/frontend/lexer"
 )
 
 func Track(st *Lexer, s string) {
@@ -17,13 +17,13 @@ func Track(st *Lexer, s string) {
 
 func NewCompilerError(st *Lexer, t et.ErrType, message string) *errors.CompilerError {
 	loc := GetSourceLocation(st)
-	return &errors.CompilerError {
+	return &errors.CompilerError{
 		Stage: errors.Parser,
-		Type: t,
+		Type:  t,
 		Info: []errors.Excerpt{
 			{
 				Location: &loc,
-				Message: message,
+				Message:  message,
 			},
 		},
 	}
@@ -48,7 +48,7 @@ func AddLeaf(a *ir.Node, b *ir.Node) {
 	a.Leaves = append(a.Leaves, b)
 }
 
-func Check(st *Lexer, tpList ...T.TkType) (*errors.CompilerError) {
+func Check(st *Lexer, tpList ...T.TkType) *errors.CompilerError {
 	for _, tp := range tpList {
 		if st.Word.Lex == tp {
 			return nil
@@ -237,9 +237,37 @@ func RepeatList(st *Lexer, prod Production, val Validator) ([]*ir.Node, *errors.
 	return out, nil
 }
 
+// Implements the pattern:
+//    RepeatBinary := Production {',' Production} [','].
+func RepeatCommaList(st *Lexer, prod Production) ([]*ir.Node, *errors.CompilerError) {
+	first, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if first == nil {
+		return nil, nil
+	}
+	out := []*ir.Node{first}
+	for st.Word.Lex == T.COMMA {
+		Next(st)
+		n, err := prod(st)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	if st.Word.Lex == T.COMMA {
+		err := Next(st)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 func CreateNode(nodes []*ir.Node, t T.TkType) *ir.Node {
 	return &ir.Node{
-		Lex: t,
+		Lex:    t,
 		Leaves: nodes,
 	}
 }

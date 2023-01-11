@@ -1,14 +1,14 @@
 package errors
 
 import (
-	"mpc/frontend/errors"
 	et "mpc/frontend/enums/errType"
+	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 )
 
 func Place(M *ir.Module, n *ir.Node) errors.SourceLocation {
 	return errors.SourceLocation{
-		File: M.ID,
+		File: M.FullPath,
 		Line: n.Line,
 		Col:  n.Col,
 	}
@@ -21,7 +21,7 @@ type NodeInfo struct {
 
 func NewNodeInfo(n *ir.Node, m string) *NodeInfo {
 	return &NodeInfo{
-		N: n,
+		N:       n,
 		Message: m,
 	}
 }

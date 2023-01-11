@@ -51,9 +51,29 @@ func (c *context) AllocTemp(t *T.Type) *ir.Operand {
 }
 
 func Generate(M *ir.Module) *errors.CompilerError {
+	err := genAll(M)
+	if err != nil {
+		return err
+	}
+
+	M.ResetVisited()
+
+	return nil
+}
+
+func genAll(M *ir.Module) *errors.CompilerError {
+	if M.Visited {
+		return nil
+	}
+	M.Visited = true
+	for _, dep := range M.Dependencies {
+		err := genAll(dep.M)
+		if err != nil {
+			return err
+		}
+	}
 	for _, sy := range M.Globals {
-		switch sy.T {
-		case ST.Proc:
+		if sy.T == ST.Proc && !sy.External {
 			err := genProc(M, sy.Proc)
 			if err != nil {
 				return err
@@ -177,7 +197,7 @@ func genWhile(M *ir.Module, c *context, while *ir.Node) {
 
 func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 	if c.CurrBlock.IsTerminal() {
-		return;
+		return
 	}
 	operands := []*ir.Operand{}
 	for _, ret := range return_.Leaves {
@@ -189,7 +209,7 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 
 func genExit(M *ir.Module, c *context, exit_ *ir.Node) {
 	if c.CurrBlock.IsTerminal() {
-		return;
+		return
 	}
 	ret := exit_.Leaves[0]
 	op := genExpr(M, c, ret)
@@ -363,6 +383,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *ir.Operand {
 	switch exp.Lex {
 	case lex.IDENTIFIER:
 		return genExprID(M, c, exp)
+	case lex.DOUBLECOLON:
+		return genExternalID(M, c, exp)
 	case lex.FALSE, lex.TRUE:
 		return genBoolLit(M, c, exp)
 	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT, lex.CHAR_LIT:
@@ -419,6 +441,14 @@ func genDeref(M *ir.Module, c *context, memAccess *ir.Node) *ir.Operand {
 	return dest
 }
 
+func genExternalID(M *ir.Module, c *context, dcolon *ir.Node) *ir.Operand {
+	mod := dcolon.Leaves[0].Text
+	id := dcolon.Leaves[1].Text
+	otherM := M.Dependencies[mod].M
+	sy := otherM.Exported[id]
+	return globalToOperand(sy)
+}
+
 func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 	decl, ok := c.Proc.Vars[id.Text]
 	if ok {
@@ -440,18 +470,24 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) *ir.Operand {
 	}
 	global, ok := M.Globals[id.Text]
 	if ok {
-		return globalToOperand(id, global)
+		return globalToOperand(global)
 	}
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(id *ir.Node, global *ir.Symbol) *ir.Operand {
+func globalToOperand(global *ir.Symbol) *ir.Operand {
 	switch global.T {
-	case ST.Proc, ST.Builtin:
+	case ST.Builtin:
 		return &ir.Operand{
 			Hirc:   hirc.Global,
 			Symbol: global,
 			Type:   global.Type,
+		}
+	case ST.Proc:
+		return &ir.Operand{
+			Hirc:   hirc.Global,
+			Symbol: global,
+			Type:   global.N.T,
 		}
 	case ST.Mem:
 		return &ir.Operand{

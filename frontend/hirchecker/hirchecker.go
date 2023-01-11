@@ -2,10 +2,10 @@ package hirchecker
 
 import (
 	T "mpc/frontend/Type"
+	hirc "mpc/frontend/enums/HIRClass"
 	FT "mpc/frontend/enums/flowType"
 	IT "mpc/frontend/enums/instrType"
 	ST "mpc/frontend/enums/symbolType"
-	hirc "mpc/frontend/enums/HIRClass"
 	"mpc/frontend/errors"
 	"mpc/frontend/ir"
 	eu "mpc/frontend/util/errors"
@@ -14,8 +14,24 @@ import (
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
+	err := check(M)
+	if err != nil {
+		return err
+	}
+
+	M.ResetVisited()
+	return nil
+}
+
+func check(M *ir.Module) *errors.CompilerError {
+	for _, dep := range M.Dependencies {
+		err := check(dep.M)
+		if err != nil {
+			return err
+		}
+	}
 	for _, sy := range M.Globals {
-		if sy.T == ST.Proc {
+		if sy.T == ST.Proc && !sy.External {
 			s := newState(M)
 			s.proc = sy.Proc
 			s.proc.ResetVisited()
@@ -36,7 +52,7 @@ type state struct {
 
 func newState(M *ir.Module) *state {
 	return &state{
-		m:         M,
+		m: M,
 	}
 }
 
@@ -78,14 +94,14 @@ func checkRet(s *state, rets []*ir.Operand) *errors.CompilerError {
 	if len(s.proc.Rets) != len(rets) {
 		has := strconv.Itoa(len(rets))
 		wants := strconv.Itoa(len(s.proc.Rets))
-		return eu.NewInternalSemanticError("invalid number of returns: has "+ has + " wanted " +wants )
+		return eu.NewInternalSemanticError("invalid number of returns: has " + has + " wanted " + wants)
 	}
 	for i, wanted_ret := range s.proc.Rets {
 		curr_ret := rets[i]
 		if !wanted_ret.Equals(curr_ret.Type) {
 			has := curr_ret.Type.String()
 			wants := wanted_ret.String()
-			return eu.NewInternalSemanticError("invalid return for procedure: has "+has+" wanted "+wants)
+			return eu.NewInternalSemanticError("invalid return for procedure: has " + has + " wanted " + wants)
 		}
 	}
 	return nil
@@ -105,62 +121,62 @@ func checkExit(s *state, branch ir.Flow) *errors.CompilerError {
 }
 
 type Checker struct {
-	Class func(hirc.HIRClass)bool
-	Type  func(*T.Type)bool
+	Class func(hirc.HIRClass) bool
+	Type  func(*T.Type) bool
 }
 
 func (c *Checker) Check(op *ir.Operand) bool {
 	return c.Type(op.Type) && c.Class(op.Hirc)
 }
 
-var basicOrProc_oper = Checker {
+var basicOrProc_oper = Checker{
 	Class: hirc.IsOperable,
-	Type: T.IsBasicOrProc,
+	Type:  T.IsBasicOrProc,
 }
 
-var basicOrProc_res = Checker {
+var basicOrProc_res = Checker{
 	Class: hirc.IsResult,
-	Type: T.IsBasicOrProc,
+	Type:  T.IsBasicOrProc,
 }
 
-var basic_oper = Checker {
+var basic_oper = Checker{
 	Class: hirc.IsOperable,
-	Type: T.IsBasic,
+	Type:  T.IsBasic,
 }
 
-var basic_res = Checker {
+var basic_res = Checker{
 	Class: hirc.IsResult,
-	Type: T.IsBasic,
+	Type:  T.IsBasic,
 }
 
-var num_oper = Checker {
+var num_oper = Checker{
 	Class: hirc.IsOperable,
-	Type: T.IsNumber,
+	Type:  T.IsNumber,
 }
 
-var num_res = Checker {
+var num_res = Checker{
 	Class: hirc.IsResult,
-	Type: T.IsNumber,
+	Type:  T.IsNumber,
 }
 
-var bool_oper = Checker {
+var bool_oper = Checker{
 	Class: hirc.IsOperable,
-	Type: T.IsBool,
+	Type:  T.IsBool,
 }
 
-var bool_res = Checker {
+var bool_res = Checker{
 	Class: hirc.IsResult,
-	Type: T.IsBool,
+	Type:  T.IsBool,
 }
 
-var ptr_oper = Checker {
+var ptr_oper = Checker{
 	Class: hirc.IsOperable,
-	Type: T.IsPtr,
+	Type:  T.IsPtr,
 }
 
-var ptr_res = Checker {
+var ptr_res = Checker{
 	Class: hirc.IsResult,
-	Type: T.IsPtr,
+	Type:  T.IsPtr,
 }
 
 func checkInstr(s *state, instr *ir.Instr) *errors.CompilerError {
@@ -269,7 +285,7 @@ func checkConvert(instr *ir.Instr) *errors.CompilerError {
 		return err
 	}
 	dest := instr.Destination[0]
-	err = checkEqual(instr, instr.Type, dest.Type) 
+	err = checkEqual(instr, instr.Type, dest.Type)
 	if err != nil {
 		return err
 	}
@@ -301,7 +317,7 @@ func checkLoadPtr(instr *ir.Instr) *errors.CompilerError {
 		return err
 	}
 	dest := instr.Destination[0]
-	err = checkEqual(instr, instr.Type, dest.Type) 
+	err = checkEqual(instr, instr.Type, dest.Type)
 	return checkUnary(instr, ptr_oper, basic_res)
 }
 
@@ -312,7 +328,7 @@ func checkStorePtr(instr *ir.Instr) *errors.CompilerError {
 	}
 	a := instr.Operands[0]
 	dest := instr.Operands[1]
-	err = checkEqual(instr, instr.Type, a.Type) 
+	err = checkEqual(instr, instr.Type, a.Type)
 	if err != nil {
 		return err
 	}
@@ -332,7 +348,7 @@ func checkCall(s *state, instr *ir.Instr) *errors.CompilerError {
 	}
 	proc := procOp.Type.Proc
 
-	if len(instr.Operands) - 1 != len(proc.Args) {
+	if len(instr.Operands)-1 != len(proc.Args) {
 		return procInvalidNumOfArgs(instr, proc)
 	}
 	if len(instr.Destination) != len(proc.Rets) {
@@ -377,7 +393,7 @@ func checkBinary(instr *ir.Instr, checkA, checkB, checkC Checker) *errors.Compil
 
 	if checkA.Check(a) &&
 		checkB.Check(b) &&
-		checkC.Check(dest){
+		checkC.Check(dest) {
 		return nil
 	}
 	return malformedTypeOrClass(instr)
@@ -419,30 +435,30 @@ func malformedTypeOrClass(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
 }
 func procArgNotFound(instr *ir.Instr, d *ir.Symbol) *errors.CompilerError {
-	return eu.NewInternalSemanticError("argument "+d.Name+" not found in: " + instr.String())
+	return eu.NewInternalSemanticError("argument " + d.Name + " not found in: " + instr.String())
 }
 func procInvalidNumOfArgs(instr *ir.Instr, p *T.ProcType) *errors.CompilerError {
 	n := strconv.Itoa(len(p.Args))
-	beepBop := strconv.Itoa(len(instr.Operands) -1)
-	return eu.NewInternalSemanticError("expected "+n+" arguments, instead found: " + beepBop)
+	beepBop := strconv.Itoa(len(instr.Operands) - 1)
+	return eu.NewInternalSemanticError("expected " + n + " arguments, instead found: " + beepBop)
 }
 func procInvalidNumOfRets(instr *ir.Instr, p *T.ProcType) *errors.CompilerError {
 	n := strconv.Itoa(len(p.Rets))
 	beepBop := strconv.Itoa(len(instr.Destination))
-	return eu.NewInternalSemanticError("expected "+n+" returns, instead found: " + beepBop)
+	return eu.NewInternalSemanticError("expected " + n + " returns, instead found: " + beepBop)
 }
 func procBadArg(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("argument "+op.String()+" doesn't match formal parameter ("+d.String()+") in: " + instr.String())
+	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
 func procBadRet(instr *ir.Instr, d *T.Type, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("return "+op.String()+" doesn't match formal return "+d.String()+" in: " + instr.String())
+	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
 }
 func invalidMirInstr(i *ir.Instr) *errors.CompilerError {
-	return eu.NewInternalSemanticError("invalid MIR Instr: "+i.String())
+	return eu.NewInternalSemanticError("invalid MIR Instr: " + i.String())
 }
 func invalidFlow(f ir.Flow) *errors.CompilerError {
-	return eu.NewInternalSemanticError("invalid flow: "+f.String())
+	return eu.NewInternalSemanticError("invalid flow: " + f.String())
 }
 func expectedProc(instr *ir.Instr, o *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("expected procedure in: "+instr.String()+", instead found: " + o.String())
+	return eu.NewInternalSemanticError("expected procedure in: " + instr.String() + ", instead found: " + o.String())
 }

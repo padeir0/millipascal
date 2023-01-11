@@ -67,6 +67,9 @@ const (
 	NotAllCodePathsReturnAValue
 	InvalidMain
 	NoEntryPoint
+	AmbiguousModuleName
+	ModuleNotFound
+	NameNotExported
 )
 
 func (et ErrType) String() string {
@@ -146,6 +149,9 @@ var DebugMap = map[ErrType]string{
 	NotAllCodePathsReturnAValue:    "NotAllCodePathsReturnAValue",
 	InvalidMain:                    "InvalidMain",
 	NoEntryPoint:                   "NoEntryPoint",
+	AmbiguousModuleName:            "AmbiguousModuleName",
+	ModuleNotFound:                 "ModuleNotFound",
+	NameNotExported:                "NameNotExported",
 }
 
 var ErrorCodeMap = map[ErrType]string{
@@ -208,4 +214,7 @@ var ErrorCodeMap = map[ErrType]string{
 	NotAllCodePathsReturnAValue:    "S042",
 	InvalidMain:                    "S043",
 	NoEntryPoint:                   "S044",
+	AmbiguousModuleName:            "S045",
+	ModuleNotFound:                 "S046",
+	NameNotExported:                "S047",
 }

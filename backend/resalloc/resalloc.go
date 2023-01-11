@@ -360,8 +360,20 @@ func (s *state) String() string {
 }
 
 func Allocate(M *ir.Module, numRegs int) {
+	allocate(M, numRegs)
+	M.ResetVisited()
+}
+
+func allocate(M *ir.Module, numRegs int) {
+	if M.Visited {
+		return
+	}
+	for _, dep := range M.Dependencies {
+		allocate(dep.M, numRegs)
+	}
+	M.Visited = true
 	for _, sy := range M.Globals {
-		if sy.T == ST.Proc {
+		if sy.T == ST.Proc && !sy.External {
 			allocProc(M, sy.Proc, numRegs)
 		}
 	}

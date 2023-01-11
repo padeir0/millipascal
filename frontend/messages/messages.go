@@ -1,12 +1,13 @@
 package messages
 
 import (
-	"mpc/frontend/ir"
-	"mpc/frontend/errors"
-	. "mpc/frontend/util/errors"
-	et "mpc/frontend/enums/errType"
 	T "mpc/frontend/Type"
+	et "mpc/frontend/enums/errType"
+	"mpc/frontend/errors"
+	"mpc/frontend/ir"
+	. "mpc/frontend/util/errors"
 	"strconv"
+	"strings"
 )
 
 func ErrorNameAlreadyDefined(M *ir.Module, newName *ir.Node, oldName *ir.Node) *errors.CompilerError {
@@ -27,16 +28,20 @@ func ErrorExportingUndefName(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return NewSemanticError(M, et.ExportingUndefName, ni)
 }
 
+func NameNotExported(M *ir.Module, n *ir.Node) *errors.CompilerError {
+	ni := NewNodeInfo(n, "name not defined in module")
+	return NewSemanticError(M, et.NameNotExported, ni)
+}
+
 func ErrorOperationBetweenUnequalTypes(M *ir.Module, op *ir.Node) *errors.CompilerError {
 	left := op.Leaves[0]
 	right := op.Leaves[1]
 
-	excOp    := NewNodeInfo(op, "Operation between unequal types")
-	excLeft  := NewNodeInfo(left, left.T.String())
+	excOp := NewNodeInfo(op, "Operation between unequal types")
+	excLeft := NewNodeInfo(left, left.T.String())
 	excRight := NewNodeInfo(right, right.T.String())
 	return NewSemanticError(M, et.OperationBetweenUnequalTypes, excOp, excLeft, excRight)
 }
-
 
 func ErrorTypeCheckerExpectedName(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "name is not declared")
@@ -49,7 +54,7 @@ func ErrorNameResExpectedName(M *ir.Module, n *ir.Node) *errors.CompilerError {
 }
 
 func ErrorInvalidInitForMemType(M *ir.Module, sy *ir.Symbol, n *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(n, "expected to be of type: " + sy.Mem.Type.String())
+	info := NewNodeInfo(n, "expected to be of type: "+sy.Mem.Type.String())
 	return NewSemanticError(M, et.InvalidInitForMemType, info)
 }
 
@@ -86,7 +91,7 @@ func ErrorCannotUseMultipleValuesInExpr(M *ir.Module, n *ir.Node) *errors.Compil
 
 func ErrorExpectedConst(M *ir.Module, global *ir.Symbol, n *ir.Node) *errors.CompilerError {
 	info := NewNodeInfo(n, "id is not a constant")
-	source := NewNodeInfo(global.N, "is a: " + global.T.String())
+	source := NewNodeInfo(global.N, "is a: "+global.T.String())
 	return NewSemanticError(M, et.ExpectedConst, info, source)
 }
 
@@ -96,13 +101,13 @@ func ErrorMemResAllowsOnlyIntAndChar(M *ir.Module, n *ir.Node) *errors.CompilerE
 }
 
 func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *T.Type) *errors.CompilerError {
-	info := NewNodeInfo(param, "mismatched type in Call, has type: " + param.T.String()+ ", expected: " + arg.String())
+	info := NewNodeInfo(param, "mismatched type in Call, has type: "+param.T.String()+", expected: "+arg.String())
 	return NewSemanticError(M, et.MismatchedTypeForArgument, info)
 }
 
 func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *errors.CompilerError {
 	expected := strconv.Itoa(len(callee.Args))
-	info := NewNodeInfo(n, "invalid number of arguments, expected: " + expected)
+	info := NewNodeInfo(n, "invalid number of arguments, expected: "+expected)
 	return NewSemanticError(M, et.InvalidNumberOfArgs, info)
 }
 
@@ -119,14 +124,14 @@ func ErrorExpectedBasicType(M *ir.Module, n *ir.Node) *errors.CompilerError {
 func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	expected := strconv.Itoa(len(proc.Rets))
 	info := NewNodeInfo(n, "invalid number of returns")
-	source := NewNodeInfo(proc.N, "expected: " + expected)
+	source := NewNodeInfo(proc.N, "expected: "+expected)
 	return NewSemanticError(M, et.InvalidNumberOfReturns, info, source)
 }
 
 func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *errors.CompilerError {
 	ret := proc.Rets[i]
-	info := NewNodeInfo(retN, "mismatched type in return, has type: " + retN.T.String())
-	source := NewNodeInfo(proc.N, "expected type: " + ret.String())
+	info := NewNodeInfo(retN, "mismatched type in return, has type: "+retN.T.String())
+	source := NewNodeInfo(proc.N, "expected type: "+ret.String())
 	return NewSemanticError(M, et.MismatchedReturnType, info, source)
 }
 
@@ -149,21 +154,21 @@ func ErrorCantUseStringInExpr(M *ir.Module, n *ir.Node) *errors.CompilerError {
 func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Symbol, n *ir.Node, left *ir.Node) *errors.CompilerError {
 	has := strconv.Itoa(len(left.Leaves))
 	expected := strconv.Itoa(len(proc.Proc.Rets))
-	info := NewNodeInfo(n, "invalid number of assignments: "+ has)
-	source := NewNodeInfo(proc.N, "expected: " + expected)
+	info := NewNodeInfo(n, "invalid number of assignments: "+has)
+	source := NewNodeInfo(proc.N, "expected: "+expected)
 	return NewSemanticError(M, et.MismatchedMultiRetAssignment, info, source)
 }
 
 func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *ir.Symbol, assignee *ir.Node, i int) *errors.CompilerError {
 	ret := proc.Proc.Rets[i]
-	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: " + assignee.T.String())
-	source := NewNodeInfo(proc.N, "expected type: " + ret.String())
+	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: "+assignee.T.String())
+	source := NewNodeInfo(proc.N, "expected type: "+ret.String())
 	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, info, source)
 }
 
 func ErrorMismatchedTypesInAssignment(M *ir.Module, assignee *ir.Node, value *ir.Node) *errors.CompilerError {
-	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: " + assignee.T.String())
-	source := NewNodeInfo(value, "expected type: " + value.T.String())
+	info := NewNodeInfo(assignee, "mismatched type in assignment, has type: "+assignee.T.String())
+	source := NewNodeInfo(value, "expected type: "+value.T.String())
 	return NewSemanticError(M, et.MismatchedTypeInAssign, info, source)
 }
 
@@ -219,4 +224,42 @@ func InvalidMain(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 func ProgramWithoutEntry(M *ir.Module) *errors.CompilerError {
 	start := NewNodeInfo(M.Root, "program has no entry point")
 	return NewSemanticError(M, et.NoEntryPoint, start)
+}
+
+func AmbiguousFilesInFolder(M *ir.Module, n *ir.Node, found []string, modID string) *errors.CompilerError {
+	msg := "Multiple modules possible for " + modID +
+		": " + strings.Join(found, ", ")
+	if M != nil && n != nil {
+		info := NewNodeInfo(n, msg)
+		return NewSemanticError(M, et.AmbiguousModuleName, info)
+	}
+	return &errors.CompilerError{
+		Stage: errors.Resolver,
+		Type:  et.AmbiguousModuleName,
+		Debug: msg,
+	}
+}
+
+func ModuleNotFound(M *ir.Module, n *ir.Node, baseFolder string, modID string) *errors.CompilerError {
+	msg := "module " + modID + " not found in folder " + baseFolder
+	if M != nil && n != nil {
+		info := NewNodeInfo(n, msg)
+		return NewSemanticError(M, et.ModuleNotFound, info)
+	}
+	return &errors.CompilerError{
+		Stage: errors.Resolver,
+		Type:  et.ModuleNotFound,
+		Debug: msg,
+	}
+}
+
+func ErrorInvalidDependencyCycle(M *ir.Module, prev []*ir.Dependency, dep *ir.Dependency) *errors.CompilerError {
+	ninfoList := []*NodeInfo{}
+	for _, item := range prev {
+		ni := NewNodeInfo(item.Source, "references")
+		ninfoList = append(ninfoList, ni)
+	}
+	ni := NewNodeInfo(dep.Source, "forms a invalid cycle")
+	ninfoList = append(ninfoList, ni)
+	return NewSemanticError(M, et.InvalidDependencyCycle, ninfoList...)
 }

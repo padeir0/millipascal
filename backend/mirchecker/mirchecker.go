@@ -15,8 +15,28 @@ import (
 )
 
 func Check(M *ir.Module) *errors.CompilerError {
+	err := check(M)
+	if err != nil {
+		return err
+	}
+	M.ResetVisited()
+	return nil
+}
+
+func check(M *ir.Module) *errors.CompilerError {
+	if M.Visited {
+		return nil
+	}
+	for _, dep := range M.Dependencies {
+		err := check(dep.M)
+		if err != nil {
+			return err
+		}
+	}
+	M.Visited = true
+
 	for _, sy := range M.Globals {
-		if sy.T == ST.Proc {
+		if sy.T == ST.Proc && !sy.External {
 			s := newState(M)
 			s.proc = sy.Proc
 			s.proc.ResetVisited()
@@ -73,8 +93,8 @@ type state struct {
 	CalleeInterproc region
 	CallerInterproc region
 	Spill           region
-	Registers	region
-	Locals		region
+	Registers       region
+	Locals          region
 }
 
 func newState(M *ir.Module) *state {
@@ -84,7 +104,7 @@ func newState(M *ir.Module) *state {
 		CallerInterproc: newRegion(8),
 		Spill:           newRegion(8),
 		Registers:       newRegion(8),
-		Locals:	         newRegion(8),
+		Locals:          newRegion(8),
 	}
 }
 
@@ -100,7 +120,7 @@ func (s *state) Init() {
 }
 
 func (s *state) String() string {
-	return	s.proc.Name + s.bb.Label + "\n" + 
+	return s.proc.Name + s.bb.Label + "\n" +
 		"callee: " + s.CalleeInterproc.String() + "\n" +
 		"caller: " + s.CallerInterproc.String() + "\n" +
 		"spill: " + s.Spill.String() + "\n" +
@@ -111,7 +131,7 @@ func (s *state) String() string {
 func (s *state) Copy() *state {
 	caller := make(region, len(s.CallerInterproc))
 	callee := make(region, len(s.CalleeInterproc))
-	spill  := make(region, len(s.Spill))
+	spill := make(region, len(s.Spill))
 	registers := make(region, len(s.Registers))
 	locals := make(region, len(s.Locals))
 	copy(caller, s.CallerInterproc)
@@ -122,12 +142,12 @@ func (s *state) Copy() *state {
 	return &state{
 		CallerInterproc: caller,
 		CalleeInterproc: callee,
-		Spill: spill,
-		Registers: registers,
-		Locals: locals,
-		bb: s.bb,
-		m: s.m,
-		proc: s.proc,
+		Spill:           spill,
+		Registers:       registers,
+		Locals:          locals,
+		bb:              s.bb,
+		m:               s.m,
+		proc:            s.proc,
 	}
 }
 
@@ -734,7 +754,7 @@ func errorUsingRegisterGarbage(instr *ir.Instr, op *ir.Operand) *errors.Compiler
 	return eu.NewInternalSemanticError("using register garbage: " + op.String() + " of " + instr.String())
 }
 func errorIncorrectValueInRegister(instr *ir.Instr, o, op *ir.Operand) *errors.CompilerError {
-	return eu.NewInternalSemanticError("incorrect value in register ("+o.String()+"): " + op.String() + " of " + instr.String())
+	return eu.NewInternalSemanticError("incorrect value in register (" + o.String() + "): " + op.String() + " of " + instr.String())
 }
 func errorLoadingIncorrectType(instr *ir.Instr) *errors.CompilerError {
 	return eu.NewInternalSemanticError("load of incorrect type: " + instr.String())

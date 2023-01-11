@@ -140,8 +140,8 @@ func All(file string) TestResult {
 			return newResult(file, oserror)
 		}
 		return TestResult{
-			File:    file,
-			Ok:      true,
+			File: file,
+			Ok:   true,
 		}
 	}
 	return Hir(file)
@@ -159,10 +159,10 @@ func extractError(file string) string {
 	pathlist := strings.Split(file, "/")
 	name := pathlist[len(pathlist)-1]
 	sections := strings.Split(name, ".")
-	if len(sections) != 3 {
+	if len(sections) < 3 {
 		return ""
 	}
-	err := sections[1]
+	err := sections[len(sections)-2]
 	return err
 }
 
@@ -180,7 +180,7 @@ func discoverStage(err string) errors.PipelineStage {
 	case 'S':
 		return errors.Semantic
 	default:
-		Fatal("error with invalid pipeline stage")
+		// Fatal("error with invalid pipeline stage")
 	}
 	return -1
 }

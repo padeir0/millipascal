@@ -19,15 +19,20 @@ func Parse(s string) (*ir.Node, *errors.CompilerError) {
 	return n, err
 }
 
-// Module := {Symbol}.
+// Module := {Coupling} {Symbol}.
 func module(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "module")
+	coupl, err := Repeat(s, coupling)
+	if err != nil {
+		return nil, err
+	}
 	symb, err := Repeat(s, symbol)
 	if err != nil {
 		return nil, err
 	}
 	n := &ir.Node{
 		Leaves: []*ir.Node{
+			CreateNode(coupl, T.COUPLINGS),
 			CreateNode(symb, T.SYMBOLS),
 		},
 	}
@@ -35,6 +40,72 @@ func module(s *Lexer) (*ir.Node, *errors.CompilerError) {
 		return nil, ExpectedEOF(s)
 	}
 	return n, nil
+}
+
+// Coupling := Import | FromImport | Export.
+func coupling(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	switch s.Word.Lex {
+	case T.IMPORT:
+		return _import(s)
+	case T.FROM:
+		return _fromImport(s)
+	case T.EXPORT:
+		return _export(s)
+	}
+	return nil, nil
+}
+
+// Import := 'import' IdList.
+func _import(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	kw, err := Expect(s, T.IMPORT)
+	if err != nil {
+		return nil, err
+	}
+	list, err := RepeatCommaList(s, expectIdent)
+	if err != nil {
+		return nil, err
+	}
+	kw.Leaves = list
+	return kw, nil
+}
+
+// FromImport := 'from' id 'import' IdList.
+func _fromImport(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	kw, err := Expect(s, T.FROM)
+	if err != nil {
+		return nil, err
+	}
+	id, err := Expect(s, T.IDENTIFIER)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Expect(s, T.IMPORT)
+	if err != nil {
+		return nil, err
+	}
+
+	list, err := RepeatCommaList(s, expectIdent)
+	if err != nil {
+		return nil, err
+	}
+	listNode := &ir.Node{Lex: T.IDLIST, Leaves: list}
+	kw.Leaves = []*ir.Node{id, listNode}
+	return kw, nil
+}
+
+// Export := 'export' IdList.
+func _export(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	kw, err := Expect(s, T.EXPORT)
+	if err != nil {
+		return nil, err
+	}
+	list, err := RepeatCommaList(s, expectIdent)
+	if err != nil {
+		return nil, err
+	}
+	kw.Leaves = list
+	return kw, nil
 }
 
 // Symbol := Procedure | Memory.
@@ -139,21 +210,15 @@ func procArgs(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Rets := TypeList.
-// TypeList := type {',' type} ','.
+// TypeList := type {',' type} [','].
 func typeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "TypeList")
-	rets, err := RepeatList(s, _type, isComma)
+	rets, err := RepeatCommaList(s, _type)
 	if err != nil {
 		return nil, err
 	}
 	if rets == nil {
 		return nil, nil
-	}
-	if s.Word.Lex == T.COMMA {
-		_, err = Consume(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &ir.Node{
 		Lex:    T.TYPELIST,
@@ -163,18 +228,12 @@ func typeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 
 func obligatoryTypeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "obligatoryTypeList")
-	rets, err := RepeatList(s, _obligatoryType, isComma)
+	rets, err := RepeatCommaList(s, _obligatoryType)
 	if err != nil {
 		return nil, err
 	}
 	if rets == nil {
 		return nil, nil
-	}
-	if s.Word.Lex == T.COMMA {
-		_, err = Consume(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &ir.Node{
 		Lex:    T.TYPELIST,
@@ -269,18 +328,12 @@ func procVars(s *Lexer) (*ir.Node, *errors.CompilerError) {
 // DeclList := Decl {',' Decl} [','].
 func declList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "DeclList")
-	nodes, err := RepeatList(s, decl, isComma)
+	nodes, err := RepeatCommaList(s, decl)
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
 		return nil, nil
-	}
-	if s.Word.Lex == T.COMMA {
-		_, err := Consume(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &ir.Node{
 		Lex:    T.PROCDECLS,
@@ -309,33 +362,15 @@ func decl(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return id, nil
 }
 
-// IdList = ident {"," ident} [","].
-func idList(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	Track(s, "IdList")
-	nodes, err := RepeatList(s, ident, isComma)
-	if err != nil {
-		return nil, err
-	}
-	if nodes == nil {
-		return nil, nil
-	}
-	if s.Word.Lex == T.COMMA {
-		_, err = Consume(s)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &ir.Node{
-		Lex:    T.IDLIST,
-		Leaves: nodes,
-	}, nil
-}
-
 func ident(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if s.Word.Lex == T.IDENTIFIER {
 		return Consume(s)
 	}
 	return nil, nil
+}
+
+func expectIdent(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	return Expect(s, T.IDENTIFIER)
 }
 
 /*
@@ -392,15 +427,9 @@ func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 
 // ExprList := Expr {',' Expr} [','].
 func exprList(s *Lexer) (*ir.Node, *errors.CompilerError) {
-	asses, err := RepeatList(s, expr, isComma)
+	asses, err := RepeatCommaList(s, expr)
 	if err != nil {
 		return nil, err
-	}
-	if isComma(s.Word) {
-		_, err := Consume(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return &ir.Node{
 		Lex:    T.EXPRLIST,
@@ -415,7 +444,7 @@ func _return(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	if err != nil {
 		return nil, err
 	}
-	exp, err := RepeatList(s, expr, isComma) // optional
+	exp, err := RepeatCommaList(s, expr) // optional
 	if err != nil {
 		return nil, err
 	}
@@ -614,12 +643,15 @@ func annot(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 /*
-Factor := Terminal
+Factor := Name
+	| Terminal
 	| NestedExpr.
 */
 func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	Track(s, "factor")
 	switch s.Word.Lex {
+	case T.IDENTIFIER:
+		return name(s)
 	case T.LEFTPAREN:
 		_, err := Consume(s)
 		if err != nil {
@@ -635,10 +667,30 @@ func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
 		}
 		return n, nil
 	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT, T.CHAR_LIT,
-		T.TRUE, T.FALSE, T.IDENTIFIER, T.PTR_LIT:
+		T.TRUE, T.FALSE, T.PTR_LIT:
 		return Consume(s)
 	}
 	return nil, nil
+}
+
+func name(s *Lexer) (*ir.Node, *errors.CompilerError) {
+	id, err := Consume(s)
+	if err != nil {
+		return nil, err
+	}
+	if s.Word.Lex == T.DOUBLECOLON {
+		dcolon, err := Consume(s)
+		if err != nil {
+			return nil, err
+		}
+		id2, err := Consume(s)
+		if err != nil {
+			return nil, err
+		}
+		dcolon.Leaves = []*ir.Node{id, id2}
+		return dcolon, nil
+	}
+	return id, nil
 }
 
 // Block := 'begin' {CodeSemicolon} 'end'.

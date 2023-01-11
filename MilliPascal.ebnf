@@ -25,21 +25,29 @@ keywords
     while  if     else   elseif
     or     and    not    memory
     i8     i16    i32    i64  
-    bool   ptr    true   false.
-    exit
+    bool   ptr    true   false
+    exit   import from   export.
 
 ponctuation:
 	,   :   (   )   [   ]
 	=   ==  !=  >   >=  < 
 	<=  +   -   *   /   %
 	-=  +=  *=  /=  %=  .
-	@
+	@   ::
 
 basicTypes:
 	i8  i16  i32  i64  ptr  bool
 
 -- Parser:
-Module := {Symbol}.
+Module := {Coupling} {Symbol}.
+
+Coupling := Import | FromImport | Export.
+
+Import := 'import' IdList.
+FromImport := 'from' id 'import' IdList.
+Export := 'export' IdList.
+IdList := id {',' id} [','].
+
 Symbol := Procedure
 	| Memory.
 
@@ -105,9 +113,9 @@ Call := '[' [ExprList] ']'.
 Deref := '@' Type.
 PropertyAccess := '.' id.
 
-Factor := Terminal
+Factor := Name
+	| Terminal
 	| NestedExpr.
 NestedExpr := '(' Expr ')'.
-Terminal := id
-          | true | false
-          | number.
+Terminal := true | false | number.
+Name := id ["::" id].
