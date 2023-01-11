@@ -521,7 +521,7 @@ func getVarOrArg(proc *ir.Proc, name string) *ir.Symbol {
 
 func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *errors.CompilerError {
 	procName := n.Leaves[1].Text
-	proc := M.Globals[procName]
+	proc := M.GetSymbol(procName)
 	if len(proc.Proc.Rets) != len(left.Leaves) {
 		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n.Leaves[1], left)
 	}
@@ -819,8 +819,8 @@ func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 func propertyAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	mem := n.Leaves[1]
 	prop := n.Leaves[0]
-	_, ok := M.Globals[mem.Text]
-	if mem.Lex != lex.IDENTIFIER || !ok {
+	sy := M.GetSymbol(mem.Text)
+	if mem.Lex != lex.IDENTIFIER || sy == nil || sy.Mem == nil {
 		return msg.ErrorExpectedMem(M, mem)
 	}
 	if prop.Lex != lex.IDENTIFIER || isInvalidProp(prop.Text) {

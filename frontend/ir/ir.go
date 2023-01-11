@@ -123,6 +123,25 @@ func (M *Module) ResetVisited() {
 	}
 }
 
+func (M *Module) GetSymbol(name string) *Symbol {
+	sy, ok := M.Globals[name]
+	if !ok {
+		return nil
+	}
+	if sy.External {
+		dep, ok := M.Dependencies[sy.ModuleName]
+		if !ok {
+			panic("use of unknown dependency")
+		}
+		sy, ok := dep.M.Exported[name]
+		if !ok {
+			panic("use of non-exported name")
+		}
+		return sy
+	}
+	return sy
+}
+
 type Symbol struct {
 	T        ST.SymbolType
 	Name     string
