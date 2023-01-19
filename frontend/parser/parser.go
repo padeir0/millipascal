@@ -1,15 +1,15 @@
 package parser
 
 import (
-	et "mpc/frontend/enums/errType"
-	T "mpc/frontend/enums/lexType"
-	"mpc/frontend/errors"
-	"mpc/frontend/ir"
+	. "mpc/core"
+	et "mpc/core/errorkind"
+	ir "mpc/core/module"
+	T "mpc/core/module/lexkind"
+	. "mpc/core/module/util"
 	. "mpc/frontend/lexer"
-	. "mpc/frontend/util/parser"
 )
 
-func Parse(s string) (*ir.Node, *errors.CompilerError) {
+func Parse(s string) (*ir.Node, *Error) {
 	st := NewLexer(s)
 	err := Next(st)
 	if err != nil {
@@ -20,7 +20,7 @@ func Parse(s string) (*ir.Node, *errors.CompilerError) {
 }
 
 // Module := {Coupling} {Symbol}.
-func module(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func module(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "module")
 	coupl, err := Repeat(s, coupling)
 	if err != nil {
@@ -43,7 +43,7 @@ func module(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Coupling := Import | FromImport | Export.
-func coupling(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func coupling(s *Lexer) (*ir.Node, *Error) {
 	switch s.Word.Lex {
 	case T.IMPORT:
 		return _import(s)
@@ -56,7 +56,7 @@ func coupling(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Import := 'import' IdList.
-func _import(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _import(s *Lexer) (*ir.Node, *Error) {
 	kw, err := Expect(s, T.IMPORT)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func _import(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // FromImport := 'from' id 'import' IdList.
-func _fromImport(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _fromImport(s *Lexer) (*ir.Node, *Error) {
 	kw, err := Expect(s, T.FROM)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func _fromImport(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Export := 'export' IdList.
-func _export(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _export(s *Lexer) (*ir.Node, *Error) {
 	kw, err := Expect(s, T.EXPORT)
 	if err != nil {
 		return nil, err
@@ -109,10 +109,10 @@ func _export(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Symbol := Procedure | Memory.
-func symbol(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func symbol(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "symbol")
 	var n *ir.Node
-	var err *errors.CompilerError
+	var err *Error
 	switch s.Word.Lex {
 	case T.PROC:
 		n, err = procDef(s)
@@ -125,7 +125,7 @@ func symbol(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Memory := 'memory' id (number|string).
-func memDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func memDef(s *Lexer) (*ir.Node, *Error) {
 	kw, err := Expect(s, T.MEMORY)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func memDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
-func procDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func procDef(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Procedure")
 	kw, err := Expect(s, T.PROC)
 	if err != nil {
@@ -183,7 +183,7 @@ func procDef(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Args := '[' [DeclList] ']'.
-func procArgs(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func procArgs(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Args")
 	_, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
@@ -211,7 +211,7 @@ func procArgs(s *Lexer) (*ir.Node, *errors.CompilerError) {
 
 // Rets := TypeList.
 // TypeList := type {',' type} [','].
-func typeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func typeList(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "TypeList")
 	rets, err := RepeatCommaList(s, _type)
 	if err != nil {
@@ -226,7 +226,7 @@ func typeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}, nil
 }
 
-func obligatoryTypeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func obligatoryTypeList(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "obligatoryTypeList")
 	rets, err := RepeatCommaList(s, _obligatoryType)
 	if err != nil {
@@ -242,7 +242,7 @@ func obligatoryTypeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // _type := basic | ProcType.
-func _type(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _type(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "type")
 	switch s.Word.Lex {
 	case T.I16, T.I8, T.I32, T.I64, T.BOOL, T.PTR:
@@ -254,13 +254,13 @@ func _type(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // _type := basic | ProcType.
-func _obligatoryType(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _obligatoryType(s *Lexer) (*ir.Node, *Error) {
 	return ExpectProd(s, _type, "type")
 }
 
 // ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
 // ProcTypeRet := '[' [TypeList] ']' | [Type].
-func procType(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func procType(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "procType")
 	keyword, err := Expect(s, T.PROC)
 	if err != nil {
@@ -295,7 +295,7 @@ func procType(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return keyword, err
 }
 
-func procTypeTypeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func procTypeTypeList(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "procTypeTypeList")
 	var tps *ir.Node
 	_, err := Expect(s, T.LEFTBRACKET)
@@ -316,7 +316,7 @@ func procTypeTypeList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Vars := 'var' DeclList.
-func procVars(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func procVars(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Var")
 	_, err := Expect(s, T.VAR)
 	if err != nil {
@@ -326,7 +326,7 @@ func procVars(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // DeclList := Decl {',' Decl} [','].
-func declList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func declList(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "DeclList")
 	nodes, err := RepeatCommaList(s, decl)
 	if err != nil {
@@ -342,7 +342,7 @@ func declList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Decl := id [Annot].
-func decl(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func decl(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Decl")
 	if s.Word.Lex != T.IDENTIFIER {
 		return nil, nil
@@ -362,14 +362,14 @@ func decl(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return id, nil
 }
 
-func ident(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func ident(s *Lexer) (*ir.Node, *Error) {
 	if s.Word.Lex == T.IDENTIFIER {
 		return Consume(s)
 	}
 	return nil, nil
 }
 
-func expectIdent(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func expectIdent(s *Lexer) (*ir.Node, *Error) {
 	return Expect(s, T.IDENTIFIER)
 }
 
@@ -381,7 +381,7 @@ Code := If
       | Exit
       | Expr.
 */
-func code(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func code(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "code")
 	switch s.Word.Lex {
 	case T.EOF:
@@ -402,7 +402,7 @@ func code(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Set := 'set' ExprList '=' Expr.
-func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _set(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Set")
 	kw, err := Expect(s, T.SET)
 	if err != nil {
@@ -426,7 +426,7 @@ func _set(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // ExprList := Expr {',' Expr} [','].
-func exprList(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func exprList(s *Lexer) (*ir.Node, *Error) {
 	asses, err := RepeatCommaList(s, expr)
 	if err != nil {
 		return nil, err
@@ -438,7 +438,7 @@ func exprList(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Return := 'return' [ExprList].
-func _return(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _return(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "return")
 	kw, err := Consume(s)
 	if err != nil {
@@ -455,7 +455,7 @@ func _return(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Exit := 'exit' Expr.
-func _exit(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _exit(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "exit")
 	kw, err := Consume(s)
 	if err != nil {
@@ -470,38 +470,38 @@ func _exit(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Expr = And {"or" And}.
-func expr(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func expr(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Expr")
 	return RepeatBinary(s, boolAnd, "expression", orOp)
 }
 
 // And = Comp {"and" Comp}.
-func boolAnd(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func boolAnd(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "And")
 	return RepeatBinary(s, comparative, "expression", andOp)
 }
 
 // Comp = Sum {compOp Sum}.
-func comparative(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func comparative(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Comp")
 	return RepeatBinary(s, additive, "expression", compOp)
 }
 
 // Sum = Mult {sumOp Mult}.
-func additive(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func additive(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Sum")
 	return RepeatBinary(s, multiplicative, "expression", sumOp)
 }
 
 // Mult = Unary {multOp Unary}.
-func multiplicative(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func multiplicative(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "Mult")
 	return RepeatBinary(s, unaryPrefix, "expression", multOp)
 }
 
 // Prefix = "not" | "+" | "-".
 // UnaryPrefix := {Prefix} UnarySuffix.
-func unaryPrefix(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func unaryPrefix(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "unary suffix")
 
 	preFirst, preLast, err := RepeatUnaryLeft(s, prefixOp)
@@ -531,7 +531,7 @@ func unaryPrefix(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // UnarySuffix := Factor {Suffix}.
-func unarySuffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func unarySuffix(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "unaryPrefix")
 	fact, err := factor(s)
 	if err != nil {
@@ -553,7 +553,7 @@ Suffix  := Conversion
 	| Deref
 	| Call.
 */
-func suffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func suffix(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "suffix")
 	switch s.Word.Lex {
 	case T.LEFTBRACKET:
@@ -569,7 +569,7 @@ func suffix(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // PropertyAccess := '.' id.
-func propertyAccess(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func propertyAccess(s *Lexer) (*ir.Node, *Error) {
 	dot, err := Expect(s, T.DOT)
 	if err != nil {
 		return nil, err
@@ -583,7 +583,7 @@ func propertyAccess(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Deref := '@' Type.
-func deref(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func deref(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "deref")
 	at, err := Expect(s, T.AT)
 	if err != nil {
@@ -598,7 +598,7 @@ func deref(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Call = "[" [ExprList] "]".
-func call(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func call(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "call")
 	_, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
@@ -628,7 +628,7 @@ func call(s *Lexer) (*ir.Node, *errors.CompilerError) {
 
 // Annot = ":" Type.
 // Conversion = Annot.
-func annot(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func annot(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "annot")
 	colon, err := Expect(s, T.COLON)
 	if err != nil {
@@ -647,7 +647,7 @@ Factor := Name
 	| Terminal
 	| NestedExpr.
 */
-func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func factor(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "factor")
 	switch s.Word.Lex {
 	case T.IDENTIFIER:
@@ -673,7 +673,7 @@ func factor(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return nil, nil
 }
 
-func name(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func name(s *Lexer) (*ir.Node, *Error) {
 	id, err := Consume(s)
 	if err != nil {
 		return nil, err
@@ -694,7 +694,7 @@ func name(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Block := 'begin' {CodeSemicolon} 'end'.
-func block(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func block(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "block")
 	_, err := Expect(s, T.BEGIN)
 	if err != nil {
@@ -715,7 +715,7 @@ func block(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // CodeSemicolon := Code [';'].
-func codeSemicolon(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func codeSemicolon(s *Lexer) (*ir.Node, *Error) {
 	n, err := code(s)
 	if err != nil {
 		return nil, err
@@ -730,7 +730,7 @@ func codeSemicolon(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // If := 'if' Expr Block [Else] 'if'.
-func _if(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _if(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "if")
 	keyword, err := Expect(s, T.IF)
 	var exp, bl, else_, elseif_ *ir.Node
@@ -767,7 +767,7 @@ func _if(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // Else := 'else' Block.
-func _else(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _else(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "else")
 	kw, err := Consume(s)
 	if err != nil {
@@ -781,7 +781,7 @@ func _else(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return kw, nil
 }
 
-func elseifchain(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func elseifchain(s *Lexer) (*ir.Node, *Error) {
 	elses, err := Repeat(s, _elseif)
 	if err != nil {
 		return nil, err
@@ -792,7 +792,7 @@ func elseifchain(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	}, nil
 }
 
-func _elseif(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _elseif(s *Lexer) (*ir.Node, *Error) {
 	if s.Word.Lex != T.ELSEIF {
 		return nil, nil
 	}
@@ -813,7 +813,7 @@ func _elseif(s *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // While = 'while' Expr Block 'while'.
-func _while(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func _while(s *Lexer) (*ir.Node, *Error) {
 	Track(s, "while")
 	keyword, err := Expect(s, T.WHILE)
 	if err != nil {
@@ -835,7 +835,7 @@ func _while(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return keyword, nil
 }
 
-func numberOrString(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func numberOrString(s *Lexer) (*ir.Node, *Error) {
 	return Expect(s, T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT, T.PTR_LIT, T.STRING_LIT)
 }
 
@@ -872,9 +872,9 @@ func andOp(n *ir.Node) bool {
 	return n.Lex == T.AND
 }
 
-func prefixOp(st *Lexer) (*ir.Node, *errors.CompilerError) {
+func prefixOp(st *Lexer) (*ir.Node, *Error) {
 	switch st.Word.Lex {
-	case T.NOT, T.PLUS, T.MINUS:
+	case T.NOT, T.NEG:
 		return Consume(st)
 	}
 	return nil, nil

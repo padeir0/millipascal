@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"mpc/backend"
+	. "mpc/core"
+	et "mpc/core/errorkind"
 	"mpc/frontend"
-	et "mpc/frontend/enums/errType"
-	"mpc/frontend/errors"
 	lexer "mpc/frontend/lexer"
 	parser "mpc/frontend/parser"
 	. "mpc/util"
@@ -41,62 +41,47 @@ func (res *TestResult) String() string {
 func Lex(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	stage := discoverStage(expectedErr)
-	if stage <= errors.Lexer {
-		s := ReadOrBurst(file)
-		st := lexer.NewLexer(s)
-		_, err := lexer.ReadAll(st)
-		return compareError(file, err, expectedErr)
-	}
-	return TestResult{File: file, Ok: true}
+	s := ReadOrBurst(file)
+	st := lexer.NewLexer(s)
+	_, err := lexer.ReadAll(st)
+	return compareError(file, err, expectedErr)
 }
 
 func Parse(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	stage := discoverStage(expectedErr)
-	if stage <= errors.Parser {
-		s := ReadOrBurst(file)
-		_, err := parser.Parse(s)
-		return compareError(file, err, expectedErr)
-	}
-	return TestResult{File: file, Ok: true}
+	s := ReadOrBurst(file)
+	_, err := parser.Parse(s)
+	return compareError(file, err, expectedErr)
 }
 
 func Hir(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	stage := discoverStage(expectedErr)
-	if stage <= errors.Semantic {
-		_, err := frontend.All(file)
-		return compareError(file, err, expectedErr)
-	}
-	return TestResult{File: file, Ok: true}
+	_, err := frontend.All(file)
+	return compareError(file, err, expectedErr)
 }
 
 func Mir(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	stage := discoverStage(expectedErr)
-	if stage <= errors.Semantic {
-		M, err := frontend.All(file)
-		if err != nil {
-			if err.Type == et.InternalCompilerError {
-				return TestResult{
-					File:    file,
-					Ok:      false,
-					Message: err.Debug,
-				}
-			}
-			return compareError(file, err, expectedErr)
-		}
-		err = backend.Mir(M)
-		if err != nil {
+	M, err := frontend.All(file)
+	if err != nil {
+		if err.Type == et.InternalCompilerError {
 			return TestResult{
 				File:    file,
 				Ok:      false,
 				Message: err.Debug,
 			}
+		}
+		return compareError(file, err, expectedErr)
+	}
+	_, err = backend.Mir(M)
+	if err != nil {
+		return TestResult{
+			File:    file,
+			Ok:      false,
+			Message: err.Debug,
 		}
 	}
 	return Hir(file)
@@ -107,44 +92,40 @@ const testfilename = "./dont_use_this_name_EACDEFG1234"
 func All(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	stage := discoverStage(expectedErr)
-	if stage <= errors.Semantic {
-		M, err := frontend.All(file)
-		if err != nil {
-			if err.Type == et.InternalCompilerError {
-				return TestResult{
-					File:    file,
-					Ok:      false,
-					Message: err.Debug,
-				}
-			}
-			return compareError(file, err, expectedErr)
-		}
-
-		s, err := backend.Generate(M)
-		if err != nil {
+	M, err := frontend.All(file)
+	if err != nil {
+		if err.Type == et.InternalCompilerError {
 			return TestResult{
 				File:    file,
 				Ok:      false,
 				Message: err.Debug,
 			}
 		}
-		oserror := Fasm(s, testfilename)
-		if oserror != nil {
-			return newResult(file, oserror)
-		}
-		defer os.Remove(testfilename)
+		return compareError(file, err, expectedErr)
+	}
 
-		oserror = ExecWithTimeout(testfilename)
-		if oserror != nil {
-			return newResult(file, oserror)
-		}
+	s, err := backend.Generate(M)
+	if err != nil {
 		return TestResult{
-			File: file,
-			Ok:   true,
+			File:    file,
+			Ok:      false,
+			Message: err.Debug,
 		}
 	}
-	return Hir(file)
+	oserror := Fasm(s, testfilename)
+	if oserror != nil {
+		return newResult(file, oserror)
+	}
+	defer os.Remove(testfilename)
+
+	oserror = ExecWithTimeout(testfilename)
+	if oserror != nil {
+		return newResult(file, oserror)
+	}
+	return TestResult{
+		File: file,
+		Ok:   true,
+	}
 }
 
 func recoverIfFatal() {
@@ -166,26 +147,7 @@ func extractError(file string) string {
 	return err
 }
 
-func discoverStage(err string) errors.PipelineStage {
-	if err == "" {
-		return -1
-	}
-	switch err[0] {
-	case 'L':
-		return errors.Lexer
-	case 'P':
-		return errors.Parser
-	case 'R':
-		return errors.Resolver
-	case 'S':
-		return errors.Semantic
-	default:
-		// Fatal("error with invalid pipeline stage")
-	}
-	return -1
-}
-
-func compareError(file string, err *errors.CompilerError, expectedErr string) TestResult {
+func compareError(file string, err *Error, expectedErr string) TestResult {
 	if err != nil && expectedErr == "" {
 		msg := "expected no errors, instead found: " +
 			err.ErrCode()

@@ -1,15 +1,15 @@
 package typechecker
 
 import (
-	T "mpc/frontend/Type"
-	lex "mpc/frontend/enums/lexType"
-	ST "mpc/frontend/enums/symbolType"
-	"mpc/frontend/errors"
-	"mpc/frontend/ir"
+	. "mpc/core"
+	ir "mpc/core/module"
+	lex "mpc/core/module/lexkind"
+	ST "mpc/core/module/symbolkind"
+	T "mpc/core/types"
 	msg "mpc/frontend/messages"
 )
 
-func Check(M *ir.Module) *errors.CompilerError {
+func Check(M *ir.Module) *Error {
 	err := checkModule(M)
 	if err != nil {
 		return err
@@ -18,7 +18,7 @@ func Check(M *ir.Module) *errors.CompilerError {
 	return checkMain(M) // only for first module
 }
 
-func checkModule(M *ir.Module) *errors.CompilerError {
+func checkModule(M *ir.Module) *Error {
 	M.Visited = true
 	for _, dep := range M.Dependencies {
 		err := checkModule(dep.M)
@@ -47,7 +47,7 @@ func checkModule(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func checkMain(M *ir.Module) *errors.CompilerError {
+func checkMain(M *ir.Module) *Error {
 	p, ok := M.Globals["main"]
 	if !ok {
 		return msg.ProgramWithoutEntry(M)
@@ -69,7 +69,7 @@ func addBuiltins(M *ir.Module) {
 	M.Globals["error"] = error
 }
 
-func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
+func checkSymbol(M *ir.Module, sy *ir.Symbol) *Error {
 	switch sy.T {
 	case ST.Proc:
 		err := checkProc(M, sy.Proc)
@@ -87,7 +87,7 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *errors.CompilerError {
 	return nil
 }
 
-func checkMem(M *ir.Module, mem *ir.Mem) *errors.CompilerError {
+func checkMem(M *ir.Module, mem *ir.Mem) *Error {
 	switch mem.Init.Lex {
 	case lex.STRING_LIT:
 		size := stringSize(mem.Init.Text)
@@ -113,11 +113,11 @@ func stringSize(oldtext string) int {
 	return size
 }
 
-func checkProc(M *ir.Module, proc *ir.Proc) *errors.CompilerError {
+func checkProc(M *ir.Module, proc *ir.Proc) *Error {
 	nArgs := proc.N.Leaves[1]
 	nRets := proc.N.Leaves[2]
 	nVars := proc.N.Leaves[3]
-	var err *errors.CompilerError
+	var err *Error
 	var args, rets []*T.Type
 
 	if nArgs != nil {
@@ -154,7 +154,7 @@ func getProcRets(M *ir.Module, n *ir.Node) []*T.Type {
 	return types
 }
 
-func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) ([]*T.Type, *errors.CompilerError) {
+func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) ([]*T.Type, *Error) {
 	tps := []*T.Type{}
 	for i, decl := range n.Leaves {
 		var d *ir.Symbol
@@ -185,7 +185,7 @@ func checkProcArgs(M *ir.Module, proc *ir.Proc, n *ir.Node) ([]*T.Type, *errors.
 	return tps, nil
 }
 
-func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	for i, decl := range n.Leaves {
 		var d *ir.Symbol
 		if len(decl.Leaves) == 0 {
@@ -213,7 +213,7 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 	return nil
 }
 
-func verifyIfDefined(M *ir.Module, proc *ir.Proc, d *ir.Symbol) *errors.CompilerError {
+func verifyIfDefined(M *ir.Module, proc *ir.Proc, d *ir.Symbol) *Error {
 	l := getVarOrArg(proc, d.Name)
 	if l != nil {
 		return msg.ErrorNameAlreadyDefined(M, d.N, l.N)
@@ -265,7 +265,7 @@ func getProcType(n *ir.Node) *T.Type {
 	}
 }
 
-func checkBlock(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkBlock(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	for _, code := range n.Leaves {
 		err := checkStatement(M, proc, code)
 		if err != nil {
@@ -275,7 +275,7 @@ func checkBlock(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkStatement(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkStatement(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	switch n.Lex {
 	case lex.EOF:
 		return nil
@@ -294,7 +294,7 @@ func checkStatement(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErr
 	}
 }
 
-func checkIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	exp := n.Leaves[0]
 	block := n.Leaves[1]
 	elseifchain := n.Leaves[2]
@@ -332,7 +332,7 @@ func checkIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkElse(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkElse(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	err := checkBlock(M, proc, n.Leaves[0])
 	if err != nil {
 		return err
@@ -340,7 +340,7 @@ func checkElse(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkElseIfChain(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkElseIfChain(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	for _, elseif := range n.Leaves {
 		err := checkElseIf(M, proc, elseif)
 		if err != nil {
@@ -350,7 +350,7 @@ func checkElseIfChain(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerE
 	return nil
 }
 
-func checkElseIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkElseIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	err := checkExpr(M, proc, n.Leaves[0])
 	if err != nil {
 		return err
@@ -368,7 +368,7 @@ func checkElseIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError 
 	return nil
 }
 
-func checkWhile(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkWhile(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	err := checkExpr(M, proc, n.Leaves[0])
 	if err != nil {
 		return err
@@ -386,7 +386,7 @@ func checkWhile(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	for i, ret := range n.Leaves {
 		if i >= len(proc.Rets) {
 			return msg.ErrorInvalidNumberOfReturns(M, proc, ret)
@@ -402,7 +402,7 @@ func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError 
 	return nil
 }
 
-func checkExit(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkExit(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	exp := n.Leaves[0]
 	err := checkExpr(M, proc, exp)
 	if err != nil {
@@ -415,7 +415,7 @@ func checkExit(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	left := n.Leaves[0]
 	op := n.Leaves[1]
 	right := n.Leaves[2]
@@ -461,7 +461,7 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerEr
 	return nil
 }
 
-func checkExprList(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkExprList(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	for _, exp := range n.Leaves {
 		err := checkExpr(M, proc, exp)
 		if err != nil {
@@ -474,7 +474,7 @@ func checkExprList(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 	return nil
 }
 
-func checkAssignees(M *ir.Module, proc *ir.Proc, left *ir.Node) *errors.CompilerError {
+func checkAssignees(M *ir.Module, proc *ir.Proc, left *ir.Node) *Error {
 	for _, assignee := range left.Leaves {
 		switch assignee.Lex {
 		case lex.IDENTIFIER:
@@ -494,7 +494,7 @@ func checkAssignees(M *ir.Module, proc *ir.Proc, left *ir.Node) *errors.Compiler
 	return nil
 }
 
-func checkIdAssignee(M *ir.Module, proc *ir.Proc, assignee *ir.Node) *errors.CompilerError {
+func checkIdAssignee(M *ir.Module, proc *ir.Proc, assignee *ir.Node) *Error {
 	d := getVarOrArg(proc, assignee.Text)
 	if d != nil {
 		assignee.T = d.Type
@@ -519,7 +519,7 @@ func getVarOrArg(proc *ir.Proc, name string) *ir.Symbol {
 	return nil
 }
 
-func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *errors.CompilerError {
+func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *Error {
 	procName := n.Leaves[1].Text
 	proc := M.GetSymbol(procName)
 	if len(proc.Proc.Rets) != len(left.Leaves) {
@@ -533,7 +533,7 @@ func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *errors.Compi
 	return nil
 }
 
-func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	switch n.Lex {
 	case lex.IDENTIFIER:
 		return checkID(M, proc, n)
@@ -544,9 +544,9 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 		lex.CHAR_LIT:
 		n.T = termToType(n.Lex)
 		return nil
-	case lex.PLUS, lex.MINUS:
-		return plusMinus(M, proc, n)
-	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER:
+	case lex.NEG:
+		return unaryOp(M, proc, n, number, outSame)
+	case lex.PLUS, lex.MINUS, lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER:
 		return binaryOp(M, proc, n, number, outSame)
 	case lex.EQUALS, lex.DIFFERENT,
 		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ:
@@ -567,7 +567,7 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func conversion(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func conversion(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	err := checkExpr(M, proc, n.Leaves[1])
 	if err != nil {
 		return err
@@ -580,7 +580,7 @@ func conversion(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func checkCall(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkCall(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	callee := n.Leaves[1]
 	err := checkExpr(M, proc, callee)
 	if err != nil {
@@ -592,7 +592,7 @@ func checkCall(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return checkCallProc(M, proc, n)
 }
 
-func checkCallProc(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkCallProc(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	callee := n.Leaves[1].T.Proc
 	exprs := n.Leaves[0]
 	if len(exprs.Leaves) != len(callee.Args) {
@@ -617,7 +617,7 @@ func checkCallProc(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerErro
 	return nil
 }
 
-func checkExternalID(M *ir.Module, proc *ir.Proc, dcolon *ir.Node) *errors.CompilerError {
+func checkExternalID(M *ir.Module, proc *ir.Proc, dcolon *ir.Node) *Error {
 	mod := dcolon.Leaves[0].Text
 	id := dcolon.Leaves[1].Text
 
@@ -636,7 +636,7 @@ func checkExternalID(M *ir.Module, proc *ir.Proc, dcolon *ir.Node) *errors.Compi
 	return nil
 }
 
-func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
+func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *Error {
 	local := getVarOrArg(proc, id.Text)
 	if local != nil {
 		id.T = local.Type
@@ -653,7 +653,7 @@ func checkID(M *ir.Module, proc *ir.Proc, id *ir.Node) *errors.CompilerError {
 	return msg.ErrorNameNotDefined(M, id)
 }
 
-func termToType(tp lex.TkType) *T.Type {
+func termToType(tp lex.LexKind) *T.Type {
 	switch tp {
 	case lex.I64_LIT:
 		return T.T_I64
@@ -675,13 +675,6 @@ func termToType(tp lex.TkType) *T.Type {
 		return T.T_Ptr
 	}
 	panic("termToType: invalid type")
-}
-
-func plusMinus(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
-	if len(n.Leaves) == 1 {
-		return unaryOp(M, proc, n, number, outSame)
-	}
-	return binaryOp(M, proc, n, number, outSame)
 }
 
 type deriver func(types ...*T.Type) *T.Type
@@ -722,7 +715,7 @@ var ptr = class{
 
 // a op b where type(a) = type(b) and type(a op b) = deriver(type(a), type(b))
 // and both type(a), type(b) is of the class specified
-func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *errors.CompilerError {
+func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *Error {
 	if len(op.Leaves) != 2 {
 		panic(M.Name + ": internal error, binary operator should have two leaves")
 	}
@@ -763,7 +756,7 @@ func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *e
 	return nil
 }
 
-func checkExprType(M *ir.Module, n *ir.Node) *errors.CompilerError {
+func checkExprType(M *ir.Module, n *ir.Node) *Error {
 	if T.IsMultiRet(n.T) {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
@@ -778,7 +771,7 @@ func checkExprType(M *ir.Module, n *ir.Node) *errors.CompilerError {
 
 // op a where type(op a) = deriver(type(a))
 // and type(a) is of the class specified
-func unaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *errors.CompilerError {
+func unaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *Error {
 	if len(op.Leaves) != 1 {
 		panic(M.Name + ": internal error, unary operator should have one leaf")
 	}
@@ -800,7 +793,7 @@ func unaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *er
 	return nil
 }
 
-func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	exp := n.Leaves[1]
 	t := n.Leaves[0]
 	t.T = getType(t)
@@ -816,7 +809,7 @@ func checkDeref(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func propertyAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *errors.CompilerError {
+func propertyAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	mem := n.Leaves[1]
 	prop := n.Leaves[0]
 	sy := M.GetSymbol(mem.Text)

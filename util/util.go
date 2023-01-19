@@ -1,8 +1,8 @@
 package util
 
 import (
-	"mpc/frontend/errors"
 	"io/ioutil"
+	. "mpc/core"
 	"os"
 	"os/exec"
 	"time"
@@ -16,7 +16,7 @@ func ReadOrBurst(file string) string {
 	return string(text)
 }
 
-func OkOrBurst(e *errors.CompilerError) {
+func OkOrBurst(e *Error) {
 	if e != nil {
 		Fatal(e.String())
 	}
@@ -52,10 +52,10 @@ func Fasm(s string, name string) error {
 func ExecWithTimeout(cmdstr string) error {
 	cmd := exec.Command(cmdstr)
 	if err := cmd.Start(); err != nil {
-	    return err
+		return err
 	}
-	timer := time.AfterFunc(1 * time.Second, func() {
-	    cmd.Process.Kill()
+	timer := time.AfterFunc(1*time.Second, func() {
+		cmd.Process.Kill()
 	})
 	err := cmd.Wait()
 	timer.Stop()

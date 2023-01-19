@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"mpc/backend"
+	mod "mpc/core/module"
 	"mpc/frontend"
-	"mpc/frontend/ir"
 	"mpc/testing"
 	. "mpc/util"
 	"os"
@@ -19,8 +19,10 @@ var asmOnly = flag.Bool("asm", false, "runs the full compiler, prints asm")
 
 var test = flag.Bool("test", false, "runs tests for all files in a folder,"+
 	" you can specify the stage to test using the other flags\n"+
-	"\t ex: anuc -lex   -test folder/\n"+
-	"\t     anuc -parse -test folder/")
+	"\t ex: mpc -lex   -test folder/\n"+
+	"\t     mpc -parse -test folder/")
+
+var verbose = flag.Bool("v", false, "verbose tests")
 
 func main() {
 	flag.Parse()
@@ -70,29 +72,25 @@ func normalMode(s string) {
 	case *parseOnly:
 		n, err := frontend.Parse(s)
 		Stdout("\n-----AST\n")
-		Stdout(ir.FmtNode(n))
+		Stdout(mod.FmtNode(n))
 		Stdout("\n")
 		OkOrBurst(err)
 	case *hirOnly:
-		m, err := frontend.All(s)
-		Stdout("\n-----AST\n")
-		Stdout(m.String())
+		hirP, err := frontend.All(s)
 		Stdout("\n-----HIR\n")
-		Stdout(m.StringifyCode())
+		Stdout(hirP.String())
 		Stdout("\n")
 		OkOrBurst(err)
 
 	case *mirOnly:
-		m, err := frontend.All(s)
-		Stdout("\n-----AST\n")
-		Stdout(m.String())
+		hirP, err := frontend.All(s)
 		Stdout("\n-----HIR\n")
-		Stdout(m.StringifyCode())
+		Stdout(hirP.String())
 		OkOrBurst(err)
 
-		err = backend.Mir(m)
+		mirP, err := backend.Mir(hirP)
 		Stdout("\n-----MIR\n")
-		Stdout(m.StringifyCode())
+		Stdout(mirP.String())
 		OkOrBurst(err)
 	case *asmOnly:
 		m, err := frontend.All(s)
@@ -150,15 +148,21 @@ func Test(folder string, tester testing.Tester) []*testing.TestResult {
 	for _, v := range entries {
 		fullpath := folder + "/" + v.Name()
 		if v.IsDir() {
-			Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
+			if *verbose {
+				Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
+			}
 			res := Test(fullpath, tester)
 			results = append(results, res...)
-			Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
+			if *verbose {
+				Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
+			}
 		} else {
-			Stdout("testing: " + fullpath + "\t")
 			res := tester(fullpath)
 			results = append(results, &res)
-			Stdout(res.String() + "\n")
+			if *verbose {
+				Stdout("testing: " + fullpath + "\t")
+				Stdout(res.String() + "\n")
+			}
 		}
 	}
 	return results

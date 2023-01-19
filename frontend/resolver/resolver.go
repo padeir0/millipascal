@@ -2,17 +2,17 @@ package resolver
 
 import (
 	"io/ioutil"
-	et "mpc/frontend/enums/errType"
-	T "mpc/frontend/enums/lexType"
-	"mpc/frontend/errors"
-	"mpc/frontend/ir"
+	. "mpc/core"
+	et "mpc/core/errorkind"
+	ir "mpc/core/module"
+	T "mpc/core/module/lexkind"
 	"mpc/frontend/lexer"
 	msg "mpc/frontend/messages"
 	"mpc/frontend/parser"
 	"strings"
 )
 
-func Resolve(filePath string) (*ir.Module, *errors.CompilerError) {
+func Resolve(filePath string) (*ir.Module, *Error) {
 	name, err := extractName(filePath)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func newState(fullPath string) (*state, error) {
 	}, nil
 }
 
-func resolveModule(s *state, modID string) (*ir.Module, *errors.CompilerError) {
+func resolveModule(s *state, modID string) (*ir.Module, *Error) {
 	mod, ok := s.Modules[modID]
 	if ok {
 		return mod, nil
@@ -83,7 +83,7 @@ func resolveModule(s *state, modID string) (*ir.Module, *errors.CompilerError) {
 	return mod, nil
 }
 
-func resolveDependencies(s *state, coupling *ir.Node, mod *ir.Module) *errors.CompilerError {
+func resolveDependencies(s *state, coupling *ir.Node, mod *ir.Module) *Error {
 	if coupling.Lex != T.COUPLINGS {
 		panic("resolver: resolveDependencies: bad node")
 	}
@@ -107,13 +107,13 @@ func resolveDependencies(s *state, coupling *ir.Node, mod *ir.Module) *errors.Co
 	return nil
 }
 
-func fromImport(s *state, n *ir.Node, dependentMod *ir.Module) *errors.CompilerError {
+func fromImport(s *state, n *ir.Node, dependentMod *ir.Module) *Error {
 	modID := n.Leaves[0].Text
 	s.RefNode = n.Leaves[0]
 
 	mod, err := resolveModule(s, modID)
 	if err != nil {
-		exc := errors.Excerpt{
+		exc := Excerpt{
 			Location: place(n, dependentMod),
 			Message:  err.Debug,
 		}
@@ -124,7 +124,7 @@ func fromImport(s *state, n *ir.Node, dependentMod *ir.Module) *errors.CompilerE
 	return nil
 }
 
-func multiImport(s *state, n *ir.Node, dependentMod *ir.Module) *errors.CompilerError {
+func multiImport(s *state, n *ir.Node, dependentMod *ir.Module) *Error {
 	if n.Lex != T.IMPORT {
 		panic("resolver: singleImport: bad node")
 	}
@@ -134,7 +134,7 @@ func multiImport(s *state, n *ir.Node, dependentMod *ir.Module) *errors.Compiler
 
 		mod, err := resolveModule(s, n.Text)
 		if err != nil {
-			exc := errors.Excerpt{
+			exc := Excerpt{
 				Location: place(n, dependentMod),
 				Message:  err.Debug,
 			}
@@ -168,29 +168,27 @@ func getFolder(fullpath string) string {
 	return folder
 }
 
-func place(n *ir.Node, mod *ir.Module) *errors.SourceLocation {
-	return &errors.SourceLocation{
+func place(n *ir.Node, mod *ir.Module) *SourceLocation {
+	return &SourceLocation{
 		Line: n.Line, Col: n.Col,
 		File: mod.FullPath,
 	}
 }
 
-func extractName(filePath string) (string, *errors.CompilerError) {
+func extractName(filePath string) (string, *Error) {
 	path := strings.Split(filePath, "/")
 	name := strings.Split(path[len(path)-1], ".")
 	if lexer.IsValidIdentifier(name[0]) {
 		return name[0], nil
 	}
-	return "", &errors.CompilerError{
-		Stage: errors.Resolver,
+	return "", &Error{
 		Type:  et.InvalidFileName,
 		Debug: filePath + " : " + name[0],
 	}
 }
 
-func invalidModuleName(filePath string) *errors.CompilerError {
-	return &errors.CompilerError{
-		Stage: errors.Resolver,
+func invalidModuleName(filePath string) *Error {
+	return &Error{
 		Type:  et.InvalidFileName,
 		Debug: filePath,
 	}
@@ -208,7 +206,7 @@ func newModule(basePath, modID, filename string, root *ir.Node) *ir.Module {
 	}
 }
 
-func openAndParse(s *state, filename string) (*ir.Node, *errors.CompilerError) {
+func openAndParse(s *state, filename string) (*ir.Node, *Error) {
 	text, e := ioutil.ReadFile(s.BaseFolder + "/" + filename)
 	if e != nil {
 		return nil, processFileError(e)
@@ -221,7 +219,7 @@ func openAndParse(s *state, filename string) (*ir.Node, *errors.CompilerError) {
 	return n, nil
 }
 
-func findFile(s *state, modID string) (string, *errors.CompilerError) {
+func findFile(s *state, modID string) (string, *Error) {
 	found := []string{}
 	for _, filename := range s.FilesInFolder {
 		if strings.HasPrefix(filename, modID+".") {
@@ -237,15 +235,14 @@ func findFile(s *state, modID string) (string, *errors.CompilerError) {
 	return found[0], nil
 }
 
-func processFileError(e error) *errors.CompilerError {
-	return &errors.CompilerError{
-		Stage: errors.Resolver,
+func processFileError(e error) *Error {
+	return &Error{
 		Type:  et.FileError,
 		Debug: e.Error(),
 	}
 }
 
-func checkDependencyCycles(M *ir.Module) *errors.CompilerError {
+func checkDependencyCycles(M *ir.Module) *Error {
 	for _, dep := range M.Dependencies {
 		prev := []*ir.Dependency{}
 		err := checkDepCycle(M, dep, prev)
@@ -256,7 +253,7 @@ func checkDependencyCycles(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func checkDepCycle(M *ir.Module, d *ir.Dependency, prev []*ir.Dependency) *errors.CompilerError {
+func checkDepCycle(M *ir.Module, d *ir.Dependency, prev []*ir.Dependency) *Error {
 	if depHasVisited(prev, d) {
 		return msg.ErrorInvalidDependencyCycle(M, prev, d)
 	}

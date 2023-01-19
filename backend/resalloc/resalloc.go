@@ -1,17 +1,20 @@
 package resalloc
 
 import (
-	T "mpc/frontend/Type"
-	hirc "mpc/frontend/enums/HIRClass"
-	mirc "mpc/frontend/enums/MIRClass"
-	FT "mpc/frontend/enums/flowType"
-	IT "mpc/frontend/enums/instrType"
-	ST "mpc/frontend/enums/symbolType"
+	hir "mpc/core/hir"
+	hc "mpc/core/hir/class"
+	hfk "mpc/core/hir/flowkind"
+	hik "mpc/core/hir/instrkind"
 
-	"mpc/frontend/ir"
-	IRU "mpc/frontend/util/ir"
+	mir "mpc/core/mir"
+	mc "mpc/core/mir/class"
+	mfk "mpc/core/mir/flowkind"
+	mik "mpc/core/mir/instrkind"
 
-	"fmt"
+	T "mpc/core/types"
+
+	IRU "mpc/core/mir/util"
+
 	"strconv"
 	"strings"
 )
@@ -22,15 +25,11 @@ type calleeInterproc int64
 type callerInterproc int64
 
 type value struct {
-	Class  hirc.HIRClass
-	Symbol *ir.Symbol
-	Num    int64
+	Class hc.Class
+	Num   int64
 }
 
 func (v value) String() string {
-	if v.Symbol != nil {
-		return v.Class.String() + " " + v.Symbol.Name + " " + strconv.FormatInt(v.Num, 10)
-	}
 	return v.Class.String() + " " + strconv.FormatInt(v.Num, 10)
 }
 
@@ -105,18 +104,18 @@ func (s StorageClass) IsAddressable() bool {
 	return s == Local || s == Spill || s == CalleeInterProc || s == CallerInterProc
 }
 
-func (s StorageClass) ToMirc() mirc.MIRClass {
+func (s StorageClass) ToMirc() mc.Class {
 	switch s {
 	case Register:
-		return mirc.Register
+		return mc.Register
 	case Local:
-		return mirc.Local
+		return mc.Local
 	case CalleeInterProc:
-		return mirc.CalleeInterproc
+		return mc.CalleeInterproc
 	case Spill:
-		return mirc.Spill
+		return mc.Spill
 	}
-	return mirc.InvalidMIRClass
+	return mc.InvalidMIRClass
 }
 
 const (
@@ -142,7 +141,7 @@ func (u useInfo) String() string {
 
 type deferredInstr struct {
 	index int
-	instr *ir.Instr
+	instr *mir.Instr
 }
 
 type state struct {
@@ -157,21 +156,20 @@ type state struct {
 	// LiveValues[ value ] retuns the register, interproc or spill storing this value
 	LiveValues map[value]useInfo
 
-	MaxCalleeInterproc int
-
-	prependInstr map[int][]*ir.Instr
-	appendInstr  map[int][]*ir.Instr
-	lastQueued   int
-
-	atEnd []*ir.Instr
-
 	// stores the index of the furthest use of each value
 	valueUse map[value]int
-	bb       *ir.BasicBlock
-	p        *ir.Proc
+
+	MaxCalleeInterproc int
+
+	hirProgram *hir.Program
+	hirBlock   *hir.BasicBlock
+	hirProc    *hir.Procedure
+
+	outputBlock *mir.BasicBlock
+	outputProc  *mir.Procedure
 }
 
-func newState(numRegs int, p *ir.Proc, bb *ir.BasicBlock) *state {
+func newState(program *hir.Program, numRegs int) *state {
 	return &state{
 		AvailableRegs: newStack(numRegs),
 		UsedRegs:      map[reg]value{},
@@ -182,13 +180,7 @@ func newState(numRegs int, p *ir.Proc, bb *ir.BasicBlock) *state {
 		LiveValues: map[value]useInfo{},
 		valueUse:   map[value]int{},
 
-		prependInstr: map[int][]*ir.Instr{},
-		appendInstr:  map[int][]*ir.Instr{},
-		lastQueued:   0,
-		atEnd:        []*ir.Instr{},
-
-		p:  p,
-		bb: bb,
+		hirProgram: program,
 	}
 }
 
@@ -206,8 +198,10 @@ func (s *state) Mark(v value) {
 	if !ok {
 		panic("marking dead value!")
 	}
-	info.Mutated = true
-	s.LiveValues[v] = info
+	if v.Class == hc.Local || v.Class == hc.Arg {
+		info.Mutated = true
+		s.LiveValues[v] = info
+	}
 }
 
 func (s *state) HasFreeRegs() bool {
@@ -242,8 +236,7 @@ func (s *state) FreeReg(r reg) {
 		s.AvailableRegs.Push(int(r))
 		return
 	}
-	//fmt.Println(s.String())
-	panic("freeing unused register: " + fmt.Sprint(r))
+	panic("freeing unused register: " + strconv.FormatInt(int64(r), 10))
 }
 
 func (s *state) FreeSpill(a spill) {
@@ -309,38 +302,17 @@ func (s *state) UpdateMaxCalleeInterproc(numargs int, numrets int) {
 }
 
 func (s *state) UpdateMaxSpill(spill int) {
-	if spill > s.p.NumOfSpills {
-		s.p.NumOfSpills = spill
+	if spill > s.outputProc.NumOfSpills {
+		s.outputProc.NumOfSpills = spill
 	}
 }
 
 // must preserve insertion order
-func (s *state) PrependInstr(index int, instr *ir.Instr) {
-	if index == len(s.bb.Code) {
-		s.atEnd = append(s.atEnd, instr)
-		s.lastQueued++
-		return
+func (s *state) AddInstr(instr *mir.Instr) {
+	if instr == nil {
+		panic("NIL INSTRUCTION")
 	}
-	if index < 0 || index > len(s.bb.Code) {
-		panic(fmt.Sprintf("out of bounds: %v with instr %v", index, instr.String()))
-	}
-	s.prependInstr[index] = append(s.prependInstr[index], instr)
-	s.lastQueued++
-}
-
-// must preserve insertion order
-// we let index == len(block.Code) pass to insert at end
-func (s *state) AppendInstr(index int, instr *ir.Instr) {
-	if index == len(s.bb.Code) {
-		s.atEnd = append(s.atEnd, instr)
-		s.lastQueued++
-		return
-	}
-	if index < 0 || index > len(s.bb.Code) {
-		panic(fmt.Sprintf("out of bounds: %v with instr %v", index, instr.String()))
-	}
-	s.appendInstr[index] = append(s.appendInstr[index], instr)
-	s.lastQueued++
+	s.outputBlock.Code = append(s.outputBlock.Code, instr)
 }
 
 func (s *state) String() string {
@@ -352,62 +324,78 @@ func (s *state) String() string {
 
 	registers := "Used Regs ["
 	for r, v := range s.UsedRegs {
-		registers += "(" + fmt.Sprintf("%v, %v", r, v) + ")"
+		rStr := strconv.FormatInt(int64(r), 10)
+		vStr := v.String()
+		registers += "(" + rStr + ", " + vStr + ")"
 	}
 	registers += "]"
 
 	return livevalues + "\n" + registers
 }
 
-func Allocate(M *ir.Module, numRegs int) {
-	allocate(M, numRegs)
-	M.ResetVisited()
-}
-
-func allocate(M *ir.Module, numRegs int) {
-	if M.Visited {
-		return
+func Allocate(P *hir.Program, numRegs int) *mir.Program {
+	output := &mir.Program{
+		Name:    P.Name,
+		Entry:   mir.SymbolID(P.Entry),
+		Symbols: make([]*mir.Symbol, len(P.Symbols)),
 	}
-	for _, dep := range M.Dependencies {
-		allocate(dep.M, numRegs)
-	}
-	M.Visited = true
-	for _, sy := range M.Globals {
-		if sy.T == ST.Proc && !sy.External {
-			allocProc(M, sy.Proc, numRegs)
+	for i, sy := range P.Symbols {
+		if sy.Builtin {
+			output.Symbols[i] = allocBuiltin(sy)
+		} else {
+			if sy.Proc != nil {
+				proc := allocProc(P, sy.Proc, numRegs)
+				output.Symbols[i] = &mir.Symbol{Proc: proc}
+			}
+			if sy.Mem != nil {
+				mem := hirToMirMem(sy.Mem)
+				output.Symbols[i] = &mir.Symbol{Mem: mem}
+			}
 		}
 	}
+	return output
 }
 
-func allocProc(M *ir.Module, p *ir.Proc, numRegs int) {
-	var worklist = ir.FlattenGraph(p.Code)
-	p.NumOfSpills = 0
-	for _, curr := range worklist {
-		s := newState(numRegs, p, curr)
+func allocBuiltin(sy *hir.Symbol) *mir.Symbol {
+	return &mir.Symbol{
+		Proc:    &mir.Procedure{Label: sy.Proc.Label},
+		Builtin: true,
+	}
+}
+
+func allocProc(Program *hir.Program, proc *hir.Procedure, numRegs int) *mir.Procedure {
+	outProc := hirToMirProc(proc)
+	outProc.AllBlocks = make([]*mir.BasicBlock, len(proc.AllBlocks))
+	outProc.NumOfSpills = 0
+	for i, curr := range proc.AllBlocks {
+		s := newState(Program, numRegs)
+		s.outputBlock = hirToMirBlock(curr)
+		s.outputProc = outProc
+		s.hirProc = proc
+		s.hirBlock = curr
 		findUses(s)
 		allocBlock(s)
-		if !s.bb.IsTerminal() {
-			storeLiveLocals(s)
-		}
-		transformFlow(s)
-		insertQueuedInstrs(s)
 		calcRegions(s)
+		// preserve the BlockIDs
+		outProc.AllBlocks[i] = s.outputBlock
 	}
-	p.NumOfVars = len(p.Vars)
+	outProc.NumOfVars = len(proc.Vars)
+	return outProc
 }
 
 func calcRegions(s *state) {
-	if s.p.NumOfMaxCalleeArguments < s.MaxCalleeInterproc {
-		s.p.NumOfMaxCalleeArguments = s.MaxCalleeInterproc
+	if s.outputProc.NumOfMaxCalleeArguments < s.MaxCalleeInterproc {
+		s.outputProc.NumOfMaxCalleeArguments = s.MaxCalleeInterproc
 	}
 }
 
 func transformFlow(s *state) {
-	switch s.bb.Out.T {
-	case FT.Return:
+	switch s.hirBlock.Out.T {
+	case hfk.Return:
 		transformReturn(s)
-	case FT.Exit, FT.If:
-		s.bb.Out.V = []*ir.Operand{toMirc(s, s.bb.Out.V[0])}
+	case hfk.Exit, hfk.If:
+		s.outputBlock.Out.T = hirToMirFlow(s.hirBlock.Out.T)
+		s.outputBlock.Out.V = []*mir.Operand{toMirc(s, s.hirBlock.Out.V[0])}
 	}
 }
 
@@ -415,21 +403,19 @@ func transformFlow(s *state) {
 func transformReturn(s *state) {
 	type RetVal struct {
 		Index int64
-		Op    *ir.Operand
+		Op    *hir.Operand
 	}
 
 	notAlive := []RetVal{}
-	end := len(s.bb.Code)
-
 	// load the already immediate ones first
-	for i, ret := range s.bb.Out.V {
+	for i, ret := range s.hirBlock.Out.V {
 		rVal := toValue(ret)
 		info, ok := s.LiveValues[rVal]
 		if ok && info.Place == Register {
 			regOp := newRegOp(reg(info.Num), info.T)
-			callerInterproc := newOp(ret, mirc.CallerInterproc, int64(i))
+			callerInterproc := newOp(ret.Type, mc.CallerInterproc, int64(i))
 			loadRet := IRU.Store(regOp, callerInterproc)
-			s.AppendInstr(end, loadRet)
+			s.AddInstr(loadRet)
 			s.Free(rVal)
 		} else {
 			rv := RetVal{Index: int64(i), Op: ret}
@@ -437,18 +423,19 @@ func transformReturn(s *state) {
 		}
 	}
 
+	end := len(s.hirBlock.Code)
 	// then load the remaining
 	for _, ret := range notAlive {
 		immediateRet := ensureImmediate(s, end, toValue(ret.Op), ret.Op.Type)
-		callerInterproc := newOp(ret.Op, mirc.CallerInterproc, ret.Index)
+		callerInterproc := newOp(ret.Op.Type, mc.CallerInterproc, ret.Index)
 		loadRet := IRU.Store(immediateRet, callerInterproc)
-		s.AppendInstr(end, loadRet)
+		s.AddInstr(loadRet)
 	}
-	s.bb.Out.V = nil
+	s.outputBlock.Out.V = nil
 }
 
 func findUses(s *state) {
-	for index, instr := range s.bb.Code {
+	for index, instr := range s.hirBlock.Code {
 		vals := getUsedValues(instr)
 		for _, v := range vals {
 			s.valueUse[v] = index
@@ -457,111 +444,98 @@ func findUses(s *state) {
 
 	// check if value is returned or used in branching
 	maxIndex := 1 << 31 // ensure it's after the s.atEnd instructions
-	for _, op := range s.bb.Out.V {
-		if op.Hirc == hirc.Temp || op.Hirc == hirc.Local || op.Hirc == hirc.Arg {
+	for _, op := range s.hirBlock.Out.V {
+		if op.Class == hc.Temp || op.Class == hc.Local || op.Class == hc.Arg {
 			v := toValue(op)
 			s.valueUse[v] = maxIndex
 		}
 	}
 }
 
-func getUsedValues(instr *ir.Instr) []value {
+func getUsedValues(instr *hir.Instr) []value {
 	output := []value{}
 	for _, op := range instr.Operands {
-		if op.Hirc == hirc.Temp || op.Hirc == hirc.Local || op.Hirc == hirc.Arg {
+		if op.Class == hc.Temp || op.Class == hc.Local || op.Class == hc.Arg {
 			output = append(output, toValue(op))
 		}
 	}
 	for _, dest := range instr.Destination {
-		if dest.Hirc == hirc.Temp || dest.Hirc == hirc.Local || dest.Hirc == hirc.Arg {
+		if dest.Class == hc.Temp || dest.Class == hc.Local || dest.Class == hc.Arg {
 			output = append(output, toValue(dest))
 		}
 	}
 	return output
 }
 
-func insertQueuedInstrs(s *state) {
-	newBlock := make([]*ir.Instr, len(s.bb.Code)+s.lastQueued+2)[0:0]
-	for i, oldInstr := range s.bb.Code {
-		newPrepInstrs, ok := s.prependInstr[i]
-		if ok {
-			for _, newInstr := range newPrepInstrs {
-				newBlock = append(newBlock, newInstr)
-			}
-		}
-
-		newBlock = append(newBlock, oldInstr)
-
-		newAppInstrs, ok := s.appendInstr[i]
-		if ok {
-			for _, newInstr := range newAppInstrs {
-				newBlock = append(newBlock, newInstr)
-			}
-		}
-		delete(s.prependInstr, i)
-		delete(s.appendInstr, i)
-	}
-	s.bb.Code = append(newBlock, s.atEnd...)
-}
-
-func allocBlock(s *state) {
-	//fmt.Println(s.bb.Label)
-	for i, instr := range s.bb.Code {
-		//fmt.Println(s.String())
-		//fmt.Println("hirc: ", instr)
+func allocBlock(s *state) *mir.BasicBlock {
+	for i, instr := range s.hirBlock.Code {
 		switch instr.T {
-		case IT.Add, IT.Sub, IT.Mult, IT.Div, IT.Rem,
-			IT.Eq, IT.Diff, IT.Less,
-			IT.More, IT.LessEq, IT.MoreEq,
-			IT.Or, IT.And:
+		case hik.Add, hik.Sub, hik.Mult, hik.Div, hik.Rem,
+			hik.Eq, hik.Diff, hik.Less,
+			hik.More, hik.LessEq, hik.MoreEq,
+			hik.Or, hik.And:
 			allocBinary(s, instr, i)
-		case IT.Not,
-			IT.UnaryMinus, IT.UnaryPlus,
-			IT.Convert, IT.LoadPtr:
+		case hik.Not, hik.Neg,
+			hik.Convert, hik.LoadPtr:
 			allocUnary(s, instr, i)
-		case IT.StorePtr:
+		case hik.StorePtr:
 			allocStorePtr(s, instr, i)
-		case IT.Copy:
+		case hik.Copy:
 			allocCopy(s, instr, i)
-		case IT.Call:
+		case hik.Call:
 			allocCall(s, instr, i)
 		}
-		//fmt.Println("mirc: ", instr, "\n")
 	}
+	if !s.hirBlock.IsTerminal() {
+		storeLiveLocals(s)
+	}
+	transformFlow(s)
+	return s.outputBlock
 }
 
-func freeOperands(s *state, index int, ops ...*ir.Operand) {
-	for _, op := range ops {
-		freeIfNotNeeded(s, index, toValue(op))
-	}
-}
-
-func allocBinary(s *state, instr *ir.Instr, index int) {
+func allocBinary(s *state, instr *hir.Instr, index int) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	c := instr.Destination[0]
+
+	outInstr := hirToMirInstr(instr)
+	outInstr.A = ensureImmediate(s, index, toValue(a), a.Type)
+	outInstr.B = ensureImmediate(s, index, toValue(b), b.Type)
+	freeIfNotNeededAndNotMutated(s, index, toValue(a))
+	freeIfNotNeededAndNotMutated(s, index, toValue(b))
+
 	cv := toValue(c)
-	ensureOperands(s, instr, index, a, b)
-	instr.Destination[0] = ensureImmediate(s, index, cv, c.Type)
+	outInstr.Dest = ensureImmediate(s, index, cv, c.Type)
 	s.Mark(cv)
-	freeOperands(s, index, a, b)
+
+	s.AddInstr(outInstr)
 }
 
-func allocUnary(s *state, instr *ir.Instr, index int) {
+func allocUnary(s *state, instr *hir.Instr, index int) {
 	a := instr.Operands[0]
 	c := instr.Destination[0]
+
+	outInstr := hirToMirInstr(instr)
+	outInstr.A = ensureImmediate(s, index, toValue(a), a.Type)
+	freeIfNotNeededAndNotMutated(s, index, toValue(a))
+
 	cv := toValue(c)
-	ensureOperands(s, instr, index, a)
-	instr.Destination[0] = ensureImmediate(s, index, cv, c.Type)
+	outInstr.Dest = ensureImmediate(s, index, cv, c.Type)
 	s.Mark(cv)
-	freeOperands(s, index, a)
+
+	s.AddInstr(outInstr)
 }
 
-func allocStorePtr(s *state, instr *ir.Instr, index int) {
+func allocStorePtr(s *state, instr *hir.Instr, index int) {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
-	ensureOperands(s, instr, index, a, b)
-	freeOperands(s, index, a, b)
+	outInstr := hirToMirInstr(instr)
+	outInstr.A = ensureImmediate(s, index, toValue(a), a.Type)
+	outInstr.B = ensureImmediate(s, index, toValue(b), b.Type)
+	freeIfNotNeededAndNotMutated(s, index, toValue(a))
+	freeIfNotNeededAndNotMutated(s, index, toValue(b))
+
+	s.AddInstr(outInstr)
 }
 
 // Combination of possible Copy instructions
@@ -582,53 +556,64 @@ func allocStorePtr(s *state, instr *ir.Instr, index int) {
 // 	lit (lit) -> local (reg|local)
 // 	lit (lit) -> arg (reg|callerInter)
 // c.HirC can only be Temp, Local or Arg
-func allocCopy(s *state, instr *ir.Instr, index int) {
+func allocCopy(s *state, instr *hir.Instr, index int) {
 	source := instr.Operands[0]
 	sourceIsAddr := isAddressable(s, source)
 
 	dest := instr.Destination[0]
 	destIsAddr := isAddressable(s, dest)
 
+	outInstr := hirToMirInstr(instr)
+
 	if sourceIsAddr {
 		if destIsAddr {
 			// TODO: OPT: see if value is already in register
 			// LOAD  source -> reg
 			// STORE reg    -> dest
-			instr.T = IT.Load
-			instr.Operands[0] = toMirc(s, source)
+			outInstr.T = mik.Load
+			outInstr.A = toMirc(s, source)
 			reg := allocReg(s, toValue(source), source.Type, index)
-			instr.Destination[0] = reg
+			outInstr.Dest = reg
+			s.AddInstr(outInstr)
 
 			destMirc := toMirc(s, dest)
 			corruptOldVersion(s, dest)
-			// insert after the Load instruction
-			s.AppendInstr(index, IRU.Store(reg, destMirc))
+			s.AddInstr(IRU.Store(reg, destMirc))
 		} else {
 			// LOAD source -> dest
-			instr.T = IT.Load
-			instr.Operands[0] = toMirc(s, source)
-			instr.Destination[0] = toMirc(s, dest)
+			outInstr.T = mik.Load
+			outInstr.A = toMirc(s, source)
+			outInstr.Dest = toMirc(s, dest)
 			s.Mark(toValue(dest))
+
+			s.AddInstr(outInstr)
 		}
 	} else {
 		if destIsAddr {
 			// STORE source -> dest
-			instr.T = IT.Store
-			instr.Operands[0] = toMirc(s, source)
-			instr.Destination[0] = toMirc(s, dest)
+			outInstr.T = mik.Store
+			outInstr.A = toMirc(s, source)
+			outInstr.Dest = toMirc(s, dest)
 			corruptOldVersion(s, dest)
+
+			s.AddInstr(outInstr)
 		} else {
 			//fmt.Println(source, dest)
 			// COPY source -> dest
-			instr.Operands[0] = toMirc(s, source)
-			instr.Destination[0] = toMirc(s, dest)
+			outInstr.A = toMirc(s, source)
+			outInstr.Dest = toMirc(s, dest)
 			s.Mark(toValue(dest))
+
+			s.AddInstr(outInstr)
 		}
 	}
-	freeOperands(s, index, source)
+	res := freeIfNotNeeded(s, index, toValue(source))
+	if res != nil {
+		s.AddInstr(res)
+	}
 }
 
-func corruptOldVersion(s *state, op *ir.Operand) {
+func corruptOldVersion(s *state, op *hir.Operand) {
 	v := toValue(op)
 	info, ok := s.LiveValues[v]
 	if ok && info.Place == Register {
@@ -646,44 +631,47 @@ func corruptOldVersion(s *state, op *ir.Operand) {
 //
 // ret1 is assumed to be in interproc1
 // retN is assumed to be in interprocN
-func allocCall(s *state, instr *ir.Instr, index int) {
+func allocCall(s *state, instr *hir.Instr, index int) {
 	// TODO: OPT: spillAllLiveInterproc should only spill the ones being corrupted
 	spillAllLiveInterproc(s, index)
 	loadArguments(s, instr, index)
 	spillAllLiveRegisters(s, index)
 	// TODO: OPT: clearVolatiles should only clear the ones being corrupted
-	clearVolatiles(s, instr.Operands[0].Symbol.Proc)
+	clearVolatiles(s)
+
+	outInstr := hirToMirInstr(instr)
+	outInstr.A = ensureImmediate(s, index, toValue(instr.Operands[0]), instr.Operands[0].Type)
+	s.AddInstr(outInstr)
 
 	for i, dest := range instr.Destination {
 		v := toValue(dest)
 		callee := calleeInterproc(i)
-		switch dest.Hirc {
-		case hirc.Temp:
+		switch dest.Class {
+		case hc.Temp:
 			s.LiveValues[v] = useInfo{Place: CalleeInterProc, Num: int64(i), T: dest.Type}
-		case hirc.Arg:
+		case hc.Arg:
 			load, op := loadCalleeInterproc(s, callee, v, dest.Type, index)
-			s.AppendInstr(index, load)
+			s.AddInstr(load)
 			r := reg(op.Num)
 			arg := callerInterproc(v.Num)
 			store := storeArg(r, arg, dest.Type)
-			s.AppendInstr(index, store)
-		case hirc.Local:
+			s.AddInstr(store)
+		case hc.Local:
 			load, op := loadCalleeInterproc(s, callee, v, dest.Type, index)
-			s.AppendInstr(index, load)
+			s.AddInstr(load)
 			r := reg(op.Num)
-			store := storeLocal(r, v.Num, v.Symbol)
-			s.AppendInstr(index, store)
+			store := storeLocal(r, v.Num, dest.Type)
+			s.AddInstr(store)
 		}
 	}
-	freeOperands(s, index, instr.Operands[1:]...)
+	for _, op := range instr.Operands[1:] {
+		freeIfNotNeeded(s, index, toValue(op))
+	}
 
 	s.UpdateMaxCalleeInterproc(len(instr.Operands)-1, len(instr.Destination))
-	// removes operands from instruction
-	instr.Operands = []*ir.Operand{toMirc(s, instr.Operands[0])}
-	instr.Destination = nil
 }
 
-func clearVolatiles(s *state, proc *ir.Proc) {
+func clearVolatiles(s *state) {
 	toFree := []value{}
 	for val, info := range s.LiveValues {
 		if info.Place != Local && info.Place != Spill {
@@ -695,7 +683,7 @@ func clearVolatiles(s *state, proc *ir.Proc) {
 	}
 }
 
-func loadArguments(s *state, instr *ir.Instr, index int) {
+func loadArguments(s *state, instr *hir.Instr, index int) {
 	// ensure immediate, then store
 	for i, op := range instr.Operands[1:] {
 		v := toValue(op)
@@ -705,44 +693,44 @@ func loadArguments(s *state, instr *ir.Instr, index int) {
 			continue
 		}
 		immediate := ensureImmediate(s, index, v, op.Type)
-		arg := newOp(op, mirc.CalleeInterproc, int64(i))
+		arg := newOp(op.Type, mc.CalleeInterproc, int64(i))
 		storeArg := IRU.Store(immediate, arg)
-		s.PrependInstr(index, storeArg)
+		s.AddInstr(storeArg)
 	}
 }
 
-func isAddressable(s *state, o *ir.Operand) bool {
-	switch o.Hirc {
-	case hirc.Temp:
+func isAddressable(s *state, o *hir.Operand) bool {
+	switch o.Class {
+	case hc.Temp:
 		info, ok := s.LiveValues[toValue(o)]
 		if ok {
 			return info.Place.IsAddressable()
 		}
 		panic("isAddressable: temp is not alive")
-	case hirc.Lit, hirc.Global:
+	case hc.Lit, hc.Global:
 		return false
-	case hirc.Local, hirc.Arg:
+	case hc.Local, hc.Arg:
 		return true
 	}
 	panic("isAddressable: wtf")
 }
 
-func toMirc(s *state, o *ir.Operand) *ir.Operand {
-	switch o.Hirc {
-	case hirc.Temp:
+func toMirc(s *state, o *hir.Operand) *mir.Operand {
+	switch o.Class {
+	case hc.Temp:
 		info, ok := s.LiveValues[toValue(o)]
 		if ok {
-			return newOp(o, info.Place.ToMirc(), info.Num)
+			return newOp(o.Type, info.Place.ToMirc(), info.Num)
 		}
 		panic("toMirc: temp is not alive")
-	case hirc.Local:
-		return newOp(o, mirc.Local, o.Num)
-	case hirc.Arg:
-		return newOp(o, mirc.CallerInterproc, o.Num)
-	case hirc.Global:
-		return newOp(o, mirc.Static, o.Num)
-	case hirc.Lit:
-		return newOp(o, mirc.Lit, o.Num)
+	case hc.Local:
+		return newOp(o.Type, mc.Local, o.Num)
+	case hc.Arg:
+		return newOp(o.Type, mc.CallerInterproc, o.Num)
+	case hc.Global:
+		return newOp(o.Type, mc.Static, o.Num)
+	case hc.Lit:
+		return newOp(o.Type, mc.Lit, o.Num)
 	}
 	panic("toMirc: wtf")
 }
@@ -750,16 +738,16 @@ func toMirc(s *state, o *ir.Operand) *ir.Operand {
 func storeLiveLocals(s *state) {
 	for val, info := range s.LiveValues {
 		if info.Place == Register && info.Mutated {
-			if val.Class == hirc.Local {
+			if val.Class == hc.Local {
 				r := reg(info.Num)
-				instr := storeLocal(r, val.Num, val.Symbol)
-				s.AppendInstr(len(s.bb.Code), instr)
+				instr := storeLocal(r, val.Num, info.T)
+				s.AddInstr(instr)
 			}
-			if val.Class == hirc.Arg {
+			if val.Class == hc.Arg {
 				r := reg(info.Num)
 				it := callerInterproc(val.Num)
 				instr := storeArg(r, it, info.T)
-				s.AppendInstr(len(s.bb.Code), instr)
+				s.AddInstr(instr)
 			}
 		}
 	}
@@ -771,44 +759,33 @@ func spillAllLiveInterproc(s *state, index int) {
 		if info.Place == CalleeInterProc && lastUse > index {
 			callee := calleeInterproc(info.Num)
 			instr, op := loadCalleeInterproc(s, callee, val, info.T, index)
-			s.PrependInstr(index, instr)
+			s.AddInstr(instr)
 			r := reg(op.Num)
 			spill := spillTemp(s, r, info.T)
-			s.PrependInstr(index, spill)
+			s.AddInstr(spill)
 		}
 	}
 }
 
 func spillAllLiveRegisters(s *state, index int) {
 	for val, info := range s.LiveValues {
-		if info.Place == Register {
+		if info.Place == Register && info.Mutated {
 			switch val.Class {
-			case hirc.Local:
+			case hc.Local:
 				r := reg(info.Num)
-				s.PrependInstr(index, storeLocal(r, val.Num, val.Symbol))
-			case hirc.Arg:
+				s.AddInstr(storeLocal(r, val.Num, info.T))
+			case hc.Arg:
 				r := reg(info.Num)
 				arg := callerInterproc(val.Num)
-				s.PrependInstr(index, storeArg(r, arg, info.T))
-			case hirc.Temp:
-				s.PrependInstr(index, spillTemp(s, reg(info.Num), info.T))
+				s.AddInstr(storeArg(r, arg, info.T))
+			case hc.Temp:
+				s.AddInstr(spillTemp(s, reg(info.Num), info.T))
 			}
 		}
 	}
 }
 
-func ensureOperands(s *state, instr *ir.Instr, index int, ops ...*ir.Operand) {
-	newOps := make([]*ir.Operand, len(ops))
-	for i, op := range ops {
-		newOps[i] = ensureImmediate(s, index, toValue(op), op.Type)
-	}
-	instr.Operands = newOps
-	for _, op := range ops {
-		freeIfNotNeededAndNotMutated(s, index, toValue(op))
-	}
-}
-
-func ensureImmediate(s *state, index int, v value, t *T.Type) *ir.Operand {
+func ensureImmediate(s *state, index int, v value, t *T.Type) *mir.Operand {
 	info, ok := s.LiveValues[v]
 	if ok {
 		switch info.Place {
@@ -816,94 +793,81 @@ func ensureImmediate(s *state, index int, v value, t *T.Type) *ir.Operand {
 			return newRegOp(reg(info.Num), t)
 		case Spill:
 			instr, op := loadSpill(s, v, info, index)
-			s.PrependInstr(index, instr)
+			s.AddInstr(instr)
 			return op
 		case CalleeInterProc:
 			callee := calleeInterproc(info.Num)
 			instr, op := loadCalleeInterproc(s, callee, v, info.T, index)
-			s.PrependInstr(index, instr)
+			s.AddInstr(instr)
 			return op
 		case CallerInterProc:
 			caller := callerInterproc(info.Num)
-			instr, op := loadCallerInterproc(s, v, caller, index)
-			s.PrependInstr(index, instr)
+			instr, op := loadCallerInterproc(s, v, caller, info.T, index)
+			s.AddInstr(instr)
 			return op
 		case Local:
 			instr, op := loadLocal(s, v, info.T, index)
-			s.PrependInstr(index, instr)
+			s.AddInstr(instr)
 			return op
 		}
 		panic("ensureImmediate: Invalid StorageClass")
 	}
 	switch v.Class {
-	case hirc.Temp:
+	case hc.Temp:
 		return allocReg(s, v, t, index)
-	case hirc.Local:
+	case hc.Local:
 		instr, op := loadLocal(s, v, t, index)
-		s.PrependInstr(index, instr)
+		s.AddInstr(instr)
 		return op
-	case hirc.Arg:
+	case hc.Arg:
 		instr, op := loadArg(s, v, t, index)
-		s.PrependInstr(index, instr)
+		s.AddInstr(instr)
 		return op
-	case hirc.Global:
-		return newOpFromValue(v, t, mirc.Static, v.Num)
-	case hirc.Lit:
-		return newOpFromValue(v, t, mirc.Lit, v.Num)
+	case hc.Global:
+		return newOp(t, mc.Static, v.Num)
+	case hc.Lit:
+		return newOp(t, mc.Lit, v.Num)
 	}
 	panic("ensureImmediate: Invalid HIRClass")
 }
 
-func newOpFromValue(v value, t *T.Type, m mirc.MIRClass, num int64) *ir.Operand {
-	return &ir.Operand{
-		Hirc:   v.Class,
-		Mirc:   m,
-		Type:   t,
-		Symbol: v.Symbol,
-		Num:    num,
+func newOp(t *T.Type, m mc.Class, num int64) *mir.Operand {
+	return &mir.Operand{
+		Class: m,
+		Type:  t,
+		Num:   num,
 	}
 }
 
-func newOp(op *ir.Operand, m mirc.MIRClass, num int64) *ir.Operand {
-	return &ir.Operand{
-		Hirc:   op.Hirc,
-		Mirc:   m,
-		Type:   op.Type,
-		Symbol: op.Symbol,
-		Num:    num,
-	}
-}
-
-func loadCalleeInterproc(s *state, callee calleeInterproc, v value, t *T.Type, index int) (*ir.Instr, *ir.Operand) {
+func loadCalleeInterproc(s *state, callee calleeInterproc, v value, t *T.Type, index int) (*mir.Instr, *mir.Operand) {
 	newOp := newCalleeInterprocOperand(callee, t)
 	rOp := allocReg(s, v, t, index)
 	load := IRU.Load(newOp, rOp)
 	return load, rOp
 }
 
-func loadCallerInterproc(s *state, v value, caller callerInterproc, index int) (*ir.Instr, *ir.Operand) {
-	t := v.Symbol.Type
+func loadCallerInterproc(s *state, v value, caller callerInterproc, t *T.Type, index int) (*mir.Instr, *mir.Operand) {
 	newOp := newCallerInterprocOperand(caller, t)
 	rOp := allocReg(s, v, t, index)
 	load := IRU.Load(newOp, rOp)
 	return load, rOp
 }
 
-func loadLocal(s *state, v value, t *T.Type, index int) (*ir.Instr, *ir.Operand) {
-	newOp := newLocalOperand(v.Num, v.Symbol)
+func loadLocal(s *state, v value, t *T.Type, index int) (*mir.Instr, *mir.Operand) {
+	newOp := newLocalOperand(v.Num, t)
 	rOp := allocReg(s, v, t, index)
 	load := IRU.Load(newOp, rOp)
 	return load, rOp
 }
 
-func loadArg(s *state, v value, t *T.Type, index int) (*ir.Instr, *ir.Operand) {
+func loadArg(s *state, v value, t *T.Type, index int) (*mir.Instr, *mir.Operand) {
 	newOp := newCallerInterprocOperand(callerInterproc(v.Num), t)
 	rOp := allocReg(s, v, t, index)
 	load := IRU.Load(newOp, rOp)
 	return load, rOp
 }
 
-func loadSpill(s *state, v value, info useInfo, index int) (*ir.Instr, *ir.Operand) {
+func loadSpill(s *state, v value, info useInfo, index int) (*mir.Instr, *mir.Operand) {
 	sp := spill(info.Num)
 	newOp := newSpillOperand(sp, info.T)
 	s.FreeSpill(sp)
@@ -912,7 +876,7 @@ func loadSpill(s *state, v value, info useInfo, index int) (*ir.Instr, *ir.Opera
 	return load, rOp
 }
 
-func allocReg(s *state, v value, t *T.Type, index int) *ir.Operand {
+func allocReg(s *state, v value, t *T.Type, index int) *mir.Operand {
 	if s.HasFreeRegs() {
 		r := s.AllocReg(v, t)
 		return newRegOp(r, t)
@@ -925,83 +889,82 @@ func allocReg(s *state, v value, t *T.Type, index int) *ir.Operand {
 		panic("not enough registers")
 	}
 	switch val.Class {
-	case hirc.Temp:
-		s.PrependInstr(index, spillTemp(s, r, t))
-	case hirc.Local:
-		s.PrependInstr(index, storeLocal(r, val.Num, val.Symbol))
+	case hc.Temp:
+		s.AddInstr(spillTemp(s, r, t))
+	case hc.Local:
+		s.AddInstr(storeLocal(r, val.Num, t))
 		s.Free(val)
-	case hirc.Arg:
+	case hc.Arg:
 		arg := callerInterproc(val.Num)
-		s.PrependInstr(index, storeArg(r, arg, t))
+		s.AddInstr(storeArg(r, arg, t))
 		s.Free(val)
-	case hirc.Lit, hirc.Global:
+	case hc.Lit, hc.Global:
 		panic("what the fuck are we even doing")
 	}
 
 	r2 := s.AllocReg(v, t)
 	if r != r2 {
-		panic("spillRegister: " + fmt.Sprintf("%v\n", s.AvailableRegs))
+		panic("spillRegister: " + s.AvailableRegs.String() + "\n")
 	}
 	return newRegOp(r, t)
 }
 
-func spillTemp(s *state, r reg, t *T.Type) *ir.Instr {
+func spillTemp(s *state, r reg, t *T.Type) *mir.Instr {
 	sNum := s.Spill(r, t)
 	spillOp := newSpillOperand(sNum, t)
 	regOp := newRegOp(r, t)
 	return IRU.Store(regOp, spillOp)
 }
 
-func storeLocal(r reg, position int64, symbol *ir.Symbol) *ir.Instr {
-	reg := newRegOp(r, symbol.Type)
-	loc := newLocalOperand(position, symbol)
+func storeLocal(r reg, position int64, t *T.Type) *mir.Instr {
+	reg := newRegOp(r, t)
+	loc := newLocalOperand(position, t)
 	return IRU.Store(reg, loc)
 }
 
-func storeArg(r reg, num callerInterproc, t *T.Type) *ir.Instr {
+func storeArg(r reg, num callerInterproc, t *T.Type) *mir.Instr {
 	reg := newRegOp(r, t)
 	loc := newCallerInterprocOperand(num, t)
 	return IRU.Store(reg, loc)
 }
 
-func newRegOp(r reg, t *T.Type) *ir.Operand {
-	return &ir.Operand{
-		Mirc: mirc.Register,
-		Num:  int64(r),
-		Type: t,
+func newRegOp(r reg, t *T.Type) *mir.Operand {
+	return &mir.Operand{
+		Class: mc.Register,
+		Num:   int64(r),
+		Type:  t,
 	}
 }
 
-func newSpillOperand(sNum spill, t *T.Type) *ir.Operand {
-	return &ir.Operand{
-		Mirc: mirc.Spill,
-		Num:  int64(sNum),
-		Type: t,
+func newSpillOperand(sNum spill, t *T.Type) *mir.Operand {
+	return &mir.Operand{
+		Class: mc.Spill,
+		Num:   int64(sNum),
+		Type:  t,
 	}
 }
 
-func newLocalOperand(position int64, sy *ir.Symbol) *ir.Operand {
-	return &ir.Operand{
-		Mirc:   mirc.Local,
-		Symbol: sy,
-		Type:   sy.Type,
-		Num:    position,
+func newLocalOperand(position int64, t *T.Type) *mir.Operand {
+	return &mir.Operand{
+		Class: mc.Local,
+		Type:  t,
+		Num:   position,
 	}
 }
 
-func newCalleeInterprocOperand(i calleeInterproc, t *T.Type) *ir.Operand {
-	return &ir.Operand{
-		Mirc: mirc.CalleeInterproc,
-		Type: t,
-		Num:  int64(i),
+func newCalleeInterprocOperand(i calleeInterproc, t *T.Type) *mir.Operand {
+	return &mir.Operand{
+		Class: mc.CalleeInterproc,
+		Type:  t,
+		Num:   int64(i),
 	}
 }
 
-func newCallerInterprocOperand(i callerInterproc, t *T.Type) *ir.Operand {
-	return &ir.Operand{
-		Mirc: mirc.CallerInterproc,
-		Type: t,
-		Num:  int64(i),
+func newCallerInterprocOperand(i callerInterproc, t *T.Type) *mir.Operand {
+	return &mir.Operand{
+		Class: mc.CallerInterproc,
+		Type:  t,
+		Num:   int64(i),
 	}
 }
 
@@ -1021,28 +984,29 @@ func freeIfNotNeededAndNotMutated(s *state, index int, v value) {
 }
 
 // can only insert free after current instruction
-func freeIfNotNeeded(s *state, index int, v value) {
+func freeIfNotNeeded(s *state, index int, v value) *mir.Instr {
 	useInfo, ok := s.LiveValues[v]
 	if !ok {
-		return // already freed (i hope)
+		return nil // already freed (i hope)
 	}
 	if isNeeded(s, index, v, useInfo) {
-		return
+		return nil
 	}
-	if !s.bb.IsTerminal() { // no need to restore if is terminal
-		if v.Class == hirc.Local && useInfo.Mutated {
+	s.Free(v)
+	if !s.hirBlock.IsTerminal() { // no need to restore if is terminal
+		if v.Class == hc.Local && useInfo.Mutated {
 			r := reg(useInfo.Num)
-			instr := storeLocal(r, v.Num, v.Symbol)
-			s.AppendInstr(index, instr)
+			instr := storeLocal(r, v.Num, useInfo.T)
+			return instr
 		}
-		if v.Class == hirc.Arg && useInfo.Mutated {
+		if v.Class == hc.Arg && useInfo.Mutated {
 			r := reg(useInfo.Num)
 			arg := callerInterproc(v.Num)
 			instr := storeArg(r, arg, useInfo.T)
-			s.AppendInstr(index, instr)
+			return instr
 		}
 	}
-	s.Free(v)
+	return nil
 }
 
 func isNeeded(s *state, index int, v value, useInfo useInfo) bool {
@@ -1053,10 +1017,115 @@ func isNeeded(s *state, index int, v value, useInfo useInfo) bool {
 	return false
 }
 
-func toValue(op *ir.Operand) value {
+func toValue(op *hir.Operand) value {
 	return value{
-		Class:  op.Hirc,
-		Symbol: op.Symbol,
-		Num:    op.Num,
+		Class: op.Class,
+		Num:   op.Num,
+	}
+}
+
+func hirToMirProc(proc *hir.Procedure) *mir.Procedure {
+	return &mir.Procedure{
+		Label:                   proc.Label,
+		Vars:                    proc.Vars,
+		Args:                    proc.Args,
+		Rets:                    proc.Rets,
+		Start:                   mir.BlockID(proc.Start),
+		NumOfVars:               0,
+		NumOfSpills:             0,
+		NumOfMaxCalleeArguments: 0,
+	}
+}
+
+func hirToMirInstrKind(hk hik.InstrKind) mik.InstrKind {
+	switch hk {
+	case hik.Add:
+		return mik.Add
+	case hik.Sub:
+		return mik.Sub
+	case hik.Neg:
+		return mik.Neg
+	case hik.Div:
+		return mik.Div
+	case hik.Mult:
+		return mik.Mult
+	case hik.Rem:
+		return mik.Rem
+	case hik.Eq:
+		return mik.Eq
+	case hik.Diff:
+		return mik.Diff
+	case hik.Less:
+		return mik.Less
+	case hik.More:
+		return mik.More
+	case hik.LessEq:
+		return mik.LessEq
+	case hik.MoreEq:
+		return mik.MoreEq
+	case hik.Or:
+		return mik.Or
+	case hik.And:
+		return mik.And
+	case hik.Not:
+		return mik.Not
+	case hik.Convert:
+		return mik.Convert
+	case hik.Load:
+		return mik.Load
+	case hik.Store:
+		return mik.Store
+	case hik.Copy:
+		return mik.Copy
+	case hik.LoadPtr:
+		return mik.LoadPtr
+	case hik.StorePtr:
+		return mik.StorePtr
+	case hik.Call:
+		return mik.Call
+	}
+	panic("unmapped hir instruction")
+}
+
+func hirToMirInstr(instr *hir.Instr) *mir.Instr {
+	return &mir.Instr{
+		T:    hirToMirInstrKind(instr.T),
+		Type: instr.Type,
+	}
+}
+
+func hirToMirFlow(f hfk.FlowKind) mfk.FlowKind {
+	switch f {
+	case hfk.Jmp:
+		return mfk.Jmp
+	case hfk.If:
+		return mfk.If
+	case hfk.Return:
+		return mfk.Return
+	case hfk.Exit:
+		return mfk.Exit
+	}
+	panic("invalid hirflow")
+}
+
+func hirToMirBlock(b *hir.BasicBlock) *mir.BasicBlock {
+	return &mir.BasicBlock{
+		Label: b.Label,
+		Code:  make([]*mir.Instr, len(b.Code))[:0],
+		Out: mir.Flow{
+			T:     hirToMirFlow(b.Out.T),
+			V:     []*mir.Operand{},
+			True:  mir.BlockID(b.Out.True),  // we can do this because we preserve ID numbers
+			False: mir.BlockID(b.Out.False), // between hir and mir
+		},
+		Visited: false,
+	}
+}
+
+func hirToMirMem(mem *hir.MemoryDecl) *mir.MemoryDecl {
+	return &mir.MemoryDecl{
+		Label: mem.Label,
+		Data:  mem.Data,
+		Size:  mem.Size,
 	}
 }

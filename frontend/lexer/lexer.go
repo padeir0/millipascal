@@ -1,11 +1,11 @@
 package lexer
 
 import (
-	T "mpc/frontend/enums/lexType"
-	"mpc/frontend/ir"
+	ir "mpc/core/module"
+	T "mpc/core/module/lexkind"
 
-	et "mpc/frontend/enums/errType"
-	"mpc/frontend/errors"
+	. "mpc/core"
+	et "mpc/core/errorkind"
 
 	"fmt"
 	"strings"
@@ -14,12 +14,11 @@ import (
 
 const IsTracking bool = false
 
-func NewLexerError(st *Lexer, t et.ErrType, message string) *errors.CompilerError {
+func NewLexerError(st *Lexer, t et.ErrorKind, message string) *Error {
 	loc := GetSourceLocation(st)
-	return &errors.CompilerError{
-		Stage: errors.Lexer,
-		Type:  t,
-		Info: []errors.Excerpt{
+	return &Error{
+		Type: t,
+		Info: []Excerpt{
 			{
 				Location: &loc,
 				Message:  message,
@@ -48,8 +47,8 @@ func NewLexer(s string) *Lexer {
 	return st
 }
 
-func GetSourceLocation(s *Lexer) errors.SourceLocation {
-	return errors.SourceLocation{
+func GetSourceLocation(s *Lexer) SourceLocation {
+	return SourceLocation{
 		File:  s.File,
 		Line:  s.Line,
 		Col:   s.Col,
@@ -57,7 +56,7 @@ func GetSourceLocation(s *Lexer) errors.SourceLocation {
 	}
 }
 
-func Next(l *Lexer) *errors.CompilerError {
+func Next(l *Lexer) *Error {
 	if l.Peeked != nil {
 		p := l.Peeked
 		l.Peeked = nil
@@ -68,12 +67,12 @@ func Next(l *Lexer) *errors.CompilerError {
 	if err != nil {
 		return err
 	}
-	l.Start = l.End
+	l.Start = l.End // this shouldn't be here
 	l.Word = symbol
 	return nil
 }
 
-func Peek(s *Lexer) (*ir.Node, *errors.CompilerError) {
+func Peek(s *Lexer) (*ir.Node, *Error) {
 	symbol, err := any(s)
 	if err != nil {
 		return nil, err
@@ -83,7 +82,7 @@ func Peek(s *Lexer) (*ir.Node, *errors.CompilerError) {
 	return symbol, nil
 }
 
-func ReadAll(s *Lexer) ([]*ir.Node, *errors.CompilerError) {
+func ReadAll(s *Lexer) ([]*ir.Node, *Error) {
 	e := Next(s)
 	if e != nil {
 		return nil, e
@@ -99,7 +98,7 @@ func ReadAll(s *Lexer) ([]*ir.Node, *errors.CompilerError) {
 	return output, nil
 }
 
-func GenNumNode(l *Lexer, tp T.TkType, value int64) *ir.Node {
+func GenNumNode(l *Lexer, tp T.LexKind, value int64) *ir.Node {
 	text := Selected(l)
 	n := &ir.Node{
 		Lex:    tp,
@@ -112,7 +111,7 @@ func GenNumNode(l *Lexer, tp T.TkType, value int64) *ir.Node {
 	return n
 }
 
-func GenNode(l *Lexer, tp T.TkType) *ir.Node {
+func GenNode(l *Lexer, tp T.LexKind) *ir.Node {
 	text := Selected(l)
 	n := &ir.Node{
 		Lex:    tp,
@@ -124,7 +123,7 @@ func GenNode(l *Lexer, tp T.TkType) *ir.Node {
 	return n
 }
 
-func nextRune(l *Lexer) (rune, *errors.CompilerError) {
+func nextRune(l *Lexer) (rune, *Error) {
 	l.Col++
 	r, size := utf8.DecodeRuneInString(l.Input[l.End:])
 	if r == utf8.RuneError && size == 1 {
@@ -153,7 +152,7 @@ func unread(l *Lexer) {
 	}
 }
 
-func acceptRun(l *Lexer, s string) *errors.CompilerError {
+func acceptRun(l *Lexer, s string) *Error {
 	r, err := nextRune(l)
 	if err != nil {
 		return err
@@ -168,7 +167,7 @@ func acceptRun(l *Lexer, s string) *errors.CompilerError {
 	return nil
 }
 
-func acceptUntil(l *Lexer, s string) *errors.CompilerError {
+func acceptUntil(l *Lexer, s string) *Error {
 	r, err := nextRune(l)
 	if err != nil {
 		return err
@@ -210,7 +209,7 @@ func isLetter(r rune) bool {
 	return strings.ContainsRune(letters, r)
 }
 
-func ignoreWhitespace(st *Lexer) *errors.CompilerError {
+func ignoreWhitespace(st *Lexer) *Error {
 	r, err := nextRune(st)
 loop:
 	for {
@@ -235,18 +234,14 @@ loop:
 }
 
 // refactor this
-func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
-	var err *errors.CompilerError
+func any(st *Lexer) (*ir.Node, *Error) {
+	var err *Error
 	var r rune
-	var tp T.TkType
+	var tp T.LexKind
 
 	err = ignoreWhitespace(st)
 
 	r, err = nextRune(st)
-	if err != nil {
-		return nil, err
-	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -328,6 +323,8 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 		}
 	case '@':
 		tp = T.AT
+	case '~':
+		tp = T.NEG
 	case '(':
 		tp = T.LEFTPAREN
 	case ')':
@@ -418,7 +415,7 @@ func any(st *Lexer) (*ir.Node, *errors.CompilerError) {
 }
 
 // sorry
-func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
+func number(st *Lexer) (*ir.Node, *Error) {
 	r, err := nextRune(st)
 	if err != nil {
 		return nil, err
@@ -473,7 +470,7 @@ func number(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	return GenNumNode(st, T.I64_LIT, value), nil
 }
 
-func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
+func identifier(st *Lexer) (*ir.Node, *Error) {
 	err := acceptRun(st, digits+letters)
 	if err != nil {
 		return nil, err
@@ -537,7 +534,7 @@ func identifier(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	return GenNode(st, tp), nil
 }
 
-func comment(st *Lexer) *errors.CompilerError {
+func comment(st *Lexer) *Error {
 	r, err := nextRune(st)
 	if err != nil {
 		return err
@@ -554,7 +551,7 @@ func comment(st *Lexer) *errors.CompilerError {
 	return nil
 }
 
-func strLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
+func strLit(st *Lexer) (*ir.Node, *Error) {
 	for {
 		err := acceptUntil(st, insideStr)
 		if err != nil {
@@ -582,7 +579,7 @@ func strLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
 	}
 }
 
-func charLit(st *Lexer) (*ir.Node, *errors.CompilerError) {
+func charLit(st *Lexer) (*ir.Node, *Error) {
 	for {
 		acceptUntil(st, insideChar)
 		r, err := nextRune(st)

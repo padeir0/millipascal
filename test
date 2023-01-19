@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for i in {0..100}
+do
+  go run . -test test_suite
+done

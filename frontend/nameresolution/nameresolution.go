@@ -1,15 +1,15 @@
 package nameresolution
 
 import (
-	T "mpc/frontend/Type"
-	lex "mpc/frontend/enums/lexType"
-	ST "mpc/frontend/enums/symbolType"
-	"mpc/frontend/errors"
-	"mpc/frontend/ir"
+	. "mpc/core"
+	ir "mpc/core/module"
+	lex "mpc/core/module/lexkind"
+	ST "mpc/core/module/symbolkind"
+	T "mpc/core/types"
 	msg "mpc/frontend/messages"
 )
 
-func ResolveNames(M *ir.Module) *errors.CompilerError {
+func ResolveNames(M *ir.Module) *Error {
 	err := resolve(M)
 	if err != nil {
 		return err
@@ -18,7 +18,7 @@ func ResolveNames(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func resolve(M *ir.Module) *errors.CompilerError {
+func resolve(M *ir.Module) *Error {
 	if M.Visited {
 		return nil
 	}
@@ -48,7 +48,7 @@ func resolve(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func createGlobals(M *ir.Module) *errors.CompilerError {
+func createGlobals(M *ir.Module) *Error {
 	symbols := M.Root.Leaves[1]
 	for _, symbol := range symbols.Leaves {
 		err := declareSymbol(M, symbol)
@@ -59,7 +59,7 @@ func createGlobals(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func importSymbols(M *ir.Module, n *ir.Node) *errors.CompilerError {
+func importSymbols(M *ir.Module, n *ir.Node) *Error {
 	for _, m := range n.Leaves {
 		err := defineModSymbol(M, m)
 		if err != nil {
@@ -69,7 +69,7 @@ func importSymbols(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func defineModSymbol(M *ir.Module, n *ir.Node) *errors.CompilerError {
+func defineModSymbol(M *ir.Module, n *ir.Node) *Error {
 	name := n.Text
 	sy := &ir.Symbol{
 		Name:       name,
@@ -85,7 +85,7 @@ func defineModSymbol(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func createImportedSymbols(M *ir.Module) *errors.CompilerError {
+func createImportedSymbols(M *ir.Module) *Error {
 	coupling := M.Root.Leaves[0]
 	for _, n := range coupling.Leaves {
 		switch n.Lex {
@@ -104,7 +104,7 @@ func createImportedSymbols(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func fromImportSymbols(M *ir.Module, n *ir.Node) *errors.CompilerError {
+func fromImportSymbols(M *ir.Module, n *ir.Node) *Error {
 	mod := n.Leaves[0].Text
 	dep, ok := M.Dependencies[mod]
 	if !ok {
@@ -124,7 +124,7 @@ func fromImportSymbols(M *ir.Module, n *ir.Node) *errors.CompilerError {
 	return nil
 }
 
-func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol) *errors.CompilerError {
+func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol) *Error {
 	newSy := &ir.Symbol{
 		Name:       sy.Name,
 		T:          sy.T,
@@ -140,7 +140,7 @@ func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol) *errors.Compi
 	return nil
 }
 
-func checkExports(M *ir.Module) *errors.CompilerError {
+func checkExports(M *ir.Module) *Error {
 	// check if there are duplicated exports
 	// look at global symbols and check if they exist
 	// insert into the export list
@@ -167,7 +167,7 @@ func checkExports(M *ir.Module) *errors.CompilerError {
 	return nil
 }
 
-func declareSymbol(M *ir.Module, n *ir.Node) *errors.CompilerError {
+func declareSymbol(M *ir.Module, n *ir.Node) *Error {
 	sy := getSymbol(M, n)
 	v, ok := M.Globals[sy.Name]
 	if ok {
