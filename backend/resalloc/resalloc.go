@@ -139,6 +139,19 @@ func (u useInfo) String() string {
 	return u.Place.String() + " " + strconv.FormatInt(u.Num, 10) + " " + u.T.String()
 }
 
+func (u useInfo) IsValid() bool {
+	if u.Place == InvalidStorageClass {
+		return false
+	}
+	if u.Num < 0 {
+		return false
+	}
+	if u.T == nil {
+		return false
+	}
+	return true
+}
+
 type deferredInstr struct {
 	index int
 	instr *mir.Instr
@@ -261,20 +274,21 @@ func (s *state) AllocReg(v value, t *T.Type) reg {
 	return r
 }
 
-func (s *state) FurthestUse(index int) (reg, value) {
+func (s *state) FurthestUse(index int) (useInfo, value) {
 	biggestIndex := index
-	bestReg := reg(-1)
-	var holdingValue value
+	var outputInfo useInfo
+	var outputValue value
 	for v, info := range s.LiveValues {
 		lastUse := s.valueUse[v]
 		if info.Place == Register && lastUse > biggestIndex {
 			biggestIndex = lastUse
-			bestReg = reg(info.Num)
-			holdingValue = v
+
+			outputInfo = info
+			outputValue = v
 		}
 	}
 
-	return bestReg, holdingValue
+	return outputInfo, outputValue
 }
 
 func (s *state) Spill(r reg, t *T.Type) spill {
@@ -665,7 +679,7 @@ func allocCall(s *state, instr *hir.Instr, index int) {
 			s.AddInstr(store)
 		}
 	}
-	for _, op := range instr.Operands[1:] {
+	for _, op := range instr.Operands {
 		freeIfNotNeeded(s, index, toValue(op))
 	}
 
@@ -882,32 +896,38 @@ func allocReg(s *state, v value, t *T.Type, index int) *mir.Operand {
 		r := s.AllocReg(v, t)
 		return newRegOp(r, t)
 	}
-	r, val := s.FurthestUse(index)
-	if r == -1 {
-		//fmt.Print("\n------\n")
-		//fmt.Println(s)
-		//fmt.Printf("Value: %v, Type: %v, Index: %v", v, t, index)
+	info, val := s.FurthestUse(index)
+	if !info.IsValid() {
+		// fmt.Print("\n------\n")
+		// fmt.Println(s.hirBlock)
+		// fmt.Print("\n------\n")
+		// fmt.Println(s)
+		// fmt.Printf("Value: %v, Type: %v, Index: %v\n", v, t, index)
 		panic("not enough registers")
 	}
 	switch val.Class {
 	case hc.Temp:
-		s.AddInstr(spillTemp(s, r, t))
+		s.AddInstr(spillTemp(s, reg(info.Num), info.T))
 	case hc.Local:
-		s.AddInstr(storeLocal(r, val.Num, t))
+		if info.Mutated {
+			s.AddInstr(storeLocal(reg(info.Num), val.Num, info.T))
+		}
 		s.Free(val)
 	case hc.Arg:
-		arg := callerInterproc(val.Num)
-		s.AddInstr(storeArg(r, arg, t))
+		if info.Mutated {
+			arg := callerInterproc(val.Num)
+			s.AddInstr(storeArg(reg(info.Num), arg, info.T))
+		}
 		s.Free(val)
 	case hc.Lit, hc.Global:
 		panic("what the fuck are we even doing")
 	}
 
 	r2 := s.AllocReg(v, t)
-	if r != r2 {
+	if reg(info.Num) != r2 {
 		panic("spillRegister: " + s.AvailableRegs.String() + "\n")
 	}
-	return newRegOp(r, t)
+	return newRegOp(reg(info.Num), t)
 }
 
 func spillTemp(s *state, r reg, t *T.Type) *mir.Instr {
