@@ -112,6 +112,9 @@ func RepeatBinary(st *Lexer, prod Production, name string, v Validator) (*mod.No
 	if err != nil {
 		return nil, err
 	}
+	if last == nil {
+		return nil, nil
+	}
 	for v(st.Word) {
 		parent, err := Consume(st)
 		if err != nil {
@@ -140,6 +143,9 @@ func Repeat(st *Lexer, prod Production) ([]*mod.Node, *Error) {
 	n, err := prod(st)
 	if err != nil {
 		return nil, err
+	}
+	if n == nil {
+		return nil, nil
 	}
 	for n != nil {
 		out = append(out, n)
@@ -253,7 +259,9 @@ func RepeatCommaList(st *Lexer, prod Production) ([]*mod.Node, *Error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, n)
+		if n != nil {
+			out = append(out, n)
+		}
 	}
 	if st.Word.Lex == T.COMMA {
 		err := Next(st)

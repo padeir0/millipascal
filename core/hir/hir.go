@@ -38,6 +38,9 @@ func (this *Program) AddMem(m *MemoryDecl) int {
 }
 
 func (this *Program) String() string {
+	if this == nil {
+		return "nil program"
+	}
 	output := "Program: " + this.Name + "\n\n"
 	for _, sy := range this.Symbols {
 		output += sy.String() + "\n"
@@ -276,7 +279,7 @@ func (this *Operand) String() string {
 	case hirc.Arg:
 		return "arg#" + value + ":" + this.Type.String()
 	case hirc.Global:
-		return value + ":" + this.Type.String()
+		return "global#" + value + ":" + this.Type.String()
 	case hirc.Lit:
 		return value
 	}
@@ -298,13 +301,13 @@ func (this *Instr) String() string {
 		if this.Type != nil {
 			return fmt.Sprintf("%v:%v %v -> %v", this.T.String(), this.Type.String(), this.StrOps(), this.StrDests())
 		} else {
-			return fmt.Sprintf("%v %v -> %v", this.T.String(), this.StrOps(), this.StrDests())
+			return fmt.Sprintf("%v, %v -> %v", this.T.String(), this.StrOps(), this.StrDests())
 		}
 	} else {
 		if this.Type != nil {
 			return fmt.Sprintf("%v:%v %v", this.T.String(), this.Type.String(), this.StrOps())
 		} else {
-			return fmt.Sprintf("%v %v", this.T.String(), this.StrOps())
+			return fmt.Sprintf("%v, %v", this.T.String(), this.StrOps())
 		}
 	}
 }

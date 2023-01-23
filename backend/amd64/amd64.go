@@ -1,7 +1,6 @@
 package amd64
 
 import (
-	"fmt"
 	mir "mpc/core/mir"
 	mirc "mpc/core/mir/class"
 	FT "mpc/core/mir/flowkind"
@@ -37,20 +36,20 @@ type fasmProgram struct {
 	data       []*fasmData
 }
 
-func (this *fasmProgram) Fasmify() string {
+func (this *fasmProgram) String() string {
 	output := "format ELF64 executable 3\n"
 	output += "\nsegment readable writable\n"
 	for _, decData := range this.data {
-		output += decData.Fasmify()
+		output += decData.String()
 	}
 	output += "\nsegment readable executable\n"
 	output += "entry $\n"
 	for _, instr := range this.entry {
-		output += "\t" + instr.Fasmify() + "\n"
+		output += "\t" + instr.String() + "\n"
 	}
 	output += "; ---- end \n"
 	for _, fproc := range this.executable {
-		output += fproc.Fasmify()
+		output += fproc.String()
 	}
 	return output
 }
@@ -61,7 +60,7 @@ type fasmData struct {
 	declared bool
 }
 
-func (this *fasmData) Fasmify() string {
+func (this *fasmData) String() string {
 	if this.declared {
 		return this.label + " db " + this.content + "\n"
 	}
@@ -73,10 +72,10 @@ type fasmProc struct {
 	blocks []*fasmBlock // order matters
 }
 
-func (this *fasmProc) Fasmify() string {
+func (this *fasmProc) String() string {
 	output := ""
 	for _, b := range this.blocks {
-		output += b.Fasmify() + "\n"
+		output += b.String() + "\n"
 	}
 	return output
 }
@@ -86,10 +85,10 @@ type fasmBlock struct {
 	code  []*amd64Instr // order matters ofc
 }
 
-func (this *fasmBlock) Fasmify() string {
+func (this *fasmBlock) String() string {
 	output := this.label + ":\n"
 	for _, instr := range this.code {
-		output += "\t" + instr.Fasmify() + "\n"
+		output += "\t" + instr.String() + "\n"
 	}
 	return output
 }
@@ -102,7 +101,7 @@ type amd64Instr struct {
 	Op2   string
 }
 
-func (this *amd64Instr) Fasmify() string {
+func (this *amd64Instr) String() string {
 	if this.Instr == "" {
 		return "???"
 	}
@@ -314,7 +313,6 @@ func convertString(original string) string {
 func genEntry(P *mir.Program) []*amd64Instr {
 	entry := P.Symbols[P.Entry]
 	if entry == nil || entry.Proc == nil {
-		fmt.Println(P)
 		panic("nil entrypoint")
 	}
 	return []*amd64Instr{
@@ -353,7 +351,6 @@ func genBlocks(P *mir.Program, proc *mir.Procedure, start *mir.BasicBlock) []*fa
 
 func genFalseBranches(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock, trueBranches *[]*mir.BasicBlock) []*fasmBlock {
 	if block.Visited {
-		fmt.Println(P)
 		panic("no blocks should be already visited: " + block.Label)
 	}
 	block.Visited = true
@@ -439,8 +436,10 @@ func genCode(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock) *fasmBl
 
 func genInstr(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
 	switch instr.T {
-	case IT.Add, IT.Sub, IT.Mult, IT.Or, IT.And:
+	case IT.Add, IT.Mult, IT.Or, IT.And:
 		return genBin(P, proc, instr)
+	case IT.Sub:
+		return genSub(P, proc, instr)
 	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
 		return genComp(P, proc, instr)
 	case IT.Load, IT.Store, IT.Copy:
@@ -603,7 +602,7 @@ func genRem(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr
 	newOp1 := convertOperandProc(P, proc, instr.A)
 	newOp2 := convertOperandProc(P, proc, instr.B)
 	newDest := convertOperandProc(P, proc, instr.Dest)
-	if instr.B.Class == mirc.Lit || instr.B.Class == mirc.Static {
+	if mirc.IsImmediate(instr.B.Class) {
 		rbx := genReg(RBX, instr.Type)
 		return []*amd64Instr{
 			genBinInstr(Xor, RDX.QWord, RDX.QWord),
@@ -627,6 +626,39 @@ var BinInstrMap = map[IT.InstrKind]string{
 	IT.Mult: IMul,
 	IT.And:  And,
 	IT.Or:   Or,
+}
+
+func genSub(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
+	sub := BinInstrMap[instr.T]
+
+	if areOpEqual(instr.A, instr.Dest) {
+		newOp1 := convertOperandProc(P, proc, instr.B)
+		newDest := convertOperandProc(P, proc, instr.Dest)
+		return []*amd64Instr{
+			genBinInstr(sub, newDest, newOp1),
+		}
+	}
+
+	if areOpEqual(instr.B, instr.Dest) {
+		rbx := genReg(RBX, instr.Type)
+		newOp1 := convertOperandProc(P, proc, instr.A)
+		newOp2 := convertOperandProc(P, proc, instr.B)
+		newDest := convertOperandProc(P, proc, instr.Dest)
+		return []*amd64Instr{
+			genBinInstr(Xor, RBX.QWord, RBX.QWord),
+			genMov(rbx, newOp1),
+			genBinInstr(sub, rbx, newOp2),
+			genMov(newDest, rbx),
+		}
+	}
+
+	newOp1 := convertOperandProc(P, proc, instr.A)
+	newOp2 := convertOperandProc(P, proc, instr.B)
+	newDest := convertOperandProc(P, proc, instr.Dest)
+	return []*amd64Instr{
+		genMov(newDest, newOp1),
+		genBinInstr(sub, newDest, newOp2),
+	}
 }
 
 func genBin(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
@@ -675,12 +707,14 @@ func convertToTwoAddr(instr *mir.Instr) (dest *mir.Operand, op *mir.Operand) {
 	if instr.Dest == nil {
 		return nil, nil
 	}
+	if instr.T == IT.Sub {
+		panic("subtraction is not associative")
+	}
 
 	if areOpEqual(instr.A, instr.Dest) {
 		return instr.Dest, instr.B
 	}
-	// subtraction is not associative
-	if areOpEqual(instr.B, instr.Dest) && instr.T != IT.Sub {
+	if areOpEqual(instr.B, instr.Dest) {
 		return instr.Dest, instr.A
 	}
 

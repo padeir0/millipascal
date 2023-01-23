@@ -10,6 +10,7 @@ import (
 	eu "mpc/core/util"
 
 	"strconv"
+	"strings"
 )
 
 func Check(P *hir.Program) *Error {
@@ -19,6 +20,10 @@ func Check(P *hir.Program) *Error {
 			s.proc = sy.Proc
 			sy.Proc.ResetBlocks()
 			err := checkCode(s, sy.Proc.FirstBlock())
+			if err != nil {
+				return err
+			}
+			err = checkVisited(sy.Proc)
 			if err != nil {
 				return err
 			}
@@ -37,6 +42,21 @@ func newState(P *hir.Program) *state {
 	return &state{
 		m: P,
 	}
+}
+
+func checkVisited(proc *hir.Procedure) *Error {
+	notVisited := []string{}
+	for _, bb := range proc.AllBlocks {
+		if !bb.Visited {
+			notVisited = append(notVisited, bb.Label)
+		}
+	}
+	if len(notVisited) > 0 {
+		return eu.NewInternalSemanticError(proc.Label +
+			": not all blocks are reachable (" +
+			strings.Join(notVisited, ", ") + ")")
+	}
+	return nil
 }
 
 func checkCode(s *state, bb *hir.BasicBlock) *Error {

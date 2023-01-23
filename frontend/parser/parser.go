@@ -499,10 +499,10 @@ func multiplicative(s *Lexer) (*ir.Node, *Error) {
 	return RepeatBinary(s, unaryPrefix, "expression", multOp)
 }
 
-// Prefix = "not" | "+" | "-".
+// Prefix = "not" | "~".
 // UnaryPrefix := {Prefix} UnarySuffix.
 func unaryPrefix(s *Lexer) (*ir.Node, *Error) {
-	Track(s, "unary suffix")
+	Track(s, "unary prefix")
 
 	preFirst, preLast, err := RepeatUnaryLeft(s, prefixOp)
 	if err != nil {
@@ -532,7 +532,7 @@ func unaryPrefix(s *Lexer) (*ir.Node, *Error) {
 
 // UnarySuffix := Factor {Suffix}.
 func unarySuffix(s *Lexer) (*ir.Node, *Error) {
-	Track(s, "unaryPrefix")
+	Track(s, "unary suffix")
 	fact, err := factor(s)
 	if err != nil {
 		return nil, err
@@ -716,6 +716,7 @@ func block(s *Lexer) (*ir.Node, *Error) {
 
 // CodeSemicolon := Code [';'].
 func codeSemicolon(s *Lexer) (*ir.Node, *Error) {
+	Track(s, "CodeSemicolon")
 	n, err := code(s)
 	if err != nil {
 		return nil, err

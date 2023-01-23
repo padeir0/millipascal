@@ -39,32 +39,25 @@ segment readable executable
 ; r13 holds the address to the next line/generation
 entry $
 	call		reset_buffers
-	mov byte 	[line_A+line_size-1], alive
+	mov byte 	[line_A+(line_size/2)], alive
 
 	mov	r15, 0		; var counter <- 0;
 	mov	r14, line_A+1
 	mov	r13, line_B+1
 	
-loop_start: 			; for i < max_gen => {
-
-	push	r15
-	push	r14
-	push	r13
+loop_start: 			; for i < max_gen
+	mov r12, r13
+	mov r11, r14
 	call	compute_gen
-	pop	r13
-	pop	r14
-	pop	r15
 
-	mov	r12, r13	; swap current gen with next gen
-	mov	r13, r14	; by swapping r13 with r14
-	mov	r14, r12
+	xchg	r13, r14	; swap current gen with next gen
 	
 	inc 	r15			; counter <- counter -1;
 	cmp 	r15, max_gen
 	jl	loop_start	; }
 	
 	mov	rdx, line_size-2	; print(current_gen);
-	mov 	rsi, r14
+	mov	rsi, r14
 	mov	rdi, STDOUT
 	mov	rax, SYS_WRITE
 	syscall
@@ -82,30 +75,25 @@ _end:
 ; takes no arguments
 ; returns nothing
 ; registers:
-;	r15 -> counter
-;	r14 -> pointer into line_A
-;	r13 -> pointer into line_B
+;	r12 -> counter
+;	r11 -> pointer into line_A
+;	r10 -> pointer into line_B
 reset_buffers:
-	push 	rbp
-	mov	rbp, rsp
-	
-	mov	r15, 1
-	mov	r13, line_A
-	mov	r14, line_B
+	mov	r12, 0
+	mov	r10, line_A
+	mov	r11, line_B
 
 reset_loop:
-	mov byte	[r13], dead
-	mov byte	[r14], dead 
+	mov byte	[r10], dead
+	mov byte	[r11], dead 
 	
-	inc	r13		; increment pointers
-	inc	r14
+	inc	r10		; increment pointers
+	inc	r11
 	
-	inc	r15		; loop shenanigans
-	cmp	r15, line_size-1
+	inc	r12		; loop shenanigans
+	cmp	r12, line_size
 	jl	reset_loop
 reset_ret:
-	mov 	rsp, rbp
-	pop 	rbp
 	ret
 
 ; takes two arguments:
@@ -114,74 +102,66 @@ reset_ret:
 ; returns nothing
 ; 
 ; registers:
-; 	r15 -> pointer into next_gen line
-; 	r14 -> pointer into curr_gen line
-;	r13 -> counter
+; 	r12 -> pointer into next_gen line
+; 	r11 -> pointer into curr_gen line
+;	r10 -> counter
 compute_gen:
-	push 	rbp
-	mov	rbp, rsp
-	mov 	r15, [rbp+16]	; next_gen
-	mov 	r14, [rbp+24]	; curr_gen
-	
-	mov	r13, 1
+	mov	r10, 0
 
 comp_loop:
-	cmp byte	[r14 - 1], dead
+	cmp byte	[r11 - 1], dead
 	je		inp_0
 inp_1:
-	cmp byte	[r14], dead
+	cmp byte	[r11], dead
 	je		inp_10
 inp_11:
-	cmp byte	[r14+1], dead
+	cmp byte	[r11+1], dead
 	je		inp_110
 inp_111:
-	mov byte	[r15], out_111
+	mov byte	[r12], out_111
 	jmp comp_continue
 inp_110:
-	mov byte	[r15], out_110
+	mov byte	[r12], out_110
 	jmp comp_continue
 inp_10:
-	cmp byte	[r14+1], dead
+	cmp byte	[r11+1], dead
 	je		inp_100
 inp_101:
-	mov byte	[r15], out_101
+	mov byte	[r12], out_101
 	jmp comp_continue
 inp_100:
-	mov byte	[r15], out_100
+	mov byte	[r12], out_100
 	jmp comp_continue
 	
 inp_0:
-	cmp byte	[r14], dead
+	cmp byte	[r11], dead
 	je		inp_00
 inp_01:
-	cmp byte	[r14 + 1], dead
+	cmp byte	[r11 + 1], dead
 	je		inp_010
 inp_011:
-	mov byte	[r15], out_011
+	mov byte	[r12], out_011
 	jmp comp_continue
 inp_010:
-	mov byte	[r15], out_010
+	mov byte	[r12], out_010
 	jmp comp_continue
 inp_00:
-	cmp byte	[r14 + 1], dead
+	cmp byte	[r11 + 1], dead
 	je		inp_000
 inp_001:
-	mov byte	[r15], out_001
+	mov byte	[r12], out_001
 	jmp comp_continue
 inp_000:
-	mov byte	[r15], out_000
+	mov byte	[r12], out_000
 	jmp comp_continue
 
 comp_continue:
-	inc	r15	; incrementing pointers
-	inc	r14
+	inc	r12	; incrementing pointers
+	inc	r11
 
-	inc	r13	; loop shenanigans
-	cmp	r13, line_size-2
+	inc	r10	; loop shenanigans
+	cmp	r10, line_size-2
 	jl	comp_loop
 	
 comp_ret:
-	mov 	rsp, rbp
-	pop 	rbp
 	ret
-

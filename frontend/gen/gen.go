@@ -153,16 +153,16 @@ func genProc(c *context, M *ir.Module, proc *ir.Proc) *Error {
 			return msg.NotAllCodePathsReturnAValue(M, proc)
 		}
 		for _, bb := range c.HirProc.AllBlocks {
-			setReturn(bb)
+			if !bb.HasFlow() {
+				setReturn(bb)
+			}
 		}
 	}
 	return nil
 }
 
 func setReturn(b *hir.BasicBlock) {
-	if !b.HasFlow() {
-		b.Return([]*hir.Operand{})
-	}
+	b.Return([]*hir.Operand{})
 }
 
 func genBlock(M *ir.Module, c *context, body *ir.Node) {
@@ -193,12 +193,15 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	op := genExpr(M, c, exp)
 	trueblID, truebl := c.NewBlock()
 	falseblID, falsebl := c.NewBlock()
-	outblID, outbl := c.NewBlock()
+	var outblID hir.BlockID
+	var outbl *hir.BasicBlock // we just generate an out block if it's reachable
+
 	c.CurrBlock.Branch(op, trueblID, falseblID)
 
 	c.CurrBlock = truebl
 	genBlock(M, c, block)
-	if !c.CurrBlock.HasFlow() {
+	if c.CurrBlock != nil && !c.CurrBlock.HasFlow() {
+		outblID, outbl = c.NewBlock()
 		c.CurrBlock.Jmp(outblID)
 	}
 
@@ -209,7 +212,10 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	if else_ != nil {
 		genBlock(M, c, else_.Leaves[0])
 	}
-	if !c.CurrBlock.HasFlow() {
+	if c.CurrBlock != nil && !c.CurrBlock.HasFlow() {
+		if outbl == nil {
+			outblID, outbl = c.NewBlock()
+		}
 		c.CurrBlock.Jmp(outblID)
 	}
 	c.CurrBlock = outbl
@@ -449,7 +455,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *hir.Operand {
 	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT, lex.CHAR_LIT:
 		return genNumLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
-		return genPlusMinus(M, c, exp)
+		return genBinaryOp(M, c, exp)
 	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
 		lex.EQUALS, lex.DIFFERENT,
 		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
@@ -465,7 +471,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *hir.Operand {
 		return nil
 	case lex.AT:
 		return genDeref(M, c, exp)
-	case lex.NOT:
+	case lex.NOT, lex.NEG:
 		return genUnaryOp(M, c, exp)
 	case lex.DOT:
 		return genDot(M, c, exp)
@@ -583,13 +589,6 @@ func genBoolLit(M *ir.Module, c *context, lit *ir.Node) *hir.Operand {
 		Type:  lit.T,
 		Num:   int64(value),
 	}
-}
-
-func genPlusMinus(M *ir.Module, c *context, op *ir.Node) *hir.Operand {
-	if len(op.Leaves) == 2 {
-		return genBinaryOp(M, c, op)
-	}
-	return genUnaryOp(M, c, op)
 }
 
 func genBinaryOp(M *ir.Module, c *context, op *ir.Node) *hir.Operand {

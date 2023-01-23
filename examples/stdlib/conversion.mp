@@ -2,6 +2,13 @@ export itoa, btoa
 
 memory itoa_buff 32
 
+proc main
+var p:ptr, size
+begin
+	set p, size = itoa[255]
+	write[p, size]
+end proc
+
 # do not modify the returned buffer
 proc itoa[n] ptr, i64
 var p:ptr, signal:i8
@@ -18,7 +25,7 @@ begin
 	if n < 0
 	begin
 		set signal = '-'
-		set n = -n
+		set n = ~n
 	end if
 
 	while n > 0 begin

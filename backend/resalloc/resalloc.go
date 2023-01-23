@@ -501,6 +501,7 @@ func allocBinary(s *state, instr *hir.Instr, index int) {
 	outInstr := hirToMirInstr(instr)
 	outInstr.A = ensureImmediate(s, index, toValue(a), a.Type)
 	outInstr.B = ensureImmediate(s, index, toValue(b), b.Type)
+
 	freeIfNotNeededAndNotMutated(s, index, toValue(a))
 	freeIfNotNeededAndNotMutated(s, index, toValue(b))
 

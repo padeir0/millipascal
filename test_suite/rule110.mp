@@ -13,8 +13,13 @@ begin
 
 	set (buff1+(buff1.size/2):ptr)@i8 = 'O';
 
-	while gen < 10000000
+	while gen < 1024
 	begin
+		write[b1, buff1.size]
+		putchar[' ']
+		pint[gen]
+		putchar['\n']
+
 		generation[b1, b2, buff1.size]
 		set b3 = b2
 		set b2 = b1
@@ -22,10 +27,6 @@ begin
 
 		set gen += 1
 	end while
-	write[b1, buff1.size]
-	putchar[' ']
-	pint[gen]
-	putchar['\n']
 end proc
 
 proc clear[p:ptr, size:i64]
