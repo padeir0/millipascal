@@ -1,6 +1,6 @@
 from conversion import itoa, btoa
 
-export putint, putbool, putchar, writeLn, fatal, debug
+export put_int, put_bool, put_char, write_line, fatal, debug
 
 memory here "here\n"
 
@@ -11,34 +11,34 @@ end proc
 
 proc fatal[p:ptr, size]
 begin
-	writeLn[p, size]
+	write_line[p, size]
 	exit 1r
 end proc
 
 memory pchar_buff 1
 
-proc putchar[n:i8]
+proc put_char[n:i8]
 begin
 	set pchar_buff@i8 = n
 	write[pchar_buff, pchar_buff.size]
 end proc
 
-proc putint[n]
+proc put_int[n]
 var p:ptr, size
 begin
 	set p, size = itoa[n]
 	write[p, size]
 end proc
 
-proc putbool[b:bool]
+proc put_bool[b:bool]
 var p:ptr, size
 begin
 	set p, size = btoa[b]
 	write[p, size]
 end proc
 
-proc writeLn[p:ptr, size:i64]
+proc write_line[p:ptr, size:i64]
 begin
 	write[p, size]
-	putchar['\n']
+	put_char['\n']
 end proc

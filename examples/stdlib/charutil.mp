@@ -1,16 +1,16 @@
-export isLetter, isWord, isNumber, uppercase, lowercase
+export is_letter, is_word, is_number, uppercase, lowercase
 
-proc isLetter[char:i8] bool 
+proc is_letter[char:i8] bool 
 begin
 	return (char >= 'a' and char <= 'z')
 	        or
 	       (char >= 'A' and char <= 'Z')
 end proc
 
-proc isWord[char:i8] bool
+proc is_word[char:i8] bool
 begin
 	return (char >= 'a' and char <= 'z')
-	        or
+        or
 	       (char >= 'A' and char <= 'Z')
 		or
 	       (char >= '0' and char <= '0')
@@ -18,7 +18,7 @@ begin
 	       (char == '_')
 end proc
 
-proc isNumber[char:i8] bool
+proc is_number[char:i8] bool
 begin
 	return char >= '0' and char <= '9'
 end proc

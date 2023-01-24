@@ -680,6 +680,8 @@ func parseCharLit(text string) int64 {
 			value = '\''
 		case "\\\"":
 			value = '"'
+		case "\\\\":
+			value = '\\'
 		default:
 			fmt.Println(text)
 			panic("too many chars in char :C")

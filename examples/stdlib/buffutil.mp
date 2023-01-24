@@ -1,7 +1,7 @@
 from intutil import min
-export mapbuff, setbuff, comp, copy
+export map_buff, set_buff, comp, copy
 
-proc mapbuff[p:ptr, size:i64, transform:proc[i8]i8]
+proc map_buff[p:ptr, size:i64, transform:proc[i8]i8]
 var a
 begin
 	set a = 0
@@ -12,7 +12,7 @@ begin
 	end while
 end proc
 
-proc setbuff[p:ptr, size:i64, b:i8]
+proc set_buff[p:ptr, size:i64, b:i8]
 var a
 begin
 	set a = 0

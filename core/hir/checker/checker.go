@@ -324,7 +324,7 @@ func checkLoadPtr(instr *hir.Instr) *Error {
 	}
 	dest := instr.Destination[0]
 	err = checkEqual(instr, instr.Type, dest.Type)
-	return checkUnary(instr, ptr_oper, basic_res)
+	return checkUnary(instr, ptr_oper, basicOrProc_res)
 }
 
 func checkStorePtr(instr *hir.Instr) *Error {
@@ -338,7 +338,7 @@ func checkStorePtr(instr *hir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	if basic_oper.Check(a) && ptr_oper.Check(dest) {
+	if basicOrProc_oper.Check(a) && ptr_oper.Check(dest) {
 		return nil
 	}
 	return malformedTypeOrClass(instr)

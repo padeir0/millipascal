@@ -1,42 +1,42 @@
-from ioutil import putint, putchar, writeLn, putbool, debug
-from buffutil import setbuff, mapbuff, comp, copy
-from charutil import isWord, isLetter, isNumber, uppercase, lowercase
+from ioutil import put_int, put_char, write_line, put_bool, debug
+from buffutil import set_buff, map_buff, comp, copy
+from charutil import is_word, is_letter, is_number, uppercase, lowercase
 
 memory tst 32
 memory ozy "nothing 314159 beside 111 remains, my name is ozymandias king of kings"
 
 proc main
 begin
-	setbuff[tst, tst.size, 'a']
-	writeLn[tst, tst.size]
+	set_buff[tst, tst.size, 'a']
+	write_line[tst, tst.size]
 
-	mapbuff[tst, tst.size, uppercase]
-	writeLn[tst, tst.size]
+	map_buff[tst, tst.size, uppercase]
+	write_line[tst, tst.size]
 
-	mapbuff[tst, tst.size, lowercase]
-	writeLn[tst, tst.size]
+	map_buff[tst, tst.size, lowercase]
+	write_line[tst, tst.size]
 
-	putint[-256]
-	putchar['\n']
-	putint[0]
-	putchar['\n']
-	putint[255]
-	putchar['\n']
+	put_int[~256]
+	put_char['\n']
+	put_int[0]
+	put_char['\n']
+	put_int[255]
+	put_char['\n']
 
-	putbool[true]
-	putchar['\n']
-	putbool[false]
-	putchar['\n']
+	put_bool[true]
+	put_char['\n']
+	put_bool[false]
+	put_char['\n']
 
 	# finds and prints all words: [a-zA-Z][a-zA-Z0-9_]* 
-	find[ozy, ozy.size, isLetter, isWord, writeLn]
+	find[ozy, ozy.size, is_letter, is_word, write_line]
 
 	# finds and prints all numbers: [0-9][0-9]*
-	find[ozy, ozy.size, isNumber, isNumber, writeLn]
+	find[ozy, ozy.size, is_number, is_number, write_line]
 
 	# changes "ozymandias" to "superking,"
-	find[ozy, ozy.size, isLetter, isWord, changeName]
-	writeLn[ozy, ozy.size]
+	find[ozy, ozy.size, is_letter, is_word, changeName]
+	write_line[ozy, ozy.size]
 end proc
 
 proc find[

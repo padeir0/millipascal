@@ -18,20 +18,16 @@ proc main
 var obj:ptr
 begin
 	Init[]
-	PrintHeap[]
 	set obj = Alloc[4]
 	set obj@i32 = 1g
-	PrintHeap[]
 	Free[obj]
 
 	set obj = Alloc[1]
 	set obj@i8 = 2r
-	PrintHeap[]
 	Free[obj]
 
 	set obj = Alloc[4]
 	set obj@i32 = 3g
-	PrintHeap[]
 	Free[obj]
 end proc
 
@@ -42,14 +38,14 @@ var curr:ptr, curr_size, curr_next:ptr,
     prev:ptr, prev_size, prev_next:ptr
 begin
 	set curr = Head@ptr
-	set curr_size = -1
-	set curr_next = -1p
+	set curr_size = ~1
+	set curr_next = ~1p
 
-	set prev = -1p
-	set prev_size = -1
-	set prev_next = -1p
+	set prev = ~1p
+	set prev_size = ~1
+	set prev_next = ~1p
 
-	while curr != -1p
+	while curr != ~1p
 	begin
 		set curr_size = curr@i64
 		set curr_next = (curr+8p)@ptr
@@ -72,13 +68,13 @@ begin
 		set curr = curr_next
 	end while
 	fatal[OOM, OOM.size]
-	return -1p
+	return ~1p
 end proc
 
 proc pop[prev:ptr, prev_size,
          curr:ptr, curr_next:ptr, curr_size] ptr
 begin
-	if prev != -1p
+	if prev != ~1p
 	begin
 	    #         v next_offset
 		set (prev+8p)@ptr = curr_next
@@ -120,13 +116,13 @@ begin
 	set new = obj-8p
 	set obj_size = new@i64
 	#        v next_offset
-	set (new+8p)@ptr = -1p
+	set (new+8p)@ptr = ~1p
 
-	set prev = -1p
+	set prev = ~1p
 	set curr = Head@ptr
 
 	# this is going to fail on a full heap
-	while curr != -1p
+	while curr != ~1p
 	begin
 		if new < curr
 		begin
@@ -144,9 +140,9 @@ end proc
 proc insertNode[prev:ptr, curr:ptr, new:ptr]
 var prev_next:ptr
 begin
-	if prev == -1p
+	if prev == ~1p
 	begin
-		if Head@ptr != -1p
+		if Head@ptr != ~1p
 		begin
 			set (new+8p)@ptr = Head@ptr
 		end if
@@ -155,7 +151,7 @@ begin
 	else
 	begin
 		set prev_next = (prev+8p)@ptr
-		if prev_next == -1p
+		if prev_next == ~1p
 		begin
 			set (prev+8p)@ptr = new
 		end 
@@ -172,10 +168,10 @@ var curr:ptr, curr_size, curr_next:ptr,
     next_size, next_next:ptr
 begin
 	set curr = Head@ptr
-	set curr_size = -1
-	set curr_next = -1p
+	set curr_size = ~1
+	set curr_next = ~1p
 
-	while curr != -1p
+	while curr != ~1p
 	begin
 		set curr_size = curr@i64
 		set curr_next = (curr+8p)@ptr
@@ -199,7 +195,7 @@ proc Init
 begin
 	clear[Heap, Heap.size]
 	set Heap@i64 = Heap.size-8 # 8 bytes used for this field
-	set (Heap+8p)@ptr = -1p
+	set (Heap+8p)@ptr = ~1p
 	set Head@ptr = Heap
 end proc
 
@@ -215,84 +211,8 @@ begin
 	end while
 end proc
 
-proc PrintHeap
-var p:ptr, i
+proc fatal[p:ptr, size]
 begin
-	set p = Heap
-	set i = 0
-	while i < Heap.size
-	begin
-		putint[(p+i:ptr)@i64]
-		putchar[',']
-		set i += 8
-	end while
-	putchar['\n']
-
-	putint[Head@i64]
-	putchar['\n']
-end proc
-
-proc fatal[p:ptr, s]
-begin
-	writeLn[p, s]
+	write[p, size]
 	exit 1r
-end proc
-
-memory pchar_buff 1
-
-proc putchar[n:i8]
-begin
-	set pchar_buff@i8 = n
-	write[pchar_buff, pchar_buff.size]
-end proc
-
-proc putint[n]
-var p:ptr, size
-begin
-	set p, size = itoa[n]
-	write[p, size]
-end proc
-
-proc writeLn[p:ptr, size:i64]
-begin
-	write[p, size]
-	putchar['\n']
-end proc
-
-memory itoa_buff 32
-
-proc itoa[n] ptr, i64
-var p:ptr, signal:i8
-begin
-	set signal = 0r
-	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
-
-	if n == 0
-	begin
-		set itoa_buff@i8 = '0'
-		return itoa_buff, 1
-	end if
-
-	if n < 0
-	begin
-		set signal = '-'
-		set n = -n
-	end if
-
-	while n > 0 begin
-		set p@i8 = (n % 10):i8 + '0'
-		set n /= 10;
-		set p -= 1p
-	end while
-
-	if signal == '-'
-	begin
-		set p@i8 = signal
-	end
-	else
-	begin
-		set p += 1p;
-	end if
-
-	return p, itoa_buff.size-(p-itoa_buff):i64 
 end proc
