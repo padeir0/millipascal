@@ -1,3 +1,95 @@
+# Compiler structure 
+
+The following is a folder tree together with the lines of code
+in each directory, each package is a single file,
+each file alone in it's folder.
+
+```
+.                      149
+├── amd64              819
+├── core               125
+│   ├── errorkind      220
+│   ├── hir            335
+│   │   ├── checker    470
+│   │   ├── class      43
+│   │   ├── flowkind   26
+│   │   ├── instrkind  91
+│   │   └── util       59
+│   ├── mir            298
+│   │   ├── checker    740
+│   │   ├── class      33
+│   │   ├── flowkind   26
+│   │   ├── instrkind  90
+│   │   └── util       60
+│   ├── module         199
+│   │   ├── lexkind    295
+│   │   └── symbolkind 30
+│   ├── types          197
+│   └── util           54
+├── lexer              719
+├── linearization      712
+├── messages           263
+├── parser             1131
+├── pipelines          147
+├── resalloc           1152
+├── resolution         494
+├── testing            141
+└── typechecker        828
+```
+
+`core` is where all the main datastructures live, the intermediate
+representations are each in a separate folder: `hir`, `mir` and `module`.
+Additionally, `type` is a representation of types that is used in all
+other representations.
+The package `core` itself has the Error data structure.
+
+`hir` and `mir` directories have the same structure, each
+carries a `checker` module that does semantic validation
+on the IR, the compiler uses this to validate transformations.
+
+`pipelines` is the second most important package, it ties together
+all passes into pipelines.
+
+The `testing` is a simple testing framework to process files from the
+`test_suite` folder and validate the correctness of the compiler.
+
+`messages` is a package containing most messages related to user errors.
+
+The rest of the folders outside of `core` are compiler passes, they
+form the following compiler pipeline:
+
+```
+     | file
+     v                                      
+ --------------  module    --------------- 
+ | resolution | ---------> | typechecker | 
+ --------------            --------------- 
+  | file     ^             typed module |  
+  v      ast |                          v  
+ ------------------      ----------------- 
+ | lexer | parser |      | linearization | 
+ ------------------      ----------------- 
+                                    hir |  
+                                        V  
+ ---------              mir   ------------ 
+ | amd64 | <----------------- | resalloc | 
+ ---------                    ------------ 
+  | fasm program                           
+  v                                        
+ --------             elf                  
+ | fasm | -------------------------------->
+ --------                                  
+```
+
+ - `resolution` resolves symbol names *and* modules
+ - `parser` is a recursive descent parser.
+ - `typechecker` is a (bad) typechecker that uses simple local inference.
+ - `resalloc` is a linear scanning register allocator.
+ - `amd64` is a (bad) code generator that transforms MIR into fasm code.
+ - `fasm` refers to the assembler, it's an external dependency.
+
+The rest of the file tries to document the semantic of each intermediate representation:
+
 # IR
 
 There are 3 Intermediate Representations:
@@ -7,7 +99,7 @@ There are 3 Intermediate Representations:
 	- LIR: direct representation of a specific machine
 
 HIR is transformed into MIR and MIR is transformed in
-one of the many possible LIRs.
+one of the many possible LIRs (there's only `amd64` for now)
 
 ## HIR
 
@@ -17,7 +109,7 @@ HIR's primary concern is regarding value flow between operations.
 
 While in HIR, operands can have the following classes:
 
-	temp	lit	local	global arg
+    temp    lit    local    global    arg
 
 And are grouped as:
 
@@ -54,11 +146,11 @@ They are procedures and memory declarations.
 
 HIR basic types are the following:
 
-	i8	i16	i32	i64	ptr	bool
+    i8    i16    i32    i64    ptr    bool
 
 And are grouped as:
 
-	Any    = i8|i16|i32|i64|ptr|bool
+	Any    = i8|i16|i32|i64|ptr|bool|proc
 	NonPtr = i8|i16|i32|i64|bool
 	Number = i8|i16|i32|i64|ptr
 	
@@ -114,9 +206,9 @@ between procedures occur.
 
 There are 7 types of storage classes:
 
-	register		spill			static
-	local			lit
-	caller_interproc	callee_interproc
+	register    spill    static
+	local       lit      callee_interproc
+	caller_interproc
 	
 They are grouped as:
 

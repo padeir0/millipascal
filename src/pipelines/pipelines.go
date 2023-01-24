@@ -15,10 +15,9 @@ import (
 	"mpc/amd64"
 	"mpc/lexer"
 	"mpc/linearization"
-	"mpc/nameresolution"
 	"mpc/parser"
 	"mpc/resalloc"
-	"mpc/resolver"
+	"mpc/resolution"
 	"mpc/typechecker"
 )
 
@@ -46,11 +45,7 @@ func Ast(file string) (*mod.Node, *Error) {
 // processes a file and all it's dependencies
 // returns a typed Module or an error
 func Mod(file string) (*mod.Module, *Error) {
-	m, err := resolver.Resolve(file)
-	if err != nil {
-		return nil, err
-	}
-	err = nameresolution.ResolveNames(m)
+	m, err := resolution.Resolve(file)
 	if err != nil {
 		return nil, err
 	}
