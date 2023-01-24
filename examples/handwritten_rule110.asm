@@ -41,34 +41,34 @@ entry $
 	call		reset_buffers
 	mov byte 	[line_A+(line_size/2)], alive
 
-	mov	r15, 0		; var counter <- 0;
+	mov	r15, 0		; set counter = 0;
 	mov	r14, line_A+1
 	mov	r13, line_B+1
 	
-loop_start: 			; for i < max_gen
+loop_start: 			; while i < max_gen begin
 	mov r12, r13
 	mov r11, r14
 	call	compute_gen
 
-	xchg	r13, r14	; swap current gen with next gen
+	xchg	r13, r14		; swap current gen with next gen
 	
-	inc 	r15			; counter <- counter -1;
+	inc 	r15				; set counter -= 1;
 	cmp 	r15, max_gen
-	jl	loop_start	; }
+	jl	loop_start		; end while
 	
-	mov	rdx, line_size-2	; print(current_gen);
+	mov	rdx, line_size-2	; print[current_gen];
 	mov	rsi, r14
 	mov	rdi, STDOUT
 	mov	rax, SYS_WRITE
 	syscall
 	
-	mov	rdx, 1			; print("\n");
+	mov	rdx, 1			; put_char['\n'];
 	mov	rsi, newline
 	mov	rdi, STDOUT
 	mov	rax, SYS_WRITE
 	syscall
 _end:
-	xor	rdi, rdi 	; exit(0);
+	xor	rdi, rdi 	; exit[0];
 	mov	rax, SYS_EXIT
 	syscall
 
@@ -83,16 +83,16 @@ reset_buffers:
 	mov	r10, line_A
 	mov	r11, line_B
 
-reset_loop:
+reset_loop: ; while counter < line_size begin
 	mov byte	[r10], dead
-	mov byte	[r11], dead 
+	mov byte	[r11], dead
 	
-	inc	r10		; increment pointers
+	inc	r10
 	inc	r11
 	
-	inc	r12		; loop shenanigans
+	inc	r12		
 	cmp	r12, line_size
-	jl	reset_loop
+	jl	reset_loop ; end while
 reset_ret:
 	ret
 
@@ -110,13 +110,13 @@ compute_gen:
 
 comp_loop:
 	cmp byte	[r11 - 1], dead
-	je		inp_0
+	je			inp_0
 inp_1:
 	cmp byte	[r11], dead
-	je		inp_10
+	je			inp_10
 inp_11:
 	cmp byte	[r11+1], dead
-	je		inp_110
+	je			inp_110
 inp_111:
 	mov byte	[r12], out_111
 	jmp comp_continue
@@ -135,10 +135,10 @@ inp_100:
 	
 inp_0:
 	cmp byte	[r11], dead
-	je		inp_00
+	je			inp_00
 inp_01:
 	cmp byte	[r11 + 1], dead
-	je		inp_010
+	je			inp_010
 inp_011:
 	mov byte	[r12], out_011
 	jmp comp_continue
@@ -147,7 +147,7 @@ inp_010:
 	jmp comp_continue
 inp_00:
 	cmp byte	[r11 + 1], dead
-	je		inp_000
+	je			inp_000
 inp_001:
 	mov byte	[r12], out_001
 	jmp comp_continue
@@ -156,10 +156,10 @@ inp_000:
 	jmp comp_continue
 
 comp_continue:
-	inc	r12	; incrementing pointers
+	inc	r12
 	inc	r11
 
-	inc	r10	; loop shenanigans
+	inc	r10
 	cmp	r10, line_size-2
 	jl	comp_loop
 	

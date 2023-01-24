@@ -41,7 +41,8 @@ each file alone in it's folder.
 representations are each in a separate folder: `hir`, `mir` and `module`.
 Additionally, `type` is a representation of types that is used in all
 other representations.
-The package `core` itself has the Error data structure.
+The package `core` itself has the Error data structure, and this compiler
+has very bad error messages, my advice is just to not write incorrect code.
 
 `hir` and `mir` directories have the same structure, each
 carries a `checker` module that does semantic validation

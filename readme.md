@@ -15,7 +15,13 @@ end proc
 It has only 6 basic types:
 
 ```
-i8	i16 	i32	i64	bool	ptr
+i8    i16     i32    i64    bool    ptr
+```
+
+And the `proc` complex types, a few examples:
+
+```
+proc[i8]bool    proc[ptr, i64][]    proc[][]
 ```
 
 `ptr` is an untyped pointer, similar to `void *`
@@ -126,5 +132,10 @@ but not by much.
 I won't change this, however, since this is how the stack frame
 works, this language is just a thin wrap over assembly.
 
-TODO: Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
-TODO: Generate minimum amount of copies in the frontend
+The language also has a very simple module system, each file is a module
+and all modules must live in the same folder. The name of the module is the
+name of the file. Check the `examples/stdlib` folder.
+
+TODO:
+ - Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
+ - Generate minimum amount of copies in the linearization phase

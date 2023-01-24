@@ -33,7 +33,7 @@ ponctuation:
 	=   ==  !=  >   >=  < 
 	<=  +   -   *   /   %
 	-=  +=  *=  /=  %=  .
-	@   ::
+	@   ::  ~
 
 basicTypes:
 	i8  i16  i32  i64  ptr  bool
@@ -103,7 +103,7 @@ multOp := '*' | '/' | '%'.
 UnaryPrefix := {Prefix} UnarySuffix.
 UnarySuffix := Factor {Suffix}.
 
-Prefix := 'not' | '+' | '-'.
+Prefix := 'not' | '~'.
 Suffix := Conversion
 	| Deref
 	| Call

@@ -66,7 +66,7 @@ type Excerpt struct {
 
 func (exc *Excerpt) String() string {
 	text := ""
-	if exc.Location == nil {
+	if exc.Location == nil || (exc.Location.Col == 0 && exc.Location.Line == 0) {
 		return exc.Message
 	}
 	if exc.Location.Input == nil {
