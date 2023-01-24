@@ -3,16 +3,14 @@ package testing
 import (
 	"strings"
 
-	"mpc/backend"
 	. "mpc/core"
 	et "mpc/core/errorkind"
-	"mpc/frontend"
-	lexer "mpc/frontend/lexer"
-	parser "mpc/frontend/parser"
-	. "mpc/util"
+	"mpc/pipelines"
 
 	"fmt"
 	"os"
+	"os/exec"
+	"time"
 )
 
 // files are tested by running them and
@@ -38,61 +36,12 @@ func (res *TestResult) String() string {
 	return "\u001b[31mfail\u001b[0m"
 }
 
-func Lex(file string) TestResult {
+func Test(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
-	s := ReadOrBurst(file)
-	st := lexer.NewLexer(s)
-	_, err := lexer.ReadAll(st)
-	return compareError(file, err, expectedErr)
-}
 
-func Parse(file string) TestResult {
-	defer recoverIfFatal()
-	expectedErr := extractError(file)
-	s := ReadOrBurst(file)
-	_, err := parser.Parse(s)
-	return compareError(file, err, expectedErr)
-}
+	name, err := pipelines.Compile(file)
 
-func Hir(file string) TestResult {
-	defer recoverIfFatal()
-	expectedErr := extractError(file)
-	_, err := frontend.All(file)
-	return compareError(file, err, expectedErr)
-}
-
-func Mir(file string) TestResult {
-	defer recoverIfFatal()
-	expectedErr := extractError(file)
-	M, err := frontend.All(file)
-	if err != nil {
-		if err.Type == et.InternalCompilerError {
-			return TestResult{
-				File:    file,
-				Ok:      false,
-				Message: err.Debug,
-			}
-		}
-		return compareError(file, err, expectedErr)
-	}
-	_, err = backend.Mir(M)
-	if err != nil {
-		return TestResult{
-			File:    file,
-			Ok:      false,
-			Message: err.Debug,
-		}
-	}
-	return Hir(file)
-}
-
-const testfilename = "./dont_use_this_name_EACDEFG1234"
-
-func All(file string) TestResult {
-	defer recoverIfFatal()
-	expectedErr := extractError(file)
-	M, err := frontend.All(file)
 	if err != nil {
 		if err.Type == et.InternalCompilerError {
 			return TestResult{
@@ -104,28 +53,29 @@ func All(file string) TestResult {
 		return compareError(file, err, expectedErr)
 	}
 
-	s, err := backend.Generate(M)
-	if err != nil {
-		return TestResult{
-			File:    file,
-			Ok:      false,
-			Message: err.Debug,
-		}
-	}
-	oserror := Fasm(s, testfilename)
-	if oserror != nil {
-		return newResult(file, oserror)
-	}
-	defer os.Remove(testfilename)
+	defer os.Remove("./" + name)
 
-	oserror = ExecWithTimeout(testfilename)
+	oserror := execWithTimeout("./" + name)
 	if oserror != nil {
-		return newResult(file, oserror)
+		return newResult(file, ProcessFileError(oserror))
 	}
 	return TestResult{
 		File: file,
 		Ok:   true,
 	}
+}
+
+func execWithTimeout(cmdstr string) error {
+	cmd := exec.Command(cmdstr)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	timer := time.AfterFunc(1*time.Second, func() {
+		cmd.Process.Kill()
+	})
+	err := cmd.Wait()
+	timer.Stop()
+	return err
 }
 
 func recoverIfFatal() {
@@ -182,10 +132,10 @@ func compareError(file string, err *Error, expectedErr string) TestResult {
 	}
 }
 
-func newResult(file string, e error) TestResult {
+func newResult(file string, e *Error) TestResult {
 	return TestResult{
 		File:    file,
 		Ok:      false,
-		Message: e.Error(),
+		Message: e.Debug,
 	}
 }

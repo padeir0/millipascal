@@ -1,4 +1,4 @@
-package gen
+package linearization
 
 import (
 	. "mpc/core"
@@ -10,7 +10,7 @@ import (
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	T "mpc/core/types"
-	msg "mpc/frontend/messages"
+	msg "mpc/messages"
 	"strconv"
 )
 
@@ -297,7 +297,7 @@ func genSet(M *ir.Module, c *context, set *ir.Node) {
 
 func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 	if call.Lex != lex.CALL {
-		panic("must be CALL:\n" + ir.FmtNode(call))
+		panic("must be CALL:\n" + call.String())
 	}
 	// TODO: OPT: pass assignees to genCall so that no copying needs to happen
 	rets := genCall(M, c, call)
@@ -443,7 +443,7 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.LexKi
 
 func genExpr(M *ir.Module, c *context, exp *ir.Node) *hir.Operand {
 	if T.IsInvalid(exp.T) {
-		panic("invalid type at: " + exp.String())
+		panic("invalid type at: " + exp.Text)
 	}
 	switch exp.Lex {
 	case lex.IDENTIFIER:
@@ -476,7 +476,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) *hir.Operand {
 	case lex.DOT:
 		return genDot(M, c, exp)
 	}
-	panic("invalid or unimplemented expression type: " + exp.String())
+	panic("invalid or unimplemented expression type: " + exp.Text)
 }
 
 // assume a single return

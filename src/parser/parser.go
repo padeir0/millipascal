@@ -1,12 +1,12 @@
 package parser
 
 import (
+	"fmt"
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
 	T "mpc/core/module/lexkind"
-	. "mpc/core/module/util"
-	. "mpc/frontend/lexer"
+	. "mpc/lexer"
 )
 
 func Parse(s string) (*ir.Node, *Error) {
@@ -883,4 +883,249 @@ func prefixOp(st *Lexer) (*ir.Node, *Error) {
 
 func isComma(n *ir.Node) bool {
 	return n.Lex == T.COMMA
+}
+func AddLeaf(a *ir.Node, b *ir.Node) {
+	a.Leaves = append(a.Leaves, b)
+}
+
+func Consume(st *Lexer) (*ir.Node, *Error) {
+	n := st.Word
+	err := Next(st)
+	return n, err
+}
+
+func Check(st *Lexer, tpList ...T.LexKind) *Error {
+	for _, tp := range tpList {
+		if st.Word.Lex == tp {
+			return nil
+		}
+	}
+	message := fmt.Sprintf("Expected one of %v: instead found '%v'",
+		T.FmtToUser(tpList...),
+		st.Word.String())
+
+	err := NewCompilerError(st, et.ExpectedSymbol, message)
+
+	err.Debug = fmt.Sprintf("found: %v, wanted: %v",
+		T.FmtTypes(tpList...),
+		T.FmtTypes(st.Word.Lex))
+	return err
+}
+
+func Expect(st *Lexer, tpList ...T.LexKind) (*ir.Node, *Error) {
+	for _, tp := range tpList {
+		if st.Word.Lex == tp {
+			return Consume(st)
+		}
+	}
+	message := fmt.Sprintf("Expected one of %v: instead found '%v'",
+		T.FmtToUser(tpList...),
+		st.Word.String())
+
+	err := NewCompilerError(st, et.ExpectedSymbol, message)
+
+	err.Debug = fmt.Sprintf("found: %v, wanted: %v",
+		T.FmtTypes(tpList...),
+		T.FmtTypes(st.Word.Lex))
+	return nil, err
+}
+
+func ExpectProd(st *Lexer, prod Production, name string) (*ir.Node, *Error) {
+	n, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		message := fmt.Sprintf("expected %v instead found %v", name, st.Word.String())
+		err := NewCompilerError(st, et.ExpectedProd, message)
+		return nil, err
+	}
+	return n, err
+}
+
+type Production func(st *Lexer) (*ir.Node, *Error)
+type Validator func(*ir.Node) bool
+
+/* RepeatBinary implements the following pattern
+for a given Production and Terminal:
+
+	RepeatBinary := Production {Terminal Production}
+
+Validator checks for terminals.
+Left to Right precedence
+*/
+func RepeatBinary(st *Lexer, prod Production, name string, v Validator) (*ir.Node, *Error) {
+	last, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if last == nil {
+		return nil, nil
+	}
+	for v(st.Word) {
+		parent, err := Consume(st)
+		if err != nil {
+			return nil, err
+		}
+		AddLeaf(parent, last)
+
+		newLeaf, err := ExpectProd(st, prod, name)
+		if err != nil {
+			return nil, err
+		}
+		AddLeaf(parent, newLeaf)
+
+		last = parent
+	}
+	return last, nil
+}
+
+/* Repeat implements the following pattern
+for a given Production:
+
+	Repeat := {Production}.
+*/
+func Repeat(st *Lexer, prod Production) ([]*ir.Node, *Error) {
+	out := []*ir.Node{}
+	n, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, nil
+	}
+	for n != nil {
+		out = append(out, n)
+		n, err = prod(st)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+/*RepeatUnaryLeft implements the following pattern
+for a given Production:
+
+	RepeatUnaryLeft := {Production}.
+
+But returns the first and last item in the tree.
+
+It's Left associative: first<-second<-last
+*/
+func RepeatUnaryLeft(st *Lexer, prod Production) (*ir.Node, *ir.Node, *Error) {
+	first, err := prod(st)
+	if err != nil {
+		return nil, nil, err
+	}
+	if first == nil {
+		return nil, nil, nil
+	}
+	last := first
+	for first != nil {
+		n, err := prod(st)
+		if err != nil {
+			return nil, nil, err
+		}
+		if n == nil {
+			break
+		}
+		AddLeaf(last, n)
+		last = n
+	}
+	return first, last, nil
+}
+
+func RepeatUnaryRight(st *Lexer, prod Production) (*ir.Node, *ir.Node, *Error) {
+	first, err := prod(st)
+	if err != nil {
+		return nil, nil, err
+	}
+	if first == nil {
+		return nil, nil, nil
+	}
+	last := first
+	for first != nil {
+		n, err := prod(st)
+		if err != nil {
+			return nil, nil, err
+		}
+		if n == nil {
+			break
+		}
+		AddLeaf(n, last)
+		last = n
+	}
+	return first, last, nil
+}
+
+/* RepeatList implements the following pattern
+for a given Production and Terminal:
+
+	RepeatBinary := Production {Terminal Production}
+
+Validator checks for terminals.
+
+It differs from RepeatBinary in that it returns a slice
+instead of a Tree with precedence
+*/
+func RepeatList(st *Lexer, prod Production, val Validator) ([]*ir.Node, *Error) {
+	first, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if first == nil {
+		return nil, nil
+	}
+	out := []*ir.Node{first}
+	for val(st.Word) {
+		Next(st)
+		n, err := prod(st)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+// Implements the pattern:
+//    RepeatBinary := Production {',' Production} [','].
+func RepeatCommaList(st *Lexer, prod Production) ([]*ir.Node, *Error) {
+	first, err := prod(st)
+	if err != nil {
+		return nil, err
+	}
+	if first == nil {
+		return nil, nil
+	}
+	out := []*ir.Node{first}
+	for st.Word.Lex == T.COMMA {
+		Next(st)
+		n, err := prod(st)
+		if err != nil {
+			return nil, err
+		}
+		if n != nil {
+			out = append(out, n)
+		}
+	}
+	if st.Word.Lex == T.COMMA {
+		err := Next(st)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func CreateNode(nodes []*ir.Node, t T.LexKind) *ir.Node {
+	return &ir.Node{
+		Lex:    t,
+		Leaves: nodes,
+	}
+}
+
+func ExpectedEOF(s *Lexer) *Error {
+	return NewCompilerError(s, et.ExpectedEOF, "unexpected symbol")
 }

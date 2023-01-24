@@ -6,7 +6,7 @@ import (
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	T "mpc/core/types"
-	msg "mpc/frontend/messages"
+	msg "mpc/messages"
 )
 
 func Check(M *ir.Module) *Error {
@@ -238,7 +238,7 @@ func getType(n *ir.Node) *T.Type {
 	case lex.PROC:
 		return getProcType(n)
 	}
-	panic("getType: what: " + ir.FmtNode(n))
+	panic("getType: what: " + n.String())
 }
 
 func getProcType(n *ir.Node) *T.Type {

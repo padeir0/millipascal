@@ -112,12 +112,12 @@ func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *Err
 }
 
 func ErrorExpectedProcedure(M *ir.Module, n *ir.Node) *Error {
-	info := NewNodeInfo(n, "is not a procedure (type: "+n.String()+")")
+	info := NewNodeInfo(n, "is not a procedure (type: "+n.T.String()+")")
 	return NewSemanticError(M, et.ExpectedProcedure, info)
 }
 
 func ErrorExpectedBasicType(M *ir.Module, n *ir.Node) *Error {
-	info := NewNodeInfo(n, "is not of a basic type (type: "+n.String()+")")
+	info := NewNodeInfo(n, "is not of a basic type (type: "+n.T.String()+")")
 	return NewSemanticError(M, et.ExpectedBasicType, info)
 }
 

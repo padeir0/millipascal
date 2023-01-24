@@ -116,3 +116,10 @@ func pointColumn(s string, sCol int, message string) string {
 	}
 	return newS
 }
+
+func ProcessFileError(e error) *Error {
+	return &Error{
+		Type:  et.FileError,
+		Debug: e.Error(),
+	}
+}

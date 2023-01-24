@@ -23,13 +23,6 @@ type Node struct {
 }
 
 func (n *Node) String() string {
-	if n.Lex == lex.EOF {
-		return "EOF"
-	}
-	return n.Text
-}
-
-func FmtNode(n *Node) string {
 	return ast(n, 0)
 }
 

@@ -6,9 +6,9 @@ import (
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
 	T "mpc/core/module/lexkind"
-	"mpc/frontend/lexer"
-	msg "mpc/frontend/messages"
-	"mpc/frontend/parser"
+	"mpc/lexer"
+	msg "mpc/messages"
+	"mpc/parser"
 	"strings"
 )
 

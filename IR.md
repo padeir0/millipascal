@@ -316,16 +316,12 @@ Convert i16 -> i64:
 Convert i32 -> i64:
 	movsx rax, eax
 Convert t -> t
-	ignore
+	mov
 Convert bool -> numerical
-	just change the register name?
+	mov
 Call:
 	call a
 ```
-
-these are not allowed:
-convert Big -> small
-convert Numerical -> Bool
 
 ### Built-in procedures
 

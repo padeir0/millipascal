@@ -2,20 +2,20 @@ package main
 
 import (
 	"flag"
-	"mpc/backend"
-	mod "mpc/core/module"
-	"mpc/frontend"
+	"fmt"
+	. "mpc/core"
+	"mpc/pipelines"
 	"mpc/testing"
-	. "mpc/util"
 	"os"
 	"strconv"
+	"strings"
 )
 
-var lexOnly = flag.Bool("lex", false, "runs the lexer and prints the tokens")
-var parseOnly = flag.Bool("parse", false, "runs the lexer and parser, prints AST output")
-var hirOnly = flag.Bool("hir", false, "runs the full frontend, prints hir")
-var mirOnly = flag.Bool("mir", false, "runs the full compiler, prints mir")
-var asmOnly = flag.Bool("asm", false, "runs the full compiler, prints asm")
+var lexemes = flag.Bool("lexemes", false, "runs the lexer and prints the tokens")
+var ast = flag.Bool("ast", false, "runs the lexer and parser, prints AST output")
+var hir = flag.Bool("hir", false, "runs the full frontend, prints hir")
+var mir = flag.Bool("mir", false, "runs the full compiler, prints mir")
+var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
 
 var test = flag.Bool("test", false, "runs tests for all files in a folder,"+
 	" you can specify the stage to test using the other flags\n"+
@@ -33,85 +33,50 @@ func main() {
 	eval(args[0])
 }
 
-func eval(s string) {
+func eval(filename string) {
 	checkValid()
 	if *test {
-		res := Test(s, testingMode())
+		res := Test(filename)
 		printResults(res)
 		return
 	}
-	normalMode(s)
+	normalMode(filename)
 }
 
-func testingMode() testing.Tester {
+func normalMode(filename string) {
 	switch true {
-	case *lexOnly:
-		return testing.Lex
-	case *parseOnly:
-		return testing.Parse
-	case *hirOnly:
-		return testing.Hir
-	case *mirOnly:
-		return testing.Mir
-	case *asmOnly:
-		return testing.Mir
-	default:
-		return testing.All
-	}
-}
-
-func normalMode(s string) {
-	switch true {
-	case *lexOnly:
-		lexemes, err := frontend.Lex(s)
+	case *lexemes:
+		lexemes, err := pipelines.Lexemes(filename)
 		OkOrBurst(err)
+		output := []string{}
 		for _, lexeme := range lexemes {
-			Stdout(lexeme.String())
-			Stdout("\n")
+			output = append(output, lexeme.Text)
 		}
-	case *parseOnly:
-		n, err := frontend.Parse(s)
-		Stdout("\n-----AST\n")
-		Stdout(mod.FmtNode(n))
-		Stdout("\n")
+		fmt.Println(strings.Join(output, ", "))
+	case *ast:
+		n, err := pipelines.Ast(filename)
 		OkOrBurst(err)
-	case *hirOnly:
-		hirP, err := frontend.All(s)
-		Stdout("\n-----HIR\n")
-		Stdout(hirP.String())
-		Stdout("\n")
+		fmt.Println(n)
+	case *hir:
+		hirP, err := pipelines.Hir(filename)
 		OkOrBurst(err)
-
-	case *mirOnly:
-		hirP, err := frontend.All(s)
-		Stdout("\n-----HIR\n")
-		Stdout(hirP.String())
+		fmt.Println(hirP)
+	case *mir:
+		mirP, err := pipelines.Mir(filename)
 		OkOrBurst(err)
-
-		mirP, err := backend.Mir(hirP)
-		Stdout("\n-----MIR\n")
-		Stdout(mirP.String())
+		fmt.Println(mirP)
+	case *asm:
+		fp, err := pipelines.Fasm(filename)
 		OkOrBurst(err)
-	case *asmOnly:
-		m, err := frontend.All(s)
-		OkOrBurst(err)
-		s, err = backend.Generate(m)
-		OkOrBurst(err)
-		Stdout(s)
+		fmt.Println(fp.Contents)
 	default:
-		m, err := frontend.All(s)
+		_, err := pipelines.Compile(filename)
 		OkOrBurst(err)
-		s, err = backend.Generate(m)
-		OkOrBurst(err)
-		e := Fasm(s, m.Name)
-		if e != nil {
-			Fatal(e.Error())
-		}
 	}
 }
 
 func checkValid() {
-	var selected = []bool{*lexOnly, *parseOnly, *hirOnly, *mirOnly, *asmOnly}
+	var selected = []bool{*lexemes, *ast, *hir, *mir, *asm}
 	var count = 0
 	for _, b := range selected {
 		if b {
@@ -139,7 +104,7 @@ func printResults(results []*testing.TestResult) {
 	Stdout("total: " + strconv.Itoa(len(results)) + "\n")
 }
 
-func Test(folder string, tester testing.Tester) []*testing.TestResult {
+func Test(folder string) []*testing.TestResult {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		Fatal(err.Error() + "\n")
@@ -151,13 +116,13 @@ func Test(folder string, tester testing.Tester) []*testing.TestResult {
 			if *verbose {
 				Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
 			}
-			res := Test(fullpath, tester)
+			res := Test(fullpath)
 			results = append(results, res...)
 			if *verbose {
 				Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
 			}
 		} else {
-			res := tester(fullpath)
+			res := testing.Test(fullpath)
 			results = append(results, &res)
 			if *verbose {
 				Stdout("testing: " + fullpath + "\t")
@@ -166,4 +131,19 @@ func Test(folder string, tester testing.Tester) []*testing.TestResult {
 		}
 	}
 	return results
+}
+
+func OkOrBurst(e *Error) {
+	if e != nil {
+		Fatal(e.String())
+	}
+}
+
+func Stdout(s string) {
+	os.Stdout.Write([]byte(s))
+}
+
+func Fatal(s string) {
+	os.Stderr.Write([]byte(s))
+	os.Exit(0)
 }

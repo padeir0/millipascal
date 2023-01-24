@@ -6,7 +6,7 @@ import (
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	T "mpc/core/types"
-	msg "mpc/frontend/messages"
+	msg "mpc/messages"
 )
 
 func ResolveNames(M *ir.Module) *Error {

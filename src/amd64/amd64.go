@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func Generate(P *mir.Program) *fasmProgram {
+func Generate(P *mir.Program) *FasmProgram {
 	output := &fasmProgram{
 		executable: []*fasmProc{genWrite(P), genRead(P), genError(P)},
 		data:       []*fasmData{},
@@ -27,7 +27,15 @@ func Generate(P *mir.Program) *fasmProgram {
 			}
 		}
 	}
-	return output
+	return &FasmProgram{
+		Contents: output.String(),
+		Name:     P.Name,
+	}
+}
+
+type FasmProgram struct {
+	Name     string
+	Contents string
 }
 
 type fasmProgram struct {

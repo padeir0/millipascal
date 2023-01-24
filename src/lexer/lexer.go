@@ -14,6 +14,12 @@ import (
 
 const IsTracking bool = false
 
+func Track(st *Lexer, s string) {
+	if IsTracking {
+		fmt.Printf("%v: %v\n", s, st.Word.String())
+	}
+}
+
 func NewLexerError(st *Lexer, t et.ErrorKind, message string) *Error {
 	loc := GetSourceLocation(st)
 	return &Error{
@@ -25,6 +31,28 @@ func NewLexerError(st *Lexer, t et.ErrorKind, message string) *Error {
 			},
 		},
 	}
+}
+
+func NewCompilerError(st *Lexer, t et.ErrorKind, message string) *Error {
+	loc := GetSourceLocation(st)
+	return &Error{
+		Type: t,
+		Info: []Excerpt{
+			{
+				Location: &loc,
+				Message:  message,
+			},
+		},
+	}
+}
+
+func AllTokens(s *Lexer) []*ir.Node {
+	output := []*ir.Node{}
+	for s.Word.Lex != T.EOF {
+		output = append(output, s.Word)
+		Next(s)
+	}
+	return output
 }
 
 type Lexer struct {

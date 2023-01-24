@@ -2,5 +2,5 @@
 
 for i in {0..100}
 do
-  go run . -test test_suite
+  go run . -test ../test_suite
 done
