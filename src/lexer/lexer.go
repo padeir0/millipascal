@@ -6,6 +6,7 @@ import (
 
 	. "mpc/core"
 	et "mpc/core/errorkind"
+	sv "mpc/core/severity"
 
 	"fmt"
 	"strings"
@@ -21,28 +22,12 @@ func Track(st *Lexer, s string) {
 }
 
 func NewLexerError(st *Lexer, t et.ErrorKind, message string) *Error {
-	loc := GetSourceLocation(st)
+	loc := st.GetSourceLocation()
 	return &Error{
-		Type: t,
-		Info: []Excerpt{
-			{
-				Location: &loc,
-				Message:  message,
-			},
-		},
-	}
-}
-
-func NewCompilerError(st *Lexer, t et.ErrorKind, message string) *Error {
-	loc := GetSourceLocation(st)
-	return &Error{
-		Type: t,
-		Info: []Excerpt{
-			{
-				Location: &loc,
-				Message:  message,
-			},
-		},
+		Code:     t,
+		Severity: sv.Error,
+		Location: loc,
+		Message:  message,
 	}
 }
 
@@ -50,7 +35,7 @@ func AllTokens(s *Lexer) []*ir.Node {
 	output := []*ir.Node{}
 	for s.Word.Lex != T.EOF {
 		output = append(output, s.Word)
-		Next(s)
+		s.Next()
 	}
 	return output
 }
@@ -58,8 +43,9 @@ func AllTokens(s *Lexer) []*ir.Node {
 type Lexer struct {
 	Word *ir.Node
 
-	File      string
-	Line, Col int
+	File                string
+	BeginLine, BeginCol int
+	EndLine, EndCol     int
 
 	Start, End   int
 	LastRuneSize int
@@ -68,57 +54,58 @@ type Lexer struct {
 	Peeked *ir.Node
 }
 
-func NewLexer(s string) *Lexer {
+func NewLexer(filename string, s string) *Lexer {
 	st := &Lexer{
+		File:  filename,
 		Input: s,
 	}
 	return st
 }
 
-func GetSourceLocation(s *Lexer) SourceLocation {
-	return SourceLocation{
-		File:  s.File,
-		Line:  s.Line,
-		Col:   s.Col,
-		Input: &s.Input,
+func (this *Lexer) GetSourceLocation() *Location {
+	return &Location{
+		File:  this.File,
+		Range: this.Range(),
 	}
 }
 
-func Next(l *Lexer) *Error {
-	if l.Peeked != nil {
-		p := l.Peeked
-		l.Peeked = nil
-		l.Word = p
+func (this *Lexer) Next() *Error {
+	if this.Peeked != nil {
+		p := this.Peeked
+		this.Peeked = nil
+		this.Word = p
 		return nil
 	}
-	symbol, err := any(l)
+	symbol, err := any(this)
 	if err != nil {
 		return err
 	}
-	l.Start = l.End // this shouldn't be here
-	l.Word = symbol
+	this.Start = this.End // this shouldn't be here
+	this.BeginLine = this.EndLine
+	this.BeginCol = this.EndCol
+	this.Word = symbol
 	return nil
 }
 
-func Peek(s *Lexer) (*ir.Node, *Error) {
-	symbol, err := any(s)
+func (this *Lexer) Peek() (*ir.Node, *Error) {
+	symbol, err := any(this)
 	if err != nil {
 		return nil, err
 	}
-	s.Start = s.End
-	s.Peeked = symbol
+	this.Start = this.End
+	this.Peeked = symbol
 	return symbol, nil
 }
 
-func ReadAll(s *Lexer) ([]*ir.Node, *Error) {
-	e := Next(s)
+func (this *Lexer) ReadAll() ([]*ir.Node, *Error) {
+	e := this.Next()
 	if e != nil {
 		return nil, e
 	}
 	output := []*ir.Node{}
-	for s.Word.Lex != T.EOF {
-		output = append(output, s.Word)
-		e = Next(s)
+	for this.Word.Lex != T.EOF {
+		output = append(output, this.Word)
+		e = this.Next()
 		if e != nil {
 			return nil, e
 		}
@@ -126,42 +113,69 @@ func ReadAll(s *Lexer) ([]*ir.Node, *Error) {
 	return output, nil
 }
 
-func GenNumNode(l *Lexer, tp T.LexKind, value int64) *ir.Node {
-	text := Selected(l)
+func (this *Lexer) Selected() string {
+	return this.Input[this.Start:this.End]
+}
+
+func (this *Lexer) Range() *Range {
+	return &Range{
+		Begin: Position{
+			Line:   this.BeginLine,
+			Column: this.BeginCol,
+		},
+		End: Position{
+			Line:   this.EndLine,
+			Column: this.EndCol,
+		},
+	}
+}
+
+func genNumNode(l *Lexer, tp T.LexKind, value int64) *ir.Node {
+	text := l.Selected()
 	n := &ir.Node{
-		Lex:    tp,
-		Text:   text,
-		Line:   l.Line,
-		Value:  value,
-		Col:    l.Col - len(text),
-		Length: len(text),
+		Lex:   tp,
+		Text:  text,
+		Value: value,
+		Range: l.Range(),
 	}
 	return n
 }
 
-func GenNode(l *Lexer, tp T.LexKind) *ir.Node {
-	text := Selected(l)
+func genNode(l *Lexer, tp T.LexKind) *ir.Node {
+	text := l.Selected()
 	n := &ir.Node{
-		Lex:    tp,
-		Text:   text,
-		Line:   l.Line,
-		Col:    l.Col - len(text),
-		Length: len(text),
+		Lex:   tp,
+		Text:  text,
+		Range: l.Range(),
 	}
 	return n
 }
 
-func nextRune(l *Lexer) (rune, *Error) {
-	l.Col++
+func nextRune(l *Lexer) rune {
 	r, size := utf8.DecodeRuneInString(l.Input[l.End:])
 	if r == utf8.RuneError && size == 1 {
-		err := NewLexerError(l, et.InvalidUTF8Rune, "Invalid UTF8 rune in string")
-		return -1, err
+		panic("Invalid UTF8 rune in string")
 	}
 	l.End += size
 	l.LastRuneSize = size
 
-	return r, nil
+	if r == '\n' {
+		l.EndLine++
+		l.EndCol = 0
+	} else {
+		l.EndCol++
+	}
+
+	return r
+}
+
+func peekRune(l *Lexer) rune {
+	r, size := utf8.DecodeRuneInString(l.Input[l.End:])
+	if r == utf8.RuneError && size == 1 {
+		panic("Invalid UTF8 rune in string") // really, if this ever happens you should get a panic, i don't care, what the fuck were they thinking when they inserted an invalid character in utf8? its like "lets have a null-unsafe encoding just for fun" do these people really like null reference exceptions all that much? what the actual fuck, this is the last time i use a variable width retarded encoding, ascii is a shitstorm too but at least it isn't retarded like this
+	}
+
+	return r
 }
 
 /*ignore ignores the text previously read*/
@@ -170,44 +184,20 @@ func ignore(l *Lexer) {
 	l.LastRuneSize = 0
 }
 
-/*unread decrements the end index by the size of the last rune read,
-can only be used once after a Next()*/
-func unread(l *Lexer) {
-	if l.End > 0 {
-		l.End -= l.LastRuneSize
-		l.LastRuneSize = 0
-		l.Col--
-	}
-}
-
-func acceptRun(l *Lexer, s string) *Error {
-	r, err := nextRune(l)
-	if err != nil {
-		return err
-	}
+func acceptRun(l *Lexer, s string) {
+	r := peekRune(l)
 	for strings.ContainsRune(s, r) {
-		r, err = nextRune(l)
-		if err != nil {
-			return err
-		}
+		nextRune(l)
+		r = peekRune(l)
 	}
-	unread(l)
-	return nil
 }
 
-func acceptUntil(l *Lexer, s string) *Error {
-	r, err := nextRune(l)
-	if err != nil {
-		return err
-	}
+func acceptUntil(l *Lexer, s string) {
+	r := peekRune(l)
 	for !strings.ContainsRune(s, r) {
-		r, err = nextRune(l)
-		if err != nil {
-			return err
-		}
+		nextRune(l)
+		r = peekRune(l)
 	}
-	unread(l)
-	return nil
 }
 
 const (
@@ -215,10 +205,6 @@ const (
 	If the rune is invalid, it panics instead*/
 	eof rune = utf8.RuneError
 )
-
-func Selected(l *Lexer) string {
-	return l.Input[l.Start:l.End]
-}
 
 const (
 	insideStr  = `\"`
@@ -237,273 +223,240 @@ func isLetter(r rune) bool {
 	return strings.ContainsRune(letters, r)
 }
 
-func ignoreWhitespace(st *Lexer) *Error {
-	r, err := nextRune(st)
+func ignoreWhitespace(st *Lexer) {
+	r := peekRune(st)
 loop:
 	for {
 		switch r {
-		case ' ', '\t':
-		case '\n':
-			st.Line++
-			st.Col = 0
+		case ' ', '\t', '\n':
+			nextRune(st)
 		case '#':
 			comment(st)
 		default:
 			break loop
 		}
-		ignore(st)
-		r, err = nextRune(st)
-		if err != nil {
-			return err
-		}
+		r = peekRune(st)
 	}
-	unread(st)
-	return nil
+	ignore(st)
 }
 
 // refactor this
 func any(st *Lexer) (*ir.Node, *Error) {
-	var err *Error
 	var r rune
 	var tp T.LexKind
 
-	err = ignoreWhitespace(st)
+	ignoreWhitespace(st)
 
-	r, err = nextRune(st)
-	if err != nil {
-		return nil, err
-	}
+	r = peekRune(st)
 
 	if isNumber(r) {
-		unread(st)
-		return number(st)
+		return number(st), nil
 	}
 	if isLetter(r) {
-		return identifier(st)
+		return identifier(st), nil
 	}
 	if r == '\'' {
-		return charLit(st)
+		return charLit(st), nil
 	}
 	if r == '"' {
-		return strLit(st)
+		return strLit(st), nil
 	}
 
 	switch r {
 	case '+':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.PLUS_ASSIGN
 		default:
-			unread(st)
 			tp = T.PLUS
 		}
 	case '-':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.MINUS_ASSIGN
 		default:
-			unread(st)
 			tp = T.MINUS
 		}
 	case '/':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.DIVISION_ASSIGN
 		default:
-			unread(st)
 			tp = T.DIVISION
 		}
 	case '*':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.MULTIPLICATION_ASSIGN
 		default:
-			unread(st)
 			tp = T.MULTIPLICATION
 		}
 	case '%':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.REMAINDER_ASSIGN
 		default:
-			unread(st)
 			tp = T.REMAINDER
 		}
 	case '@':
+		nextRune(st)
 		tp = T.AT
 	case '~':
+		nextRune(st)
 		tp = T.NEG
 	case '(':
+		nextRune(st)
 		tp = T.LEFTPAREN
 	case ')':
+		nextRune(st)
 		tp = T.RIGHTPAREN
 	case '{':
+		nextRune(st)
 		tp = T.LEFTBRACE
 	case '}':
+		nextRune(st)
 		tp = T.RIGHTBRACE
 	case '[':
+		nextRune(st)
 		tp = T.LEFTBRACKET
 	case ']':
+		nextRune(st)
 		tp = T.RIGHTBRACKET
 	case ',':
+		nextRune(st)
 		tp = T.COMMA
-	case ':':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
-		switch r {
-		case ':':
-			tp = T.DOUBLECOLON
-		default:
-			unread(st)
-			tp = T.COLON
-		}
 	case ';':
+		nextRune(st)
 		tp = T.SEMICOLON
 	case '.':
+		nextRune(st)
 		tp = T.DOT
-	case '>': // >  >=
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
+	case ':':
+		nextRune(st)
+		r = peekRune(st)
+		switch r {
+		case ':':
+			nextRune(st)
+			tp = T.DOUBLECOLON
+		default:
+			tp = T.COLON
 		}
+	case '>': // >  >=
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.MOREEQ
 		default:
-			unread(st)
 			tp = T.MORE
 		}
 	case '<': // <  <-  <=
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.LESSEQ
 		default:
-			unread(st)
 			tp = T.LESS
 		}
 	case '!':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case '=':
+			nextRune(st)
 			tp = T.DIFFERENT
 		default:
-			unread(st)
 			message := fmt.Sprintf("Invalid symbol: %v", string(r))
 			err := NewLexerError(st, et.InvalidSymbol, message)
 			return nil, err
 		}
 	case '=':
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		nextRune(st)
+		r = peekRune(st)
 		if r == '=' {
+			nextRune(st)
 			tp = T.EQUALS
 		} else {
-			unread(st)
 			tp = T.ASSIGNMENT
 		}
 	case eof:
+		nextRune(st)
 		return &ir.Node{Lex: T.EOF}, nil
 	default:
 		message := fmt.Sprintf("Invalid symbol: %v", string(r))
 		err := NewLexerError(st, et.InvalidSymbol, message)
 		return nil, err
 	}
-	return GenNode(st, tp), nil
+	return genNode(st, tp), nil
 }
 
 // sorry
-func number(st *Lexer) (*ir.Node, *Error) {
-	r, err := nextRune(st)
-	if err != nil {
-		return nil, err
-	}
+func number(st *Lexer) *ir.Node {
+	r := peekRune(st)
 	var value int64
 	if r == '0' {
-		r, err = nextRune(st)
+		nextRune(st)
+		r = peekRune(st)
 		switch r {
 		case 'x': // he x
-			err = acceptRun(st, hex_digits)
-			if err != nil {
-				return nil, err
-			}
-			value = parseHex(Selected(st))
+			nextRune(st)
+			acceptRun(st, hex_digits)
+			value = parseHex(st.Selected())
 		case 'b': // b inary
-			err = acceptRun(st, bin_digits)
-			if err != nil {
-				return nil, err
-			}
-			value = parseBin(Selected(st))
+			nextRune(st)
+			acceptRun(st, bin_digits)
+			value = parseBin(st.Selected())
 		default:
-			unread(st)
-			err = acceptRun(st, digits)
-			if err != nil {
-				return nil, err
-			}
-			value = parseNormal(Selected(st))
+			acceptRun(st, digits)
+			value = parseNormal(st.Selected())
 		}
 	} else {
-		unread(st)
-		err = acceptRun(st, digits)
-		if err != nil {
-			return nil, err
-		}
-		value = parseNormal(Selected(st))
+		acceptRun(st, digits)
+		value = parseNormal(st.Selected())
 	}
-	r, err = nextRune(st)
-	if err != nil {
-		return nil, err
-	}
+	r = peekRune(st)
 	switch r {
 	case 'p': // p ointer
-		return GenNumNode(st, T.PTR_LIT, value), nil
+		nextRune(st)
+		return genNumNode(st, T.PTR_LIT, value)
 	case 'r': // cha r
-		return GenNumNode(st, T.I8_LIT, value), nil
+		nextRune(st)
+		return genNumNode(st, T.I8_LIT, value)
 	case 't': // shor t
-		return GenNumNode(st, T.I16_LIT, value), nil
+		nextRune(st)
+		return genNumNode(st, T.I16_LIT, value)
 	case 'g': // lon g
-		return GenNumNode(st, T.I32_LIT, value), nil
+		nextRune(st)
+		return genNumNode(st, T.I32_LIT, value)
 	}
-	unread(st)
-	return GenNumNode(st, T.I64_LIT, value), nil
+	return genNumNode(st, T.I64_LIT, value)
 }
 
-func identifier(st *Lexer) (*ir.Node, *Error) {
-	err := acceptRun(st, digits+letters)
-	if err != nil {
-		return nil, err
+func identifier(st *Lexer) *ir.Node {
+	r := peekRune(st)
+	if !isLetter(r) {
+		panic("identifier not beginning with letter")
 	}
-	selected := Selected(st)
+	acceptRun(st, digits+letters)
+	selected := st.Selected()
 	tp := T.IDENTIFIER
 	switch selected {
 	case "var":
@@ -559,84 +512,73 @@ func identifier(st *Lexer) (*ir.Node, *Error) {
 	case "ptr":
 		tp = T.PTR
 	}
-	return GenNode(st, tp), nil
+	return genNode(st, tp)
 }
 
 func comment(st *Lexer) *Error {
-	r, err := nextRune(st)
-	if err != nil {
-		return err
+	r := nextRune(st)
+	if r != '#' {
+		panic("internal error: comment without '#'")
 	}
 	for !strings.ContainsRune("\n"+string(eof), r) {
-		r, err = nextRune(st)
-		if err != nil {
-			return err
-		}
+		nextRune(st)
+		r = peekRune(st)
 	}
-	if r == '\n' {
-		unread(st)
-	}
+	nextRune(st)
 	return nil
 }
 
-func strLit(st *Lexer) (*ir.Node, *Error) {
+func strLit(st *Lexer) *ir.Node {
+	r := nextRune(st)
+	if r != '"' {
+		panic("wong")
+	}
 	for {
-		err := acceptUntil(st, insideStr)
-		if err != nil {
-			return nil, err
-		}
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		acceptUntil(st, insideStr)
+		r := peekRune(st)
 		if r == '"' {
+			nextRune(st)
 			return &ir.Node{
-				Text: Selected(st),
-				Lex:  T.STRING_LIT,
-				Line: st.Line,
-				Col:  st.Col,
-			}, nil
-		}
-		if r == '\\' {
-			_, err = nextRune(st) // escaped rune
-			if err != nil {
-				return nil, err
+				Text:  st.Selected(),
+				Lex:   T.STRING_LIT,
+				Range: st.Range(),
 			}
 		}
-		unread(st)
+		if r == '\\' {
+			nextRune(st) // \
+			nextRune(st) // escaped rune
+		}
 	}
 }
 
-func charLit(st *Lexer) (*ir.Node, *Error) {
+func charLit(st *Lexer) *ir.Node {
+	r := nextRune(st)
+	if r != '\'' {
+		panic("wong")
+	}
 	for {
 		acceptUntil(st, insideChar)
-		r, err := nextRune(st)
-		if err != nil {
-			return nil, err
-		}
+		r := peekRune(st)
 		if r == '\'' {
-			text := Selected(st)
+			nextRune(st)
+			text := st.Selected()
 			return &ir.Node{
 				Text:  text,
 				Lex:   T.CHAR_LIT,
-				Line:  st.Line,
+				Range: st.Range(),
 				Value: parseCharLit(text[1 : len(text)-1]),
-				Col:   st.Col,
-			}, nil
-		}
-		if r == '\\' {
-			_, err = nextRune(st) // escaped
-			if err != nil {
-				return nil, err
 			}
 		}
-		unread(st)
+		if r == '\\' {
+			nextRune(st) // \
+			nextRune(st) // escaped rune
+		}
 	}
 }
 
 func IsValidIdentifier(s string) bool {
-	st := NewLexer(s)
-	tks, err := ReadAll(st)
+	st := NewLexer("oh no", s)
+	tks, err := st.ReadAll()
 	if err != nil {
 		return false
 	}

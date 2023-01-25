@@ -4,122 +4,130 @@ import (
 	"fmt"
 	"io/ioutil"
 	et "mpc/core/errorkind"
+	sv "mpc/core/severity"
+	"strconv"
 )
 
-type SourceLocation struct {
-	File      string
-	Input     *string
-	Line, Col int
+type Position struct {
+	Line   int
+	Column int
 }
 
-func (sl *SourceLocation) String() string {
-	return fmt.Sprintf("%v:%v:%v", sl.File, sl.Line, sl.Col)
+func (this Position) String() string {
+	return strconv.FormatInt(int64(this.Line), 10) + ":" +
+		strconv.FormatInt(int64(this.Column), 10)
 }
 
-type Error struct {
-	Type  et.ErrorKind
-	Debug string
-
-	Info []Excerpt
-}
-
-// Example
-// text.mp:1:9 E0001
-//     a := ¬
-//          ^ Invalid character
-func (ce *Error) String() string {
-	if ce == nil {
-		return "<nil>"
+func (this Position) LessThan(other Position) bool {
+	if this.Line == other.Line {
+		return this.Column < other.Column
 	}
-	first := ce.FirstInfo()
-	if first == nil {
-		return ce.Type.Debug() + "\t" + ce.Debug + "\n"
-	}
-	return first.Location.String() + " " +
-		ce.ErrCode() + "\n" +
-		ce.ExcerptsToStr()
+	return this.Line < other.Line
 }
 
-func (ce *Error) ErrCode() string {
-	return ce.Type.String()
+func (this Position) MoreThan(other Position) bool {
+	if this.Line == other.Line {
+		return this.Column > other.Column
+	}
+	return this.Line > other.Line
 }
 
-func (ce *Error) FirstInfo() *Excerpt {
-	if len(ce.Info) < 1 {
-		return nil
+func (this Position) MoreOrEqualsThan(other Position) bool {
+	if this.Line == other.Line {
+		return this.Column >= other.Column
 	}
-	return &ce.Info[0]
+	return this.Line > other.Line
 }
 
-func (ce *Error) ExcerptsToStr() string {
-	output := ""
-	for _, v := range ce.Info {
-		output += v.String() + "\n"
+type Range struct {
+	Begin Position
+	End   Position
+}
+
+func (this Range) String() string {
+	if this.Begin.MoreOrEqualsThan(this.End) {
+		return this.Begin.String()
 	}
+	return this.Begin.String() + " to " + this.End.String()
+}
+
+type Location struct {
+	File  string
+	Range *Range
+}
+
+func (this *Location) String() string {
+	if this.Range != nil {
+		return this.File + ":" +
+			this.Range.String()
+	}
+	return this.File
+}
+
+func (this *Location) Source() string {
+	if this.Range == nil {
+		return ""
+	}
+	contents, err := ioutil.ReadFile(this.File)
+	if err != nil {
+		fmt.Printf("%#v\n", this)
+		panic(err) // internal error
+	}
+	currline := 0
+	currcol := 0
+	output := "\t\u001b[36m"
+	for _, r := range string(contents) {
+		if currline >= this.Range.Begin.Line &&
+			currline <= this.Range.End.Line {
+			if currline == this.Range.Begin.Line &&
+				currcol == this.Range.Begin.Column {
+				output += "\u001b[31m"
+			}
+			if currline == this.Range.End.Line &&
+				currcol == this.Range.End.Column {
+				output += "\u001b[36m"
+			}
+			output += string(r)
+			if r == '\n' {
+				output += "\t"
+			}
+		}
+		if r == '\n' {
+			currline++
+			currcol = 0
+		} else {
+			currcol++
+		}
+	}
+	output += "\u001b[0m"
 	return output
 }
 
-type Excerpt struct {
-	Location *SourceLocation
+type Error struct {
+	Code     et.ErrorKind
+	Severity sv.Severity
 	Message  string
+	Location *Location
 }
 
-func (exc *Excerpt) String() string {
-	text := ""
-	if exc.Location == nil || (exc.Location.Col == 0 && exc.Location.Line == 0) {
-		return exc.Message
+func (this *Error) String() string {
+	source := this.Location.Source()
+	message := this.Location.String() + " " +
+		this.Severity.String() +
+		": " + this.Message
+	if source != "" {
+		return message + "\n" + source
 	}
-	if exc.Location.Input == nil {
-		f, err := ioutil.ReadFile(exc.Location.File)
-		if err != nil { // shoudn't happen
-			panic(err)
-		}
-		text = string(f)
-	} else {
-		text = *exc.Location.Input
-	}
-	line := getLine(text, exc.Location.Line)
-	return pointColumn(line+"  ", exc.Location.Col, exc.Message)
+	return message
 }
 
-func getLine(s string, sLine int) string {
-	line := 0
-	col := 0
-	buff := []rune{}
-	for _, r := range s {
-		if r == '\n' {
-			line++
-			col = 0
-		} else {
-			col++
-		}
-
-		if line == sLine {
-			buff = append(buff, r)
-		}
-	}
-	return string(buff)
-}
-
-func pointColumn(s string, sCol int, message string) string {
-	newS := "\033[0;32m" + s + "\033[0m" + "\n"
-	for i, r := range s {
-		if i == sCol {
-			newS += "^ " + message
-			break
-		}
-		if r == '\t' {
-			newS += "\t"
-		} else {
-			newS += " "
-		}
-	}
-	return newS
+func (this *Error) ErrCode() string {
+	return this.Code.String()
 }
 
 func ProcessFileError(e error) *Error {
 	return &Error{
-		Type:  et.FileError,
-		Debug: e.Error(),
+		Code:    et.FileError,
+		Message: e.Error(),
 	}
 }

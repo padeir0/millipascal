@@ -7,8 +7,8 @@ each file alone in it's folder.
 ```
 .                      149
 ├── amd64              819
-├── core               125
-│   ├── errorkind      220
+├── core               133
+│   ├── errorkind      112
 │   ├── hir            335
 │   │   ├── checker    470
 │   │   ├── class      43
@@ -21,20 +21,21 @@ each file alone in it's folder.
 │   │   ├── flowkind   26
 │   │   ├── instrkind  90
 │   │   └── util       60
-│   ├── module         199
+│   ├── module         239
 │   │   ├── lexkind    295
 │   │   └── symbolkind 30
+│   ├── severity       28
 │   ├── types          197
 │   └── util           54
-├── lexer              719
+├── lexer              661
 ├── linearization      712
 ├── messages           263
-├── parser             1131
+├── parser             1152
 ├── pipelines          147
 ├── resalloc           1152
-├── resolution         494
+├── resolution         487
 ├── testing            141
-└── typechecker        828
+└── typechecker        832
 ```
 
 `core` is where all the main datastructures live, the intermediate

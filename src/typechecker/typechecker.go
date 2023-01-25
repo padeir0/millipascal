@@ -216,7 +216,7 @@ func checkProcVars(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 func verifyIfDefined(M *ir.Module, proc *ir.Proc, d *ir.Symbol) *Error {
 	l := getVarOrArg(proc, d.Name)
 	if l != nil {
-		return msg.ErrorNameAlreadyDefined(M, d.N, l.N)
+		return msg.ErrorNameAlreadyDefined(M, d.N)
 	}
 	return nil
 }
@@ -303,6 +303,10 @@ func checkIf(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	err := checkExpr(M, proc, exp)
 	if err != nil {
 		return err
+	}
+
+	if !exp.T.Equals(T.T_Bool) {
+		return msg.ExpectedBool(M, exp)
 	}
 
 	err = checkExprType(M, exp)
@@ -500,9 +504,9 @@ func checkIdAssignee(M *ir.Module, proc *ir.Proc, assignee *ir.Node) *Error {
 		assignee.T = d.Type
 		return nil
 	}
-	global, ok := M.Globals[assignee.Text]
+	_, ok := M.Globals[assignee.Text]
 	if ok {
-		return msg.ErrorCannotAssignGlobal(M, global, assignee)
+		return msg.ErrorCannotAssignGlobal(M, assignee)
 	}
 	return msg.ErrorNameNotDefined(M, assignee)
 }
@@ -741,11 +745,11 @@ func binaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *E
 	}
 
 	if !c.Checker(left.T) {
-		return msg.ErrorInvalidClassForExpr(M, left, c.Description)
+		return msg.ErrorInvalidClassForExpr(M, op, left, c.Description)
 	}
 
 	if !c.Checker(right.T) {
-		return msg.ErrorInvalidClassForExpr(M, right, c.Description)
+		return msg.ErrorInvalidClassForExpr(M, op, right, c.Description)
 	}
 
 	if !left.T.Equals(right.T) {
@@ -786,7 +790,7 @@ func unaryOp(M *ir.Module, proc *ir.Proc, op *ir.Node, c class, der deriver) *Er
 	}
 
 	if !c.Checker(operand.T) {
-		return msg.ErrorInvalidClassForExpr(M, operand, c.Description)
+		return msg.ErrorInvalidClassForExpr(M, op, operand, c.Description)
 	}
 
 	op.T = der(operand.T)

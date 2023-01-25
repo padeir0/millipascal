@@ -119,11 +119,7 @@ func fromImport(s *state, n *ir.Node, dependentMod *ir.Module) *Error {
 
 	mod, err := resolveModule(s, modID)
 	if err != nil {
-		exc := Excerpt{
-			Location: place(n, dependentMod),
-			Message:  err.Debug,
-		}
-		err.Info = append(err.Info, exc)
+		err.Location = place(n, dependentMod)
 		return err
 	}
 	addDependency(dependentMod, mod, n)
@@ -140,11 +136,7 @@ func multiImport(s *state, n *ir.Node, dependentMod *ir.Module) *Error {
 
 		mod, err := resolveModule(s, n.Text)
 		if err != nil {
-			exc := Excerpt{
-				Location: place(n, dependentMod),
-				Message:  err.Debug,
-			}
-			err.Info = append(err.Info, exc)
+			err.Location = place(n, dependentMod)
 			return err
 		}
 
@@ -174,10 +166,10 @@ func getFolder(fullpath string) string {
 	return folder
 }
 
-func place(n *ir.Node, mod *ir.Module) *SourceLocation {
-	return &SourceLocation{
-		Line: n.Line, Col: n.Col,
-		File: mod.FullPath,
+func place(n *ir.Node, mod *ir.Module) *Location {
+	return &Location{
+		Range: n.Range,
+		File:  mod.FullPath,
 	}
 }
 
@@ -188,15 +180,15 @@ func extractName(filePath string) (string, *Error) {
 		return name[0], nil
 	}
 	return "", &Error{
-		Type:  et.InvalidFileName,
-		Debug: filePath + " : " + name[0],
+		Code:    et.InvalidFileName,
+		Message: filePath + " : " + name[0],
 	}
 }
 
 func invalidModuleName(filePath string) *Error {
 	return &Error{
-		Type:  et.InvalidFileName,
-		Debug: filePath,
+		Code:    et.InvalidFileName,
+		Message: filePath,
 	}
 }
 
@@ -213,12 +205,13 @@ func newModule(basePath, modID, filename string, root *ir.Node) *ir.Module {
 }
 
 func openAndParse(s *state, filename string) (*ir.Node, *Error) {
-	text, e := ioutil.ReadFile(s.BaseFolder + "/" + filename)
+	path := s.BaseFolder + "/" + filename
+	text, e := ioutil.ReadFile(path)
 	if e != nil {
 		return nil, processFileError(e)
 	}
 
-	n, err := parser.Parse(string(text))
+	n, err := parser.Parse(path, string(text))
 	if err != nil {
 		return nil, err
 	}
@@ -243,8 +236,8 @@ func findFile(s *state, modID string) (string, *Error) {
 
 func processFileError(e error) *Error {
 	return &Error{
-		Type:  et.FileError,
-		Debug: e.Error(),
+		Code:    et.FileError,
+		Message: e.Error(),
 	}
 }
 
@@ -351,9 +344,9 @@ func defineModSymbol(M *ir.Module, n *ir.Node) *Error {
 		ModuleName: M.Name,
 		N:          n,
 	}
-	v, ok := M.Globals[name]
+	_, ok := M.Globals[name]
 	if ok {
-		return msg.ErrorNameAlreadyDefined(M, n, v.N)
+		return msg.ErrorNameAlreadyDefined(M, n)
 	}
 	M.Globals[name] = sy
 	return nil
@@ -406,9 +399,9 @@ func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol) *Error {
 		ModuleName: sy.ModuleName,
 		External:   true,
 	}
-	v, ok := M.Globals[sy.Name]
+	_, ok := M.Globals[sy.Name]
 	if ok {
-		return msg.ErrorNameAlreadyDefined(M, n, v.N)
+		return msg.ErrorNameAlreadyDefined(M, n)
 	}
 	M.Globals[sy.Name] = newSy
 	return nil
@@ -423,9 +416,9 @@ func checkExports(M *ir.Module) *Error {
 	for _, exp := range coupling.Leaves {
 		if exp.Lex == lex.EXPORT {
 			for _, name := range exp.Leaves {
-				n, ok := exported[name.Text]
+				_, ok := exported[name.Text]
 				if ok {
-					return msg.ErrorDuplicatedExport(M, n, name)
+					return msg.ErrorDuplicatedExport(M, name)
 				}
 				exported[name.Text] = name
 			}
@@ -443,9 +436,9 @@ func checkExports(M *ir.Module) *Error {
 
 func declareSymbol(M *ir.Module, n *ir.Node) *Error {
 	sy := getSymbol(M, n)
-	v, ok := M.Globals[sy.Name]
+	_, ok := M.Globals[sy.Name]
 	if ok {
-		return msg.ErrorNameAlreadyDefined(M, n, v.N)
+		return msg.ErrorNameAlreadyDefined(M, n)
 	}
 	M.Globals[sy.Name] = sy
 	return nil

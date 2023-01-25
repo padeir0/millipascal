@@ -4,13 +4,13 @@ import (
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
+	sv "mpc/core/severity"
 )
 
-func Place(M *ir.Module, n *ir.Node) SourceLocation {
-	return SourceLocation{
-		File: M.FullPath,
-		Line: n.Line,
-		Col:  n.Col,
+func Place(M *ir.Module, n *ir.Node) *Location {
+	return &Location{
+		File:  M.FullPath,
+		Range: n.Range,
 	}
 }
 
@@ -30,25 +30,20 @@ func NewInternalSemanticError(debug string) *Error {
 	return newInternalError(debug)
 }
 
-func newInternalError(debug string) *Error {
+func newInternalError(message string) *Error {
 	return &Error{
-		Type:  et.InternalCompilerError,
-		Debug: debug,
-		Info:  nil,
+		Code:     et.InternalCompilerError,
+		Severity: sv.InternalError,
+		Message:  message,
 	}
 }
 
-func NewSemanticError(M *ir.Module, t et.ErrorKind, n ...*NodeInfo) *Error {
-	excerpts := []Excerpt{}
-	for _, v := range n {
-		loc := Place(M, v.N)
-		excerpts = append(excerpts, Excerpt{
-			Location: &loc,
-			Message:  v.Message,
-		})
-	}
+func NewSemanticError(M *ir.Module, t et.ErrorKind, n *ir.Node, message string) *Error {
+	loc := Place(M, n)
 	return &Error{
-		Type: t,
-		Info: excerpts,
+		Code:     t,
+		Severity: sv.Error,
+		Location: loc,
+		Message:  message,
 	}
 }

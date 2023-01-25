@@ -43,11 +43,11 @@ func Test(file string) TestResult {
 	name, err := pipelines.Compile(file)
 
 	if err != nil {
-		if err.Type == et.InternalCompilerError {
+		if err.Code == et.InternalCompilerError {
 			return TestResult{
 				File:    file,
 				Ok:      false,
-				Message: err.Debug,
+				Message: err.Message,
 			}
 		}
 		return compareError(file, err, expectedErr)
@@ -136,6 +136,6 @@ func newResult(file string, e *Error) TestResult {
 	return TestResult{
 		File:    file,
 		Ok:      false,
-		Message: e.Debug,
+		Message: e.Message,
 	}
 }

@@ -135,7 +135,7 @@ func Test(folder string) []*testing.TestResult {
 
 func OkOrBurst(e *Error) {
 	if e != nil {
-		Fatal(e.String())
+		Fatal(e.String() + "\n")
 	}
 }
 

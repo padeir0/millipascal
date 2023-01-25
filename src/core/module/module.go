@@ -1,6 +1,7 @@
 package module
 
 import (
+	. "mpc/core"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	T "mpc/core/types"
@@ -18,12 +19,51 @@ type Node struct {
 
 	Value int64 // for literals
 
-	Line, Col int
-	Length    int
+	Range *Range
 }
 
 func (n *Node) String() string {
 	return ast(n, 0)
+}
+
+func (this *Node) AddLeaf(other *Node) {
+	if this.Leaves == nil {
+		this.Leaves = []*Node{other}
+	} else {
+		this.Leaves = append(this.Leaves, other)
+	}
+	if this.Range == nil {
+		this.Range = other.Range
+		return
+	}
+	if other.Range == nil {
+		return
+	}
+	if this.Range.Begin.MoreThan(other.Range.Begin) {
+		this.Range.Begin = other.Range.Begin
+	}
+	if this.Range.End.LessThan(other.Range.End) {
+		this.Range.End = other.Range.End
+	}
+}
+
+func (this *Node) SetLeaves(leaves []*Node) {
+	for _, n := range leaves {
+		if this.Range == nil {
+			this.Range = n.Range
+			continue
+		}
+		if n == nil || n.Range == nil {
+			continue
+		}
+		if this.Range.Begin.MoreThan(n.Range.Begin) {
+			this.Range.Begin = n.Range.Begin
+		}
+		if this.Range.End.LessThan(n.Range.End) {
+			this.Range.End = n.Range.End
+		}
+	}
+	this.Leaves = leaves
 }
 
 func ast(n *Node, i int) string {

@@ -28,8 +28,8 @@ func Lexemes(file string) ([]*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	st := lexer.NewLexer(s)
-	return lexer.ReadAll(st)
+	st := lexer.NewLexer(file, s)
+	return st.ReadAll()
 }
 
 // processes a single file and returns it's AST
@@ -39,7 +39,7 @@ func Ast(file string) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	return parser.Parse(s)
+	return parser.Parse(file, s)
 }
 
 // processes a file and all it's dependencies
