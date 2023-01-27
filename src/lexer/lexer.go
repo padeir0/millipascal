@@ -181,6 +181,8 @@ func peekRune(l *Lexer) rune {
 /*ignore ignores the text previously read*/
 func ignore(l *Lexer) {
 	l.Start = l.End
+	l.BeginLine = l.EndLine
+	l.BeginCol = l.EndCol
 	l.LastRuneSize = 0
 }
 

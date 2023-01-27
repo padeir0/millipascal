@@ -20,7 +20,7 @@ func Parse(filename string, s string) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	recomputeRanges(n)
+	computeRanges(n)
 	return n, nil
 }
 
@@ -599,7 +599,7 @@ func deref(s *Lexer) (*mod.Node, *Error) {
 // Call = "[" [ExprList] "]".
 func call(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "call")
-	lbracket, err := Expect(s, T.LEFTBRACKET)
+	lB, err := Expect(s, T.LEFTBRACKET)
 	if err != nil {
 		return nil, err
 	}
@@ -615,18 +615,18 @@ func call(s *Lexer) (*mod.Node, *Error) {
 		}
 	}
 
-	rbracket, err := Expect(s, T.RIGHTBRACKET)
+	rB, err := Expect(s, T.RIGHTBRACKET)
 	if err != nil {
 		return nil, err
 	}
 	n := &mod.Node{
 		Lex: T.CALL,
+		Range: &Range{
+			Begin: lB.Range.Begin,
+			End:   rB.Range.End,
+		},
 	}
 	n.AddLeaf(explist)
-	n.Range = &Range{
-		Begin: lbracket.Range.Begin,
-		End:   rbracket.Range.End,
-	}
 	return n, nil
 }
 
@@ -657,7 +657,7 @@ func factor(s *Lexer) (*mod.Node, *Error) {
 	case T.IDENTIFIER:
 		return name(s)
 	case T.LEFTPAREN:
-		lparen, err := Consume(s)
+		lP, err := Consume(s)
 		if err != nil {
 			return nil, err
 		}
@@ -665,13 +665,13 @@ func factor(s *Lexer) (*mod.Node, *Error) {
 		if err != nil {
 			return nil, err
 		}
-		rparen, err := Expect(s, T.RIGHTPAREN)
+		rP, err := Expect(s, T.RIGHTPAREN)
 		if err != nil {
 			return nil, err
 		}
 		n.Range = &Range{
-			Begin: lparen.Range.Begin,
-			End:   rparen.Range.End,
+			Begin: lP.Range.Begin,
+			End:   rP.Range.End,
 		}
 		return n, nil
 	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT, T.CHAR_LIT,
@@ -704,7 +704,7 @@ func name(s *Lexer) (*mod.Node, *Error) {
 // Block := 'begin' {CodeSemicolon} 'end'.
 func block(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "block")
-	beg, err := Expect(s, T.BEGIN)
+	begin, err := Expect(s, T.BEGIN)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +719,7 @@ func block(s *Lexer) (*mod.Node, *Error) {
 	bl := &mod.Node{
 		Lex: T.BLOCK,
 		Range: &Range{
-			Begin: beg.Range.Begin,
+			Begin: begin.Range.Begin,
 			End:   end.Range.End,
 		},
 	}
@@ -1141,12 +1141,27 @@ func NewCompilerError(st *Lexer, t et.ErrorKind, message string) *Error {
 	}
 }
 
-func recomputeRanges(n *mod.Node) {
-	if n == nil {
+func computeRanges(curr *mod.Node) {
+	if curr == nil {
 		return
 	}
-	for _, leaf := range n.Leaves {
-		recomputeRanges(leaf)
+	for _, leaf := range curr.Leaves {
+		computeRanges(leaf)
 	}
-	n.SetLeaves(n.Leaves)
+	for _, n := range curr.Leaves {
+		if n == nil || n.Range == nil {
+			continue
+		}
+		if curr.Range == nil {
+			r := *n.Range
+			curr.Range = &r
+			continue
+		}
+		if curr.Range.Begin.MoreThan(n.Range.Begin) {
+			curr.Range.Begin = n.Range.Begin
+		}
+		if curr.Range.End.LessThan(n.Range.End) {
+			curr.Range.End = n.Range.End
+		}
+	}
 }

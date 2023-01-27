@@ -111,7 +111,7 @@ func ErrorInvalidClassForExpr(M *ir.Module, op, operand *ir.Node, descr string) 
 }
 
 func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.CannotUseVoid, n, "cannot use void value")
+	return NewSemanticError(M, et.CannotUseVoid, n, "can't use empty return in expression")
 }
 
 func ErrorCanOnlyUseNormalAssignment(M *ir.Module, n *ir.Node) *Error {

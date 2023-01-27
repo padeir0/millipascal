@@ -65,7 +65,7 @@ func (this *Location) String() string {
 }
 
 func (this *Location) Source() string {
-	if this.Range == nil {
+	if this == nil || this.Range == nil {
 		return ""
 	}
 	contents, err := ioutil.ReadFile(this.File)
@@ -75,7 +75,7 @@ func (this *Location) Source() string {
 	}
 	currline := 0
 	currcol := 0
-	output := "\t\u001b[36m"
+	output := "    \u001b[36m"
 	for _, r := range string(contents) {
 		if currline >= this.Range.Begin.Line &&
 			currline <= this.Range.End.Line {
@@ -87,9 +87,12 @@ func (this *Location) Source() string {
 				currcol == this.Range.End.Column {
 				output += "\u001b[36m"
 			}
-			output += string(r)
 			if r == '\n' {
-				output += "\t"
+				output += string(r) + "    "
+			} else if r == '\t' {
+				output += "    "
+			} else {
+				output += string(r)
 			}
 		}
 		if r == '\n' {

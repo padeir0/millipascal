@@ -821,7 +821,7 @@ func propertyAccess(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 		return msg.ErrorExpectedMem(M, mem)
 	}
 	if prop.Lex != lex.IDENTIFIER || isInvalidProp(prop.Text) {
-		return msg.ErrorInvalidProp(M, mem)
+		return msg.ErrorInvalidProp(M, prop)
 	}
 	n.T = T.T_I64
 	return nil

@@ -32,45 +32,22 @@ func (this *Node) AddLeaf(other *Node) {
 	} else {
 		this.Leaves = append(this.Leaves, other)
 	}
-	if this.Range == nil {
-		this.Range = other.Range
-		return
-	}
-	if other.Range == nil {
-		return
-	}
-	if this.Range.Begin.MoreThan(other.Range.Begin) {
-		this.Range.Begin = other.Range.Begin
-	}
-	if this.Range.End.LessThan(other.Range.End) {
-		this.Range.End = other.Range.End
-	}
 }
 
 func (this *Node) SetLeaves(leaves []*Node) {
-	for _, n := range leaves {
-		if this.Range == nil {
-			this.Range = n.Range
-			continue
-		}
-		if n == nil || n.Range == nil {
-			continue
-		}
-		if this.Range.Begin.MoreThan(n.Range.Begin) {
-			this.Range.Begin = n.Range.Begin
-		}
-		if this.Range.End.LessThan(n.Range.End) {
-			this.Range.End = n.Range.End
-		}
-	}
 	this.Leaves = leaves
 }
 
 func ast(n *Node, i int) string {
-	output := fmt.Sprintf("{%s, '%s':%s",
+	rng := "nil"
+	if n.Range != nil {
+		rng = n.Range.String()
+	}
+	output := fmt.Sprintf("{%s, '%s':%s, %s",
 		lex.FmtNodeType(n.Lex),
 		n.Text,
 		n.T.String(),
+		rng,
 	)
 	output += "}"
 	for _, kid := range n.Leaves {
