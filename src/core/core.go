@@ -76,6 +76,7 @@ func (this *Location) Source() string {
 	currline := 0
 	currcol := 0
 	output := "    \u001b[36m"
+	// this is not unicode aware
 	for _, r := range string(contents) {
 		if currline >= this.Range.Begin.Line &&
 			currline <= this.Range.End.Line {

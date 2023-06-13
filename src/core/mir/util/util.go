@@ -5,56 +5,56 @@ import (
 	mik "mpc/core/mir/instrkind"
 )
 
-func Load(source, destination *mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func Load(source, destination mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.Load,
 		Type: source.Type,
-		A:    source,
-		Dest: destination,
+		A:    mir.OptOperand_(source),
+		Dest: mir.OptOperand_(destination),
 	}
 }
 
-func Store(source, destination *mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func Store(source, destination mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.Store,
 		Type: source.Type,
-		A:    source,
-		Dest: destination,
+		A:    mir.OptOperand_(source),
+		Dest: mir.OptOperand_(destination),
 	}
 }
 
-func StorePtr(source, ptr *mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func StorePtr(source, ptr mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.StorePtr,
 		Type: source.Type,
-		A:    source,
-		B:    ptr,
+		A:    mir.OptOperand_(source),
+		B:    mir.OptOperand_(ptr),
 	}
 }
 
-func LoadPtr(ptr, dest *mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func LoadPtr(ptr, dest mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.LoadPtr,
 		Type: dest.Type,
-		A:    ptr,
-		Dest: dest,
+		A:    mir.OptOperand_(ptr),
+		Dest: mir.OptOperand_(dest),
 	}
 }
 
-func Convert(a, dest *mir.Operand) *mir.Instr {
+func Convert(a, dest mir.Operand) *mir.Instr {
 	return &mir.Instr{
 		T:    mik.Convert,
 		Type: dest.Type,
-		A:    a,
-		Dest: dest,
+		A:    mir.OptOperand_(a),
+		Dest: mir.OptOperand_(dest),
 	}
 }
 
-func Copy(source, destination *mir.Operand) *mir.Instr {
+func Copy(source, destination mir.Operand) *mir.Instr {
 	return &mir.Instr{
 		T:    mik.Copy,
 		Type: source.Type,
-		A:    source,
-		Dest: destination,
+		A:    mir.OptOperand_(source),
+		Dest: mir.OptOperand_(destination),
 	}
 }

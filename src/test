@@ -1,6 +1,10 @@
 #!/bin/bash
 
+go build .
+
 for i in {0..100}
 do
-  go run . -test ../test_suite
+   ./mpc -test ../test_suite
 done
+
+rm mpc

@@ -6,6 +6,7 @@ import (
 	FT "mpc/core/mir/flowkind"
 	IT "mpc/core/mir/instrkind"
 	T "mpc/core/types"
+
 	"strconv"
 )
 
@@ -191,8 +192,8 @@ var Registers = []*register{
 
 // read[ptr, int] int
 func genRead(P *mir.Program) *fasmProc {
-	ptrArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	amountRead := ptr
@@ -221,8 +222,8 @@ func genRead(P *mir.Program) *fasmProc {
 
 // write[ptr, int]
 func genWrite(P *mir.Program) *fasmProc {
-	ptrArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	return &fasmProc{
@@ -248,8 +249,8 @@ func genWrite(P *mir.Program) *fasmProc {
 
 // error[ptr, int]
 func genError(P *mir.Program) *fasmProc {
-	ptrArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := &mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	return &fasmProc{
@@ -400,7 +401,7 @@ func genFalseBranches(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock
 	panic("Invalid flow: " + block.Out.String())
 }
 
-func genCondJmp(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock, op *mir.Operand) []*amd64Instr {
+func genCondJmp(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock, op mir.Operand) []*amd64Instr {
 	newOp := convertOperandProc(P, proc, op)
 	if op.Class == mirc.Lit || op.Class == mirc.Static {
 		rbx := genReg(RBX, op.Type)
@@ -424,7 +425,7 @@ func genRet() []*amd64Instr {
 	}
 }
 
-func genExit(P *mir.Program, proc *mir.Procedure, op *mir.Operand) []*amd64Instr {
+func genExit(P *mir.Program, proc *mir.Procedure, op mir.Operand) []*amd64Instr {
 	exitCode := convertOperandProc(P, proc, op)
 	return []*amd64Instr{
 		genBinInstr(Xor, "rdi", "rdi"),
@@ -442,7 +443,7 @@ func genCode(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock) *fasmBl
 	return &fasmBlock{label: block.Label, code: output}
 }
 
-func genInstr(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
+func genInstr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
 	switch instr.T {
 	case IT.Add, IT.Mult, IT.Or, IT.And:
 		return genBin(P, proc, instr)
@@ -473,24 +474,24 @@ func genInstr(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Ins
 	}
 }
 
-func genConvert(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
+func genConvert(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
 	if instr.Dest.Type.Size() > instr.A.Type.Size() {
-		newA := convertOperandProc(P, proc, instr.A)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newA := convertOptOperandProc(P, proc, instr.A)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		return []*amd64Instr{
 			genBinInstr(Movsx, newDest, newA),
 		}
 	}
 	if instr.A.Class == mirc.Lit {
-		newA := convertOperandProc(P, proc, instr.A)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newA := convertOptOperandProc(P, proc, instr.A)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		return []*amd64Instr{
 			genBinInstr(Mov, newDest, newA),
 		}
 	}
 	if instr.A.Class == mirc.Static {
-		newA := convertOperandProc(P, proc, instr.A)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newA := convertOptOperandProc(P, proc, instr.A)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		res := genReg(RAX, instr.Dest.Type)
 		return []*amd64Instr{
 			genBinInstr(Mov, "rax", newA),
@@ -499,7 +500,7 @@ func genConvert(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64I
 	}
 	if !areOpEqual(instr.A, instr.Dest) {
 		newA := getReg(instr.A.Num, instr.Dest.Type)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		return []*amd64Instr{
 			genBinInstr(Mov, newDest, newA),
 		}
@@ -507,49 +508,47 @@ func genConvert(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64I
 	return []*amd64Instr{}
 }
 
-func genCall(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
+func genCall(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
 	return []*amd64Instr{
 		genUnaryInstr(Call, newA),
 	}
 }
 
-func genLoadStore(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genLoadStore(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	return []*amd64Instr{
 		genMov(newDest, newA),
 	}
 }
 
-func genLoadPtr(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
-	newDest := convertOperandProc(P, proc, instr.Dest)
-	return []*amd64Instr{
-		genMov(newDest, genType(instr.Type)+"["+newA+"]"), // xD
-	}
+func genLoadPtr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
+	a := genMov(newDest, genType(instr.Type)+"["+newA+"]") // xD
+	return []*amd64Instr{a}
 }
 
-func genStorePtr(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
-	newDest := convertOperandProc(P, proc, instr.B)
-	return []*amd64Instr{
-		genMov(genType(instr.Type)+"["+newDest+"]", newA),
-	}
+func genStorePtr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
+	newDest := convertOptOperandProc(P, proc, instr.B)
+	a := genMov(genType(instr.Type)+"["+newDest+"]", newA)
+	return []*amd64Instr{a}
 }
 
-func genNot(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genNot(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	return []*amd64Instr{
 		genBinInstr(Cmp, newA, "0"),
 		genUnaryInstr(Sete, newDest),
 	}
 }
 
-func genUnaryMinus(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newA := convertOperandProc(P, proc, instr.A)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genUnaryMinus(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newA := convertOptOperandProc(P, proc, instr.A)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	return []*amd64Instr{
 		genMov(newDest, newA),
 		genUnaryInstr(Neg, newDest),
@@ -565,10 +564,10 @@ var compInstrMap = map[IT.InstrKind]string{
 	IT.LessEq: Setle,
 }
 
-func genComp(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newOp1 := convertOperandProc(P, proc, instr.A)
-	newOp2 := convertOperandProc(P, proc, instr.B)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genComp(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newOp1 := convertOptOperandProc(P, proc, instr.A)
+	newOp2 := convertOptOperandProc(P, proc, instr.B)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	newInstr := compInstrMap[instr.T]
 	if instr.A.Class == mirc.Lit || instr.A.Class == mirc.Static {
 		rbx := genReg(RBX, instr.A.Type)
@@ -584,10 +583,10 @@ func genComp(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Inst
 	}
 }
 
-func genDiv(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newOp1 := convertOperandProc(P, proc, instr.A)
-	newOp2 := convertOperandProc(P, proc, instr.B)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genDiv(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newOp1 := convertOptOperandProc(P, proc, instr.A)
+	newOp2 := convertOptOperandProc(P, proc, instr.B)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	if instr.B.Class == mirc.Lit || instr.B.Class == mirc.Static {
 		rbx := genReg(RBX, instr.Type)
 		return []*amd64Instr{
@@ -606,10 +605,10 @@ func genDiv(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr
 	}
 }
 
-func genRem(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	newOp1 := convertOperandProc(P, proc, instr.A)
-	newOp2 := convertOperandProc(P, proc, instr.B)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+func genRem(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	newOp1 := convertOptOperandProc(P, proc, instr.A)
+	newOp2 := convertOptOperandProc(P, proc, instr.B)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	if mirc.IsImmediate(instr.B.Class) {
 		rbx := genReg(RBX, instr.Type)
 		return []*amd64Instr{
@@ -636,12 +635,12 @@ var BinInstrMap = map[IT.InstrKind]string{
 	IT.Or:   Or,
 }
 
-func genSub(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
+func genSub(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
 	sub := BinInstrMap[instr.T]
 
 	if areOpEqual(instr.A, instr.Dest) {
-		newOp1 := convertOperandProc(P, proc, instr.B)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newOp1 := convertOptOperandProc(P, proc, instr.B)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		return []*amd64Instr{
 			genBinInstr(sub, newDest, newOp1),
 		}
@@ -649,9 +648,9 @@ func genSub(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr
 
 	if areOpEqual(instr.B, instr.Dest) {
 		rbx := genReg(RBX, instr.Type)
-		newOp1 := convertOperandProc(P, proc, instr.A)
-		newOp2 := convertOperandProc(P, proc, instr.B)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+		newOp1 := convertOptOperandProc(P, proc, instr.A)
+		newOp2 := convertOptOperandProc(P, proc, instr.B)
+		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		return []*amd64Instr{
 			genBinInstr(Xor, RBX.QWord, RBX.QWord),
 			genMov(rbx, newOp1),
@@ -660,31 +659,31 @@ func genSub(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr
 		}
 	}
 
-	newOp1 := convertOperandProc(P, proc, instr.A)
-	newOp2 := convertOperandProc(P, proc, instr.B)
-	newDest := convertOperandProc(P, proc, instr.Dest)
+	newOp1 := convertOptOperandProc(P, proc, instr.A)
+	newOp2 := convertOptOperandProc(P, proc, instr.B)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	return []*amd64Instr{
 		genMov(newDest, newOp1),
 		genBinInstr(sub, newDest, newOp2),
 	}
 }
 
-func genBin(P *mir.Program, proc *mir.Procedure, instr *mir.Instr) []*amd64Instr {
-	dest, op := convertToTwoAddr(instr)
+func genBin(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	dest, op, ok := convertToTwoAddr(instr)
 	newInstr := BinInstrMap[instr.T]
-	if dest == nil || op == nil {
-		newOp1 := convertOperandProc(P, proc, instr.A)
-		newOp2 := convertOperandProc(P, proc, instr.B)
-		newDest := convertOperandProc(P, proc, instr.Dest)
+	if ok {
+		newOp1 := convertOperandProc(P, proc, op)
+		newDest := convertOperandProc(P, proc, dest)
 		return []*amd64Instr{
-			genMov(newDest, newOp1),
-			genBinInstr(newInstr, newDest, newOp2),
+			genBinInstr(newInstr, newDest, newOp1),
 		}
 	}
-	newOp1 := convertOperandProc(P, proc, op)
-	newDest := convertOperandProc(P, proc, dest)
+	newOp1 := convertOptOperandProc(P, proc, instr.A)
+	newOp2 := convertOptOperandProc(P, proc, instr.B)
+	newDest := convertOptOperandProc(P, proc, instr.Dest)
 	return []*amd64Instr{
-		genBinInstr(newInstr, newDest, newOp1),
+		genMov(newDest, newOp1),
+		genBinInstr(newInstr, newDest, newOp2),
 	}
 }
 
@@ -711,34 +710,44 @@ func genMov(dest, source string) *amd64Instr {
 	}
 }
 
-func convertToTwoAddr(instr *mir.Instr) (dest *mir.Operand, op *mir.Operand) {
-	if instr.Dest == nil {
-		return nil, nil
+func convertToTwoAddr(instr mir.Instr) (dest mir.Operand, op mir.Operand, ok bool) {
+	if !instr.Dest.Valid {
+		return mir.Operand{}, mir.Operand{}, false
 	}
 	if instr.T == IT.Sub {
-		panic("subtraction is not associative")
+		panic("subtraction is not comutative")
 	}
 
 	if areOpEqual(instr.A, instr.Dest) {
-		return instr.Dest, instr.B
+		return instr.Dest.Operand, instr.B.Operand, true
 	}
 	if areOpEqual(instr.B, instr.Dest) {
-		return instr.Dest, instr.A
+		return instr.Dest.Operand, instr.A.Operand, true
 	}
 
-	return nil, nil
+	return mir.Operand{}, mir.Operand{}, false
 }
 
-func areOpEqual(a, b *mir.Operand) bool {
+func areOpEqual(a, b mir.OptOperand) bool {
+	if !a.Valid || !b.Valid {
+		panic("invalid operand")
+	}
 	return a.Class == b.Class &&
 		a.Num == b.Num
 }
 
-func convertOperandProc(P *mir.Program, proc *mir.Procedure, op *mir.Operand) string {
+func convertOperandProc(P *mir.Program, proc *mir.Procedure, op mir.Operand) string {
 	return convertOperand(P, op, int64(proc.NumOfVars), int64(proc.NumOfSpills), int64(proc.NumOfMaxCalleeArguments))
 }
 
-func convertOperand(P *mir.Program, op *mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments int64) string {
+func convertOptOperandProc(P *mir.Program, proc *mir.Procedure, op mir.OptOperand) string {
+	if !op.Valid {
+		panic("invalid operand")
+	}
+	return convertOperand(P, op.Operand, int64(proc.NumOfVars), int64(proc.NumOfSpills), int64(proc.NumOfMaxCalleeArguments))
+}
+
+func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments int64) string {
 	switch op.Class {
 	case mirc.Register:
 		return getReg(op.Num, op.Type)

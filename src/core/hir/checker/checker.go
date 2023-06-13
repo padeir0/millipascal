@@ -96,7 +96,7 @@ func checkJump(s *state) *Error {
 	return invalidFlow(bb.Out)
 }
 
-func checkRet(s *state, rets []*hir.Operand) *Error {
+func checkRet(s *state, rets []hir.Operand) *Error {
 	if len(s.proc.Rets) != len(rets) {
 		has := strconv.Itoa(len(rets))
 		wants := strconv.Itoa(len(s.proc.Rets))
@@ -131,7 +131,7 @@ type Checker struct {
 	Type  func(*T.Type) bool
 }
 
-func (c *Checker) Check(op *hir.Operand) bool {
+func (c *Checker) Check(op hir.Operand) bool {
 	return c.Type(op.Type) && c.Class(op.Class)
 }
 
@@ -185,7 +185,7 @@ var ptr_res = Checker{
 	Type:  T.IsPtr,
 }
 
-func checkInstr(s *state, instr *hir.Instr) *Error {
+func checkInstr(s *state, instr hir.Instr) *Error {
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
 		return checkArith(instr)
@@ -203,8 +203,6 @@ func checkInstr(s *state, instr *hir.Instr) *Error {
 		return checkLoadPtr(instr)
 	case IT.StorePtr:
 		return checkStorePtr(instr)
-	case IT.Store, IT.Load:
-		return invalidMirInstr(instr)
 	case IT.Copy:
 		return checkCopy(instr)
 	case IT.Call:
@@ -213,7 +211,7 @@ func checkInstr(s *state, instr *hir.Instr) *Error {
 	panic("sumthin' went wong")
 }
 
-func checkArith(instr *hir.Instr) *Error {
+func checkArith(instr hir.Instr) *Error {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -228,7 +226,7 @@ func checkArith(instr *hir.Instr) *Error {
 	return checkBinary(instr, num_oper, num_oper, num_res)
 }
 
-func checkComp(instr *hir.Instr) *Error {
+func checkComp(instr hir.Instr) *Error {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -242,7 +240,7 @@ func checkComp(instr *hir.Instr) *Error {
 	return checkBinary(instr, basic_oper, basic_oper, bool_res)
 }
 
-func checkLogical(instr *hir.Instr) *Error {
+func checkLogical(instr hir.Instr) *Error {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -257,7 +255,7 @@ func checkLogical(instr *hir.Instr) *Error {
 	return checkBinary(instr, bool_oper, bool_oper, bool_res)
 }
 
-func checkUnaryArith(instr *hir.Instr) *Error {
+func checkUnaryArith(instr hir.Instr) *Error {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -271,7 +269,7 @@ func checkUnaryArith(instr *hir.Instr) *Error {
 	return checkUnary(instr, num_oper, num_res)
 }
 
-func checkNot(instr *hir.Instr) *Error {
+func checkNot(instr hir.Instr) *Error {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -285,7 +283,7 @@ func checkNot(instr *hir.Instr) *Error {
 	return checkUnary(instr, bool_oper, bool_res)
 }
 
-func checkConvert(instr *hir.Instr) *Error {
+func checkConvert(instr hir.Instr) *Error {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -298,7 +296,7 @@ func checkConvert(instr *hir.Instr) *Error {
 	return checkUnary(instr, basic_oper, basic_res)
 }
 
-func checkCopy(instr *hir.Instr) *Error {
+func checkCopy(instr hir.Instr) *Error {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -317,7 +315,7 @@ func checkCopy(instr *hir.Instr) *Error {
 	return nil
 }
 
-func checkLoadPtr(instr *hir.Instr) *Error {
+func checkLoadPtr(instr hir.Instr) *Error {
 	err := checkForm(instr, 1, true)
 	if err != nil {
 		return err
@@ -327,7 +325,7 @@ func checkLoadPtr(instr *hir.Instr) *Error {
 	return checkUnary(instr, ptr_oper, basicOrProc_res)
 }
 
-func checkStorePtr(instr *hir.Instr) *Error {
+func checkStorePtr(instr hir.Instr) *Error {
 	err := checkForm(instr, 2, false)
 	if err != nil {
 		return err
@@ -344,7 +342,7 @@ func checkStorePtr(instr *hir.Instr) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkCall(s *state, instr *hir.Instr) *Error {
+func checkCall(s *state, instr hir.Instr) *Error {
 	if len(instr.Operands) == 0 {
 		return malformedInstr(instr)
 	}
@@ -379,7 +377,7 @@ func checkCall(s *state, instr *hir.Instr) *Error {
 	return nil
 }
 
-func checkEqual(instr *hir.Instr, types ...*T.Type) *Error {
+func checkEqual(instr hir.Instr, types ...*T.Type) *Error {
 	if len(types) == 0 {
 		return nil
 	}
@@ -392,7 +390,7 @@ func checkEqual(instr *hir.Instr, types ...*T.Type) *Error {
 	return nil
 }
 
-func checkBinary(instr *hir.Instr, checkA, checkB, checkC Checker) *Error {
+func checkBinary(instr hir.Instr, checkA, checkB, checkC Checker) *Error {
 	a := instr.Operands[0]
 	b := instr.Operands[1]
 	dest := instr.Destination[0]
@@ -405,7 +403,7 @@ func checkBinary(instr *hir.Instr, checkA, checkB, checkC Checker) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkUnary(instr *hir.Instr, checkA, checkC Checker) *Error {
+func checkUnary(instr hir.Instr, checkA, checkC Checker) *Error {
 	a := instr.Operands[0]
 	dest := instr.Destination[0]
 
@@ -416,12 +414,12 @@ func checkUnary(instr *hir.Instr, checkA, checkC Checker) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkForm(instr *hir.Instr, numOperands int, hasDest bool) *Error {
+func checkForm(instr hir.Instr, numOperands int, hasDest bool) *Error {
 	if len(instr.Operands) != numOperands {
 		return malformedInstr(instr)
 	}
 	for _, op := range instr.Operands {
-		if op == nil {
+		if op.Class == hirc.InvalidClass {
 			return malformedInstr(instr)
 		}
 	}
@@ -431,40 +429,40 @@ func checkForm(instr *hir.Instr, numOperands int, hasDest bool) *Error {
 	return nil
 }
 
-func malformedInstr(instr *hir.Instr) *Error {
+func malformedInstr(instr hir.Instr) *Error {
 	return eu.NewInternalSemanticError("malformed instruction: " + instr.String())
 }
-func malformedEqualTypes(instr *hir.Instr) *Error {
+func malformedEqualTypes(instr hir.Instr) *Error {
 	return eu.NewInternalSemanticError("unequal types: " + instr.String())
 }
-func malformedTypeOrClass(instr *hir.Instr) *Error {
+func malformedTypeOrClass(instr hir.Instr) *Error {
 	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
 }
-func procArgNotFound(instr *hir.Instr, p *hir.Procedure) *Error {
+func procArgNotFound(instr hir.Instr, p *hir.Procedure) *Error {
 	return eu.NewInternalSemanticError("argument " + p.Label + " not found in: " + instr.String())
 }
-func procInvalidNumOfArgs(instr *hir.Instr, p *T.ProcType) *Error {
+func procInvalidNumOfArgs(instr hir.Instr, p *T.ProcType) *Error {
 	n := strconv.Itoa(len(p.Args))
 	beepBop := strconv.Itoa(len(instr.Operands) - 1)
 	return eu.NewInternalSemanticError("expected " + n + " arguments, instead found: " + beepBop)
 }
-func procInvalidNumOfRets(instr *hir.Instr, p *T.ProcType) *Error {
+func procInvalidNumOfRets(instr hir.Instr, p *T.ProcType) *Error {
 	n := strconv.Itoa(len(p.Rets))
 	beepBop := strconv.Itoa(len(instr.Destination))
 	return eu.NewInternalSemanticError("expected " + n + " returns, instead found: " + beepBop)
 }
-func procBadArg(instr *hir.Instr, d *T.Type, op *hir.Operand) *Error {
+func procBadArg(instr hir.Instr, d *T.Type, op hir.Operand) *Error {
 	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
-func procBadRet(instr *hir.Instr, d *T.Type, op *hir.Operand) *Error {
+func procBadRet(instr hir.Instr, d *T.Type, op hir.Operand) *Error {
 	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
 }
-func invalidMirInstr(i *hir.Instr) *Error {
+func invalidMirInstr(i hir.Instr) *Error {
 	return eu.NewInternalSemanticError("invalid MIR Instr: " + i.String())
 }
 func invalidFlow(f hir.Flow) *Error {
 	return eu.NewInternalSemanticError("invalid flow: " + f.String())
 }
-func expectedProc(instr *hir.Instr, o *hir.Operand) *Error {
+func expectedProc(instr hir.Instr, o hir.Operand) *Error {
 	return eu.NewInternalSemanticError("expected procedure in: " + instr.String() + ", instead found: " + o.String())
 }

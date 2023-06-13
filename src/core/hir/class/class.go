@@ -19,7 +19,7 @@ func (c Class) String() string {
 }
 
 const (
-	InvalidOpType Class = iota
+	InvalidClass Class = iota
 
 	Temp
 	Lit

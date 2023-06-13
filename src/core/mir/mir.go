@@ -143,12 +143,12 @@ func StrTypes(tps []*T.Type) string {
 
 type BasicBlock struct {
 	Label   string
-	Code    []*Instr
+	Code    []Instr
 	Out     Flow
 	Visited bool
 }
 
-func (b *BasicBlock) AddInstr(i *Instr) {
+func (b *BasicBlock) AddInstr(i Instr) {
 	b.Code = append(b.Code, i)
 }
 
@@ -160,25 +160,25 @@ func (b *BasicBlock) Jmp(o BlockID) {
 	}
 }
 
-func (b *BasicBlock) Branch(cond *Operand, True BlockID, False BlockID) {
+func (b *BasicBlock) Branch(cond Operand, True BlockID, False BlockID) {
 	b.Out = Flow{
 		T:     FT.If,
-		V:     []*Operand{cond},
+		V:     []Operand{cond},
 		True:  True,
 		False: False,
 	}
 }
 
-func (b *BasicBlock) Return(rets []*Operand) {
+func (b *BasicBlock) Return(rets []Operand) {
 	b.Out = Flow{
 		V: rets,
 		T: FT.Return,
 	}
 }
 
-func (b *BasicBlock) Exit(code *Operand) {
+func (b *BasicBlock) Exit(code Operand) {
 	b.Out = Flow{
-		V: []*Operand{code},
+		V: []Operand{code},
 		T: FT.Exit,
 	}
 }
@@ -205,7 +205,7 @@ type BlockID int
 
 type Flow struct {
 	T     FT.FlowKind
-	V     []*Operand
+	V     []Operand
 	True  BlockID
 	False BlockID
 }
@@ -233,6 +233,18 @@ func (f *Flow) StrRets() string {
 		output = append(output, op.String())
 	}
 	return strings.Join(output, ", ")
+}
+
+func OptOperand_(op Operand) OptOperand {
+	return OptOperand{
+		Valid:   true,
+		Operand: op,
+	}
+}
+
+type OptOperand struct {
+	Valid bool
+	Operand
 }
 
 type Operand struct {
@@ -268,9 +280,9 @@ func (o *Operand) String() string {
 type Instr struct {
 	T    IT.InstrKind
 	Type *T.Type
-	A    *Operand
-	B    *Operand
-	Dest *Operand
+	A    OptOperand
+	B    OptOperand
+	Dest OptOperand
 }
 
 func (this *Instr) String() string {
@@ -281,17 +293,17 @@ func (this *Instr) String() string {
 	if this.Type != nil {
 		output += ":" + this.Type.String()
 	}
-	if this.A != nil {
+	if this.A.Valid {
 		output += " " + this.A.String()
-		if this.B != nil {
+		if this.B.Valid {
 			output += " " + this.B.String()
 		}
 	} else {
-		if this.B != nil {
+		if this.B.Valid {
 			output += " ???, " + this.B.String()
 		}
 	}
-	if this.Dest != nil {
+	if this.Dest.Valid {
 		output += " -> " + this.Dest.String()
 	}
 	return output

@@ -38,10 +38,6 @@ func (i InstrKind) String() string {
 		return "not"
 	case Convert:
 		return "convert"
-	case Load:
-		return "load"
-	case Store:
-		return "store"
 	case Copy:
 		return "copy"
 	case LoadPtr:
@@ -81,9 +77,6 @@ const (
 
 	LoadPtr
 	StorePtr
-
-	Load
-	Store
 
 	Copy
 

@@ -29,7 +29,7 @@ func Check(P *mir.Program) *Error {
 	return nil
 }
 
-type region []*mir.Operand
+type region []mir.OptOperand
 
 func newRegion(size int64) region {
 	return make(region, size)
@@ -43,25 +43,27 @@ func (r *region) String() string {
 	return strings.Join(output, ", ")
 }
 
-func (r *region) Store(i int64, op *mir.Operand) {
+func (r *region) Store(i int64, op mir.Operand) {
 	if i >= int64(len(*r)) {
 		*r = append(*r, newRegion(i-int64(len(*r)+1))...)
 	}
-	(*r)[i] = op
+	(*r)[i] = mir.OptOperand_(op)
 }
 
-func (r *region) Load(i int64) *mir.Operand {
+func (r *region) Load(i int64) (mir.Operand, bool) {
 	if i >= int64(len(*r)) {
-		return nil
+		return mir.Operand{}, false
 	}
-	return (*r)[i]
+	op := (*r)[i]
+	return op.Operand, op.Valid
 }
 
 func (r region) Clear(i int) {
 	if i >= len(r) {
 		return
 	}
-	r[i] = nil
+	r[i].Valid = false
+	r[i].Operand = mir.Operand{}
 }
 
 type state struct {
@@ -130,23 +132,23 @@ func (s *state) Copy() *state {
 	}
 }
 
-func (s *state) SetReg(op *mir.Operand) {
+func (s *state) SetReg(op mir.Operand) {
 	if op.Class != mirc.Register {
 		panic("is not setting a register: " + op.String())
 	}
 	s.Registers.Store(op.Num, op)
 }
 
-func newCallerOperand(t *T.Type, i int64) *mir.Operand {
-	return &mir.Operand{
+func newCallerOperand(t *T.Type, i int64) mir.Operand {
+	return mir.Operand{
 		Class: mirc.CallerInterproc,
 		Num:   i,
 		Type:  t,
 	}
 }
 
-func newLocalOperand(t *T.Type, i int64) *mir.Operand {
-	return &mir.Operand{
+func newLocalOperand(t *T.Type, i int64) mir.Operand {
+	return mir.Operand{
 		Class: mirc.Local,
 		Num:   i,
 		Type:  t,
@@ -191,8 +193,8 @@ func checkJump(s *state) *Error {
 
 func checkRet(s *state) *Error {
 	for i, ret := range s.proc.Rets {
-		op := s.CallerInterproc.Load(int64(i))
-		if op == nil {
+		op, ok := s.CallerInterproc.Load(int64(i))
+		if !ok {
 			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.StrRets())
 		}
 		if !ret.Equals(op.Type) {
@@ -208,9 +210,9 @@ type Checker struct {
 	Type  func(*T.Type) bool
 }
 
-func (c *Checker) Check(op *mir.Operand) bool {
-	if op == nil {
-		panic("nil operand")
+func (c *Checker) Check(op mir.OptOperand) bool {
+	if !op.Valid {
+		panic("invalid operand")
 	}
 	return c.Type(op.Type) && c.Class(op.Class)
 }
@@ -280,10 +282,7 @@ var ptr_reg = Checker{
 	Type:  T.IsPtr,
 }
 
-func checkInstr(s *state, instr *mir.Instr) *Error {
-	if instr == nil {
-		return nilInstr(s)
-	}
+func checkInstr(s *state, instr mir.Instr) *Error {
 	err := checkInvalidClass(instr)
 	if err != nil {
 		return err
@@ -317,7 +316,7 @@ func checkInstr(s *state, instr *mir.Instr) *Error {
 	panic("sumthin' went wong")
 }
 
-func checkArith(s *state, instr *mir.Instr) *Error {
+func checkArith(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, true, true)
 	if err != nil {
 		return err
@@ -327,7 +326,7 @@ func checkArith(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.B.Type, instr.Dest.Type)
 	if err != nil {
@@ -336,7 +335,7 @@ func checkArith(s *state, instr *mir.Instr) *Error {
 	return checkBinary(instr, num_imme, num_imme, num_reg)
 }
 
-func checkComp(s *state, instr *mir.Instr) *Error {
+func checkComp(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, true, true)
 	if err != nil {
 		return err
@@ -346,7 +345,7 @@ func checkComp(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.B.Type)
 	if err != nil {
@@ -355,7 +354,7 @@ func checkComp(s *state, instr *mir.Instr) *Error {
 	return checkBinary(instr, basic_imme, basic_imme, bool_reg)
 }
 
-func checkLogical(s *state, instr *mir.Instr) *Error {
+func checkLogical(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, true, true)
 	if err != nil {
 		return err
@@ -365,7 +364,7 @@ func checkLogical(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.B.Type, instr.Dest.Type)
 	if err != nil {
@@ -374,7 +373,7 @@ func checkLogical(s *state, instr *mir.Instr) *Error {
 	return checkBinary(instr, bool_imme, bool_imme, bool_reg)
 }
 
-func checkUnaryArith(s *state, instr *mir.Instr) *Error {
+func checkUnaryArith(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -384,7 +383,7 @@ func checkUnaryArith(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.Dest.Type)
 	if err != nil {
@@ -393,7 +392,7 @@ func checkUnaryArith(s *state, instr *mir.Instr) *Error {
 	return checkUnary(instr, num_imme, num_reg)
 }
 
-func checkNot(s *state, instr *mir.Instr) *Error {
+func checkNot(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -403,7 +402,7 @@ func checkNot(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.Dest.Type)
 	if err != nil {
@@ -412,7 +411,7 @@ func checkNot(s *state, instr *mir.Instr) *Error {
 	return checkUnary(instr, bool_imme, bool_reg)
 }
 
-func checkConvert(s *state, instr *mir.Instr) *Error {
+func checkConvert(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -422,7 +421,7 @@ func checkConvert(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.Dest.Type)
 	if err != nil {
@@ -431,7 +430,7 @@ func checkConvert(s *state, instr *mir.Instr) *Error {
 	return checkUnary(instr, basic_imme, basic_reg)
 }
 
-func checkLoadPtr(s *state, instr *mir.Instr) *Error {
+func checkLoadPtr(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -441,7 +440,7 @@ func checkLoadPtr(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.Dest.Type)
 	if err != nil {
@@ -450,7 +449,7 @@ func checkLoadPtr(s *state, instr *mir.Instr) *Error {
 	return checkUnary(instr, ptr_imme, basicOrProc_reg)
 }
 
-func checkStorePtr(s *state, instr *mir.Instr) *Error {
+func checkStorePtr(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, true, false)
 	if err != nil {
 		return err
@@ -472,13 +471,13 @@ func checkStorePtr(s *state, instr *mir.Instr) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkLoad(s *state, instr *mir.Instr) *Error {
+func checkLoad(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
 	}
 
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.Dest.Type)
 	if err != nil {
@@ -492,7 +491,7 @@ func checkLoad(s *state, instr *mir.Instr) *Error {
 	return checkLoadState(s, instr)
 }
 
-func checkStore(s *state, instr *mir.Instr) *Error {
+func checkStore(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -515,7 +514,7 @@ func checkStore(s *state, instr *mir.Instr) *Error {
 	return checkStoreState(s, instr)
 }
 
-func checkCopy(s *state, instr *mir.Instr) *Error {
+func checkCopy(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, true)
 	if err != nil {
 		return err
@@ -525,7 +524,7 @@ func checkCopy(s *state, instr *mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	s.SetReg(instr.Dest)
+	s.SetReg(instr.Dest.Operand)
 
 	err = checkEqual(instr, instr.Type, instr.A.Type, instr.Dest.Type)
 	if err != nil {
@@ -539,7 +538,7 @@ func checkCopy(s *state, instr *mir.Instr) *Error {
 	return nil
 }
 
-func checkCall(s *state, instr *mir.Instr) *Error {
+func checkCall(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, false, false)
 	if err != nil {
 		return err
@@ -551,8 +550,8 @@ func checkCall(s *state, instr *mir.Instr) *Error {
 	t := instr.A.Type
 
 	for i, formal_arg := range t.Proc.Args {
-		real_arg := s.CalleeInterproc.Load(int64(i))
-		if real_arg == nil {
+		real_arg, ok := s.CalleeInterproc.Load(int64(i))
+		if !ok {
 			return errorCallLoadingGarbage(instr)
 		}
 		if !formal_arg.Equals(real_arg.Type) {
@@ -562,27 +561,28 @@ func checkCall(s *state, instr *mir.Instr) *Error {
 	}
 
 	for i, formal_ret := range t.Proc.Rets {
-		op := &mir.Operand{Class: mirc.CalleeInterproc, Num: int64(i), Type: formal_ret}
+		op := mir.Operand{Class: mirc.CalleeInterproc, Num: int64(i), Type: formal_ret}
 		s.CalleeInterproc.Store(int64(i), op)
 	}
 	return nil
 }
 
-func checkLoadState(s *state, instr *mir.Instr) *Error {
-	var source *mir.Operand
+func checkLoadState(s *state, instr mir.Instr) *Error {
+	var source mir.Operand
+	var ok bool
 	switch instr.A.Class {
 	case mirc.Spill:
-		source = s.Spill.Load(instr.A.Num)
+		source, ok = s.Spill.Load(instr.A.Num)
 	case mirc.CalleeInterproc:
-		source = s.CalleeInterproc.Load(instr.A.Num)
+		source, ok = s.CalleeInterproc.Load(instr.A.Num)
 	case mirc.CallerInterproc:
-		source = s.CallerInterproc.Load(instr.A.Num)
+		source, ok = s.CallerInterproc.Load(instr.A.Num)
 	case mirc.Local:
-		source = s.Locals.Load(instr.A.Num)
+		source, ok = s.Locals.Load(instr.A.Num)
 	default:
 		panic("oh no")
 	}
-	if source == nil {
+	if !ok {
 		return errorLoadingGarbage(instr)
 	}
 	err := checkEqual(instr, instr.Dest.Type, source.Type)
@@ -592,23 +592,23 @@ func checkLoadState(s *state, instr *mir.Instr) *Error {
 	return nil
 }
 
-func checkStoreState(s *state, instr *mir.Instr) *Error {
+func checkStoreState(s *state, instr mir.Instr) *Error {
 	switch instr.Dest.Class {
 	case mirc.Spill:
-		s.Spill.Store(instr.Dest.Num, instr.A)
+		s.Spill.Store(instr.Dest.Num, instr.A.Operand)
 	case mirc.CalleeInterproc:
-		s.CalleeInterproc.Store(instr.Dest.Num, instr.A)
+		s.CalleeInterproc.Store(instr.Dest.Num, instr.A.Operand)
 	case mirc.CallerInterproc:
-		s.CallerInterproc.Store(instr.Dest.Num, instr.A)
+		s.CallerInterproc.Store(instr.Dest.Num, instr.A.Operand)
 	case mirc.Local:
-		s.Locals.Store(instr.Dest.Num, instr.A)
+		s.Locals.Store(instr.Dest.Num, instr.A.Operand)
 	default:
 		panic("oh no")
 	}
 	return nil
 }
 
-func checkRegs(s *state, instr *mir.Instr) *Error {
+func checkRegs(s *state, instr mir.Instr) *Error {
 	err := checkRegOperand(s, instr, instr.A)
 	if err != nil {
 		return err
@@ -620,23 +620,23 @@ func checkRegs(s *state, instr *mir.Instr) *Error {
 	return nil
 }
 
-func checkRegOperand(s *state, instr *mir.Instr, op *mir.Operand) *Error {
-	if op == nil {
+func checkRegOperand(s *state, instr mir.Instr, op mir.OptOperand) *Error {
+	if !op.Valid {
 		return nil
 	}
 	if op.Class == mirc.Register {
-		loaded := s.Registers.Load(op.Num)
-		if loaded == nil {
-			return errorUsingRegisterGarbage(instr, op)
+		loaded, ok := s.Registers.Load(op.Num)
+		if !ok {
+			return errorUsingRegisterGarbage(instr, op.Operand)
 		}
 		if loaded.Num != op.Num || loaded.Class != op.Class || loaded.Type != op.Type {
-			return errorIncorrectValueInRegister(instr, loaded, op)
+			return errorIncorrectValueInRegister(instr, loaded, op.Operand)
 		}
 	}
 	return nil
 }
 
-func checkEqual(instr *mir.Instr, types ...*T.Type) *Error {
+func checkEqual(instr mir.Instr, types ...*T.Type) *Error {
 	if len(types) == 0 {
 		return nil
 	}
@@ -649,7 +649,7 @@ func checkEqual(instr *mir.Instr, types ...*T.Type) *Error {
 	return nil
 }
 
-func checkBinary(instr *mir.Instr, checkA, checkB, checkC Checker) *Error {
+func checkBinary(instr mir.Instr, checkA, checkB, checkC Checker) *Error {
 	if checkA.Check(instr.A) &&
 		checkB.Check(instr.B) &&
 		checkC.Check(instr.Dest) {
@@ -658,7 +658,7 @@ func checkBinary(instr *mir.Instr, checkA, checkB, checkC Checker) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkUnary(instr *mir.Instr, checkA, checkC Checker) *Error {
+func checkUnary(instr mir.Instr, checkA, checkC Checker) *Error {
 	if checkA.Check(instr.A) &&
 		checkC.Check(instr.Dest) {
 		return nil
@@ -666,73 +666,73 @@ func checkUnary(instr *mir.Instr, checkA, checkC Checker) *Error {
 	return malformedTypeOrClass(instr)
 }
 
-func checkInvalidClass(instr *mir.Instr) *Error {
-	if instr.A != nil && instr.A.Class == mirc.InvalidMIRClass {
+func checkInvalidClass(instr mir.Instr) *Error {
+	if instr.A.Valid && instr.A.Class == mirc.InvalidMIRClass {
 		return invalidClass(instr)
 	}
-	if instr.B != nil && instr.B.Class == mirc.InvalidMIRClass {
+	if instr.B.Valid && instr.B.Class == mirc.InvalidMIRClass {
 		return invalidClass(instr)
 	}
-	if instr.Dest != nil && instr.Dest.Class == mirc.InvalidMIRClass {
+	if instr.Dest.Valid && instr.Dest.Class == mirc.InvalidMIRClass {
 		return invalidClass(instr)
 	}
 	return nil
 }
 
-func checkForm(instr *mir.Instr, hasA, hasB, hasDest bool) *Error {
-	if hasA && instr.A == nil {
+func checkForm(instr mir.Instr, hasA, hasB, hasDest bool) *Error {
+	if hasA && !instr.A.Valid {
 		return malformedInstr(instr)
 	}
-	if hasB && instr.B == nil {
+	if hasB && !instr.B.Valid {
 		return malformedInstr(instr)
 	}
-	if hasDest && instr.Dest == nil {
+	if hasDest && !instr.Dest.Valid {
 		return malformedInstr(instr)
 	}
 	return nil
 }
 
-func malformedInstr(instr *mir.Instr) *Error {
+func malformedInstr(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("malformed instruction: " + instr.String())
 }
-func malformedEqualTypes(instr *mir.Instr) *Error {
+func malformedEqualTypes(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("unequal types: " + instr.String())
 }
-func malformedTypeOrClass(instr *mir.Instr) *Error {
+func malformedTypeOrClass(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
 }
-func invalidClass(instr *mir.Instr) *Error {
+func invalidClass(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("invalid class: " + instr.String())
 }
-func errorLoadingGarbage(instr *mir.Instr) *Error {
+func errorLoadingGarbage(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("loading garbage: " + instr.String())
 }
-func errorCallLoadingGarbage(instr *mir.Instr) *Error {
+func errorCallLoadingGarbage(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("call loading garbage: " + instr.String())
 }
-func errorUsingRegisterGarbage(instr *mir.Instr, op *mir.Operand) *Error {
+func errorUsingRegisterGarbage(instr mir.Instr, op mir.Operand) *Error {
 	return eu.NewInternalSemanticError("using register garbage: " + op.String() + " of " + instr.String())
 }
-func errorIncorrectValueInRegister(instr *mir.Instr, o, op *mir.Operand) *Error {
+func errorIncorrectValueInRegister(instr mir.Instr, o, op mir.Operand) *Error {
 	return eu.NewInternalSemanticError("incorrect value in register (" + o.String() + "): " + op.String() + " of " + instr.String())
 }
-func errorLoadingIncorrectType(instr *mir.Instr) *Error {
+func errorLoadingIncorrectType(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("load of incorrect type: " + instr.String())
 }
-func procArgNotFound(instr *mir.Instr, p *mir.Procedure) *Error {
+func procArgNotFound(instr mir.Instr, p *mir.Procedure) *Error {
 	return eu.NewInternalSemanticError("argument " + p.Label + " not found in: " + instr.String())
 }
-func procBadArg(instr *mir.Instr, d *T.Type, op *mir.Operand) *Error {
+func procBadArg(instr mir.Instr, d *T.Type, op mir.Operand) *Error {
 	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
-func procBadRet(instr *mir.Instr, d T.Type, op *mir.Operand) *Error {
+func procBadRet(instr mir.Instr, d T.Type, op mir.Operand) *Error {
 	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
 }
 
 func nilInstr(s *state) *Error {
 	return eu.NewInternalSemanticError("nil instruction in: " + s.proc.Label + " " + s.bb.Label)
 }
-func notAProc(instr *mir.Instr) *Error {
+func notAProc(instr mir.Instr) *Error {
 	return eu.NewInternalSemanticError("not a procedure: " + instr.String())
 }
 func symbolNotFound(i int64) *Error {

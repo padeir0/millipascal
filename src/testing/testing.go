@@ -84,8 +84,6 @@ func recoverIfFatal() {
 	}
 }
 
-type Tester func(file string) TestResult
-
 func extractError(file string) string {
 	pathlist := strings.Split(file, "/")
 	name := pathlist[len(pathlist)-1]

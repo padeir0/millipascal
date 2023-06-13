@@ -143,12 +143,12 @@ func StrTypes(tps []*T.Type) string {
 
 type BasicBlock struct {
 	Label   string
-	Code    []*Instr
+	Code    []Instr
 	Out     Flow
 	Visited bool
 }
 
-func (this *BasicBlock) AddInstr(i *Instr) {
+func (this *BasicBlock) AddInstr(i Instr) {
 	this.Code = append(this.Code, i)
 }
 
@@ -160,25 +160,25 @@ func (this *BasicBlock) Jmp(id BlockID) {
 	}
 }
 
-func (b *BasicBlock) Branch(cond *Operand, True BlockID, False BlockID) {
+func (b *BasicBlock) Branch(cond Operand, True BlockID, False BlockID) {
 	b.Out = Flow{
 		T:     FT.If,
-		V:     []*Operand{cond},
+		V:     []Operand{cond},
 		True:  True,
 		False: False,
 	}
 }
 
-func (b *BasicBlock) Return(rets []*Operand) {
+func (b *BasicBlock) Return(rets []Operand) {
 	b.Out = Flow{
 		V: rets,
 		T: FT.Return,
 	}
 }
 
-func (b *BasicBlock) Exit(code *Operand) {
+func (b *BasicBlock) Exit(code Operand) {
 	b.Out = Flow{
-		V: []*Operand{code},
+		V: []Operand{code},
 		T: FT.Exit,
 	}
 }
@@ -230,7 +230,7 @@ type BlockID int
 
 type Flow struct {
 	T     FT.FlowKind
-	V     []*Operand
+	V     []Operand
 	True  BlockID
 	False BlockID
 }
@@ -289,8 +289,8 @@ func (this *Operand) String() string {
 type Instr struct {
 	T           IT.InstrKind
 	Type        *T.Type
-	Operands    []*Operand
-	Destination []*Operand
+	Operands    []Operand
+	Destination []Operand
 }
 
 func (this *Instr) String() string {

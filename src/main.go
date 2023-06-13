@@ -17,10 +17,7 @@ var hir = flag.Bool("hir", false, "runs the full frontend, prints hir")
 var mir = flag.Bool("mir", false, "runs the full compiler, prints mir")
 var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
 
-var test = flag.Bool("test", false, "runs tests for all files in a folder,"+
-	" you can specify the stage to test using the other flags\n"+
-	"\t ex: mpc -lex   -test folder/\n"+
-	"\t     mpc -parse -test folder/")
+var test = flag.Bool("test", false, "runs tests for all files in a folder,")
 
 var verbose = flag.Bool("v", false, "verbose tests")
 
