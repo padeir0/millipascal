@@ -1,10 +1,10 @@
 package module
 
 import (
+	T "github.com/padeir0/pir/types"
 	. "mpc/core"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
-	T "mpc/core/types"
 
 	"fmt"
 	"strings"

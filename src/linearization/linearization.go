@@ -2,14 +2,17 @@ package linearization
 
 import (
 	. "mpc/core"
-	hir "mpc/core/hir"
-	hirc "mpc/core/hir/class"
-	IT "mpc/core/hir/instrkind"
-	RIU "mpc/core/hir/util"
+
+	//https://github.com/padeir0/pir
+	hir "github.com/padeir0/pir"
+	hirc "github.com/padeir0/pir/class"
+	IT "github.com/padeir0/pir/instrkind"
+	T "github.com/padeir0/pir/types"
+	RIU "github.com/padeir0/pir/util"
+
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
-	T "mpc/core/types"
 	msg "mpc/messages"
 	"strconv"
 )

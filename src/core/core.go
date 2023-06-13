@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	pErr "github.com/padeir0/pir/errors"
 	"io/ioutil"
 	et "mpc/core/errorkind"
 	sv "mpc/core/severity"
@@ -134,4 +135,14 @@ func ProcessFileError(e error) *Error {
 		Code:    et.FileError,
 		Message: e.Error(),
 	}
+}
+
+func ProcessPirError(e *pErr.Error) *Error {
+	if e != nil {
+		return &Error{
+			Code:    et.InternalCompilerError,
+			Message: string(*e),
+		}
+	}
+	return nil
 }

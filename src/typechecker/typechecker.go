@@ -1,11 +1,11 @@
 package typechecker
 
 import (
+	T "github.com/padeir0/pir/types"
 	. "mpc/core"
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
-	T "mpc/core/types"
 	msg "mpc/messages"
 )
 

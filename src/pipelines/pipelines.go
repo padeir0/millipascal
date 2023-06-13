@@ -5,18 +5,19 @@ import (
 	"os"
 	"os/exec"
 
+	hir "github.com/padeir0/pir"
+	amd64 "github.com/padeir0/pir/backends/linuxamd64/fasm"
+	mir "github.com/padeir0/pir/backends/linuxamd64/mir"
+	mirchecker "github.com/padeir0/pir/backends/linuxamd64/mir/checker"
+	resalloc "github.com/padeir0/pir/backends/linuxamd64/resalloc"
+	hirchecker "github.com/padeir0/pir/checker"
+
 	. "mpc/core"
-	"mpc/core/hir"
-	hirchecker "mpc/core/hir/checker"
-	"mpc/core/mir"
-	mirchecker "mpc/core/mir/checker"
 	mod "mpc/core/module"
 
-	"mpc/amd64"
 	"mpc/lexer"
 	"mpc/linearization"
 	"mpc/parser"
-	"mpc/resalloc"
 	"mpc/resolution"
 	"mpc/typechecker"
 )
@@ -70,7 +71,7 @@ func Hir(file string) (*hir.Program, *Error) {
 		return nil, err
 	}
 
-	err = hirchecker.Check(p)
+	err = ProcessPirError(hirchecker.Check(p))
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func Mir(file string) (*mir.Program, *Error) {
 		return nil, err
 	}
 	mirP := resalloc.Allocate(p, NumRegisters)
-	err = mirchecker.Check(mirP)
+	err = ProcessPirError(mirchecker.Check(mirP))
 	if err != nil {
 		return nil, err
 	}

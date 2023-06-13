@@ -1,13 +1,13 @@
 package resolution
 
 import (
+	T "github.com/padeir0/pir/types"
 	"io/ioutil"
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
-	T "mpc/core/types"
 	"mpc/lexer"
 	msg "mpc/messages"
 	"mpc/parser"

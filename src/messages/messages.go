@@ -1,10 +1,10 @@
 package messages
 
 import (
+	T "github.com/padeir0/pir/types"
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
-	T "mpc/core/types"
 	. "mpc/core/util"
 	"strconv"
 	"strings"
