@@ -13,7 +13,7 @@ import (
 
 var lexemes = flag.Bool("lexemes", false, "runs the lexer and prints the tokens")
 var ast = flag.Bool("ast", false, "runs the lexer and parser, prints AST output")
-var hir = flag.Bool("hir", false, "runs the full frontend, prints hir")
+var pir = flag.Bool("pir", false, "runs the full frontend, prints pir")
 var mir = flag.Bool("mir", false, "runs the full compiler, prints mir")
 var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
 
@@ -54,10 +54,10 @@ func normalMode(filename string) {
 		n, err := pipelines.Ast(filename)
 		OkOrBurst(err)
 		fmt.Println(n)
-	case *hir:
-		hirP, err := pipelines.Hir(filename)
+	case *pir:
+		pirP, err := pipelines.Pir(filename)
 		OkOrBurst(err)
-		fmt.Println(hirP)
+		fmt.Println(pirP)
 	case *mir:
 		mirP, err := pipelines.Mir(filename)
 		OkOrBurst(err)
@@ -73,7 +73,7 @@ func normalMode(filename string) {
 }
 
 func checkValid() {
-	var selected = []bool{*lexemes, *ast, *hir, *mir, *asm}
+	var selected = []bool{*lexemes, *ast, *pir, *mir, *asm}
 	var count = 0
 	for _, b := range selected {
 		if b {
@@ -81,7 +81,7 @@ func checkValid() {
 		}
 	}
 	if count > 1 {
-		Fatal("only one of lex, parse, hir, mir or asm flags may be used at a time")
+		Fatal("only one of lex, parse, pir, mir or asm flags may be used at a time")
 	}
 }
 

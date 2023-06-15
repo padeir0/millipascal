@@ -130,7 +130,7 @@ func (this *Lexer) Range() *Range {
 	}
 }
 
-func genNumNode(l *Lexer, tp T.LexKind, value int64) *ir.Node {
+func genNumNode(l *Lexer, tp T.LexKind, value uint64) *ir.Node {
 	text := l.Selected()
 	n := &ir.Node{
 		Lex:   tp,
@@ -172,7 +172,7 @@ func nextRune(l *Lexer) rune {
 func peekRune(l *Lexer) rune {
 	r, size := utf8.DecodeRuneInString(l.Input[l.End:])
 	if r == utf8.RuneError && size == 1 {
-		panic("Invalid UTF8 rune in string") // really, if this ever happens you should get a panic, i don't care, what the fuck were they thinking when they inserted an invalid character in utf8? its like "lets have a null-unsafe encoding just for fun" do these people really like null reference exceptions all that much? what the actual fuck, this is the last time i use a variable width retarded encoding, ascii is a shitstorm too but at least it isn't retarded like this
+		panic("Invalid UTF8 rune in string")
 	}
 
 	return r
@@ -413,7 +413,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 // sorry
 func number(st *Lexer) *ir.Node {
 	r := peekRune(st)
-	var value int64
+	var value uint64
 	if r == '0' {
 		nextRune(st)
 		r = peekRune(st)
@@ -439,14 +439,44 @@ func number(st *Lexer) *ir.Node {
 	case 'p': // p ointer
 		nextRune(st)
 		return genNumNode(st, T.PTR_LIT, value)
-	case 'r': // cha r
+	case 'u':
 		nextRune(st)
-		return genNumNode(st, T.I8_LIT, value)
-	case 't': // shor t
+		r = peekRune(st)
+		switch r {
+		case 's': // short
+			nextRune(st)
+			r = peekRune(st)
+			if r == 's' { // shorter short
+				nextRune(st)
+				return genNumNode(st, T.U8_LIT, value)
+			}
+			return genNumNode(st, T.U16_LIT, value)
+		case 'l': // long
+			nextRune(st)
+			r = peekRune(st)
+			if r == 'l' { // longer long
+				nextRune(st)
+				return genNumNode(st, T.U64_LIT, value)
+			}
+			return genNumNode(st, T.U32_LIT, value)
+		default:
+			return genNumNode(st, T.U64_LIT, value)
+		}
+	case 's': // short
 		nextRune(st)
+		r = peekRune(st)
+		if r == 's' { // shorter short
+			nextRune(st)
+			return genNumNode(st, T.I8_LIT, value)
+		}
 		return genNumNode(st, T.I16_LIT, value)
-	case 'g': // lon g
+	case 'l': // long
 		nextRune(st)
+		r = peekRune(st)
+		if r == 'l' { // longer long
+			nextRune(st)
+			return genNumNode(st, T.I64_LIT, value)
+		}
 		return genNumNode(st, T.I32_LIT, value)
 	}
 	return genNumNode(st, T.I64_LIT, value)
@@ -509,6 +539,14 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.I32
 	case "i64":
 		tp = T.I64
+	case "u8":
+		tp = T.U8
+	case "u16":
+		tp = T.U16
+	case "u32":
+		tp = T.U32
+	case "u64":
+		tp = T.U64
 	case "bool":
 		tp = T.BOOL
 	case "ptr":
@@ -590,13 +628,13 @@ func IsValidIdentifier(s string) bool {
 	return tks[0].Lex == T.IDENTIFIER
 }
 
-func parseNormal(text string) int64 {
-	var output int64 = 0
+func parseNormal(text string) uint64 {
+	var output uint64 = 0
 	for i := range text {
 		output *= 10
 		char := text[i]
 		if char >= '0' || char <= '9' {
-			output += int64(char - '0')
+			output += uint64(char - '0')
 		} else {
 			panic(text)
 		}
@@ -604,18 +642,18 @@ func parseNormal(text string) int64 {
 	return output
 }
 
-func parseHex(oldText string) int64 {
+func parseHex(oldText string) uint64 {
 	text := oldText[2:]
-	var output int64 = 0
+	var output uint64 = 0
 	for i := range text {
 		output *= 16
 		char := text[i]
 		if char >= '0' && char <= '9' {
-			output += int64(char - '0')
+			output += uint64(char - '0')
 		} else if char >= 'a' && char <= 'f' {
-			output += int64(char-'a') + 10
+			output += uint64(char-'a') + 10
 		} else if char >= 'A' && char <= 'F' {
-			output += int64(char-'A') + 10
+			output += uint64(char-'A') + 10
 		} else {
 			panic(text)
 		}
@@ -623,14 +661,14 @@ func parseHex(oldText string) int64 {
 	return output
 }
 
-func parseBin(oldText string) int64 {
+func parseBin(oldText string) uint64 {
 	text := oldText[2:]
-	var output int64 = 0
+	var output uint64 = 0 // we can do that because integers are always positive
 	for i := range text {
 		output *= 2
 		char := text[i]
 		if char == '0' || char == '1' {
-			output += int64(char - '0')
+			output += uint64(char - '0')
 		} else {
 			panic(text)
 		}
@@ -638,8 +676,8 @@ func parseBin(oldText string) int64 {
 	return output
 }
 
-func parseCharLit(text string) int64 {
-	value := int64(text[0])
+func parseCharLit(text string) uint64 {
+	value := uint64(text[0])
 	if len(text) > 1 {
 		switch text {
 		case "\\n":

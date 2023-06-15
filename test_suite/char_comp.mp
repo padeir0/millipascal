@@ -8,6 +8,6 @@ begin
 	set res = p@i8 >= 'A' and p@i8 <= 'Z'
 	if not res 
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

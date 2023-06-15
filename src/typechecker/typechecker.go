@@ -91,7 +91,7 @@ func checkMem(M *ir.Module, mem *ir.Mem) *Error {
 	switch mem.Init.Lex {
 	case lex.STRING_LIT:
 		size := stringSize(mem.Init.Text)
-		mem.Size = int64(size)
+		mem.Size = uint64(size)
 		mem.Contents = mem.Init.Text
 	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT:
 		mem.Size = mem.Init.Value
@@ -231,6 +231,14 @@ func getType(n *ir.Node) *T.Type {
 		return T.T_I32
 	case lex.I64:
 		return T.T_I64
+	case lex.U8:
+		return T.T_U8
+	case lex.U16:
+		return T.T_U16
+	case lex.U32:
+		return T.T_U32
+	case lex.U64:
+		return T.T_U64
 	case lex.PTR:
 		return T.T_Ptr
 	case lex.BOOL:
@@ -434,6 +442,9 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 		return err
 	}
 
+	if right.T == nil {
+		panic("right side is nil!!")
+	}
 	if (T.IsMultiRet(right.T) || len(left.Leaves) > 1) &&
 		op.Lex != lex.ASSIGNMENT {
 		return msg.ErrorCanOnlyUseNormalAssignment(M, op)
@@ -544,6 +555,7 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	case lex.DOUBLECOLON:
 		return checkExternalID(M, proc, n)
 	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
+		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT,
 		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.STRING_LIT,
 		lex.CHAR_LIT:
 		n.T = termToType(n.Lex)
@@ -667,6 +679,14 @@ func termToType(tp lex.LexKind) *T.Type {
 		return T.T_I16
 	case lex.I8_LIT:
 		return T.T_I8
+	case lex.U64_LIT:
+		return T.T_U64
+	case lex.U32_LIT:
+		return T.T_U32
+	case lex.U16_LIT:
+		return T.T_U16
+	case lex.U8_LIT:
+		return T.T_U8
 	case lex.CHAR_LIT:
 		return T.T_I8
 	case lex.STRING_LIT:

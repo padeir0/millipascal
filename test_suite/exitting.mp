@@ -1,4 +1,4 @@
 proc main
 begin
-	exit 0r;
+	exit 0ss;
 end proc

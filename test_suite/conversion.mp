@@ -1,9 +1,9 @@
 proc main
 var a:i8
 begin
-	set a = 1r:i8
-	if a != 1r
+	set a = 1ss:i8
+	if a != 1ss
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

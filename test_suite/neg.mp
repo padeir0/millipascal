@@ -2,6 +2,6 @@ proc main
 begin
 	if ~5 + 5 != 0
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

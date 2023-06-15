@@ -4,7 +4,7 @@ begin
 	set a, b, c = P[1, 2, 3]
 	if a != 1 or b != 2 or c != 3
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc
 

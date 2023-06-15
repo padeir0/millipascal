@@ -12,10 +12,12 @@ begin
 end proc
 ```
 
-It has only 6 basic types:
+It has only 10 basic types:
 
 ```
-i8    i16     i32    i64    bool    ptr
+i8    i16    i32    i64
+u8    u16    u32    u64
+bool  ptr
 ```
 
 And the `proc` complex types, a few examples:

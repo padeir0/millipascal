@@ -7,6 +7,6 @@ begin
 	set a = a + 1;
 	if a != 2
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

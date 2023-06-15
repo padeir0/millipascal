@@ -5,6 +5,6 @@ begin
 	set b = 2
 	set a = b - a
 	if a != 1 begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

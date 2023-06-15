@@ -11,5 +11,5 @@ begin
 	begin
 		exit index:i8
 	end if
-	exit 0r
+	exit 0ss
 end proc

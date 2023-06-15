@@ -6,13 +6,13 @@ begin
 	set b = Perform[a, a, Add]
 	if b != 2
 	begin
-		exit 1r
+		exit 1ss
 	end if
 
 	set b = Perform[b, b, Sub]
 	if b != 0 
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc
 

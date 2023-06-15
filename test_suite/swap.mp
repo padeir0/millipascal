@@ -18,6 +18,6 @@ begin
 
 	if b1 == a or b2 == b
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

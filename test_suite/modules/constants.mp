@@ -19,6 +19,6 @@ proc main
 begin
 	if Pi[] != Tau[]/2 
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

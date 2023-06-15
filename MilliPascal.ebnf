@@ -10,7 +10,7 @@ digits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'.
 hexDigits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|
 	    'A'|'B'|'C'|'D'|'E'|'F'|'a'|'b'|'c'|'d'|'e'|'f'.
 binDigits = '0'|'1'.
-numEnding = 'p'|'r'|'t'|'g'.
+numEnding = 'p'|'s'|'ss'|'l'|'ll'|'us'|'uss'|'ul'|'ull'.
 number := decimal | hexadecimal | binary.
 decimal := digits {digits} [numEnding].
 hexadecimal := '0x' hexDigits {hexDigits} [numEnding].
@@ -24,7 +24,8 @@ keywords
     var    proc   begin  end
     while  if     else   elseif
     or     and    not    memory
-    i8     i16    i32    i64  
+    i8     i16    i32    i64
+    u8     u16    u32    u64
     bool   ptr    true   false
     exit   import from   export.
 
@@ -37,6 +38,7 @@ ponctuation:
 
 basicTypes:
 	i8  i16  i32  i64  ptr  bool
+	u8  u16  u32  u64
 
 -- Parser:
 Module := {Coupling} {Symbol}.

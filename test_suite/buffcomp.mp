@@ -5,15 +5,15 @@ proc main
 begin
 	if not equals[first, first.size, first, first.size]
 	begin
-		exit 1r
+		exit 1ss
 	end if
 	if not equals[second, second.size, second, second.size]
 	begin
-		exit 1r
+		exit 1ss
 	end if
 	if equals[first, first.size, second, second.size]
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc
 

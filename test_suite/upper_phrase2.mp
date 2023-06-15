@@ -10,7 +10,7 @@ begin
 	begin
 		if p@i8 >= 'a' and p@i8 <= 'z'
 		begin
-			set p@i8 -= 32r
+			set p@i8 -= 32ss
 		end if
 		set p += 1p;
 	end while

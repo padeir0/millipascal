@@ -8,6 +8,6 @@ begin
 	end while
 	if i != 10
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc

@@ -2,7 +2,7 @@ proc main
 begin
 	if fact[5] != 120
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc
 

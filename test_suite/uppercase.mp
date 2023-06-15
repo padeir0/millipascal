@@ -5,7 +5,7 @@ begin
 	set char = upper_case[char]
 	if char != 'A'
 	begin
-		exit 1r
+		exit 1ss
 	end if
 end proc
 
@@ -13,7 +13,7 @@ proc upper_case[a:i8] i8
 begin
 	if a >= 'a' and a <= 'z'
 	begin
-		return a - 32r
+		return a - 32ss
 	end if
 	return a
 end proc

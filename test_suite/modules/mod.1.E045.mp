@@ -6,5 +6,5 @@ end proc
 
 proc main
 begin
-	exit 1r
+	exit 1ss
 end proc

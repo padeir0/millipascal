@@ -248,7 +248,8 @@ func obligatoryTypeList(s *Lexer) (*mod.Node, *Error) {
 func _type(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "type")
 	switch s.Word.Lex {
-	case T.I16, T.I8, T.I32, T.I64, T.BOOL, T.PTR:
+	case T.I16, T.I8, T.I32, T.I64,
+		T.U16, T.U8, T.U32, T.U64, T.BOOL, T.PTR:
 		return Consume(s)
 	case T.PROC:
 		return procType(s)
@@ -674,8 +675,9 @@ func factor(s *Lexer) (*mod.Node, *Error) {
 			End:   rP.Range.End,
 		}
 		return n, nil
-	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT, T.CHAR_LIT,
-		T.TRUE, T.FALSE, T.PTR_LIT:
+	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
+		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT,
+		T.CHAR_LIT, T.TRUE, T.FALSE, T.PTR_LIT:
 		return Consume(s)
 	}
 	return nil, nil
@@ -851,7 +853,8 @@ func _while(s *Lexer) (*mod.Node, *Error) {
 }
 
 func numberOrString(s *Lexer) (*mod.Node, *Error) {
-	return Expect(s, T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT, T.PTR_LIT, T.STRING_LIT)
+	return Expect(s, T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
+		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT, T.PTR_LIT, T.STRING_LIT)
 }
 
 func sumOp(n *mod.Node) bool {

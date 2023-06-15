@@ -4,8 +4,8 @@ import (
 	. "mpc/core"
 
 	//https://github.com/padeir0/pir
-	hir "github.com/padeir0/pir"
-	hirc "github.com/padeir0/pir/class"
+	"github.com/padeir0/pir"
+	pirc "github.com/padeir0/pir/class"
 	IT "github.com/padeir0/pir/instrkind"
 	T "github.com/padeir0/pir/types"
 	RIU "github.com/padeir0/pir/util"
@@ -18,39 +18,39 @@ import (
 )
 
 type context struct {
-	Program   *hir.Program
-	symbolMap map[string]hir.SymbolID
+	Program   *pir.Program
+	symbolMap map[string]pir.SymbolID
 
-	HirProc *hir.Procedure
+	PirProc *pir.Procedure
 	ModProc *ir.Proc
 
-	CurrBlock *hir.BasicBlock
+	CurrBlock *pir.BasicBlock
 
-	TempCounter int64
+	TempCounter uint64
 }
 
 func newContext(M *ir.Module) *context {
 	return &context{
-		Program:     hir.NewProgram(),
-		symbolMap:   map[string]hir.SymbolID{},
+		Program:     pir.NewProgram(),
+		symbolMap:   map[string]pir.SymbolID{},
 		TempCounter: 0,
 	}
 }
 
-func (c *context) NewBlock() (hir.BlockID, *hir.BasicBlock) {
-	id := len(c.HirProc.AllBlocks)
+func (c *context) NewBlock() (pir.BlockID, *pir.BasicBlock) {
+	id := len(c.PirProc.AllBlocks)
 	v := strconv.FormatInt(int64(id), 10)
-	b := &hir.BasicBlock{
+	b := &pir.BasicBlock{
 		Label: ".L" + v,
-		Code:  []hir.Instr{},
+		Code:  []pir.Instr{},
 	}
-	c.HirProc.AllBlocks = append(c.HirProc.AllBlocks, b)
-	return hir.BlockID(id), b
+	c.PirProc.AllBlocks = append(c.PirProc.AllBlocks, b)
+	return pir.BlockID(id), b
 }
 
-func (c *context) AllocTemp(t *T.Type) hir.Operand {
-	op := hir.Operand{
-		Class: hirc.Temp,
+func (c *context) AllocTemp(t *T.Type) pir.Operand {
+	op := pir.Operand{
+		Class: pirc.Temp,
 		Type:  t,
 		Num:   c.TempCounter,
 	}
@@ -58,16 +58,16 @@ func (c *context) AllocTemp(t *T.Type) hir.Operand {
 	return op
 }
 
-func (c *context) GetSymbolID(modName string, name string) hir.SymbolID {
+func (c *context) GetSymbolID(modName string, name string) pir.SymbolID {
 	return c.symbolMap[modName+"_"+name]
 }
 
-func (c *context) GetSymbol(modName string, name string) *hir.Symbol {
+func (c *context) GetSymbol(modName string, name string) *pir.Symbol {
 	i := c.symbolMap[modName+"_"+name]
 	return c.Program.Symbols[i]
 }
 
-func Generate(M *ir.Module) (*hir.Program, *Error) {
+func Generate(M *ir.Module) (*pir.Program, *Error) {
 	c := newContext(M)
 
 	declAll(c, M)
@@ -101,17 +101,17 @@ func declAll(c *context, M *ir.Module) {
 	for _, sy := range M.Globals {
 		if !sy.External {
 			if sy.T == ST.Proc {
-				p := newHirProc(M.Name, sy.Proc)
+				p := newPirProc(M.Name, sy.Proc)
 				i := c.Program.AddProc(p)
-				c.symbolMap[p.Label] = hir.SymbolID(i)
+				c.symbolMap[p.Label] = pir.SymbolID(i)
 			} else if sy.T == ST.Mem {
-				m := newHirMem(M.Name, sy.Mem)
+				m := newPirMem(M.Name, sy.Mem)
 				i := c.Program.AddMem(m)
-				c.symbolMap[m.Label] = hir.SymbolID(i)
+				c.symbolMap[m.Label] = pir.SymbolID(i)
 			} else if sy.T == ST.Builtin {
 				p := newBuiltin(sy)
 				i := c.Program.AddBuiltin(p)
-				c.symbolMap[p.Label] = hir.SymbolID(i)
+				c.symbolMap[p.Label] = pir.SymbolID(i)
 			}
 		}
 	}
@@ -143,19 +143,19 @@ func genAll(c *context, M *ir.Module) *Error {
 
 func genProc(c *context, M *ir.Module, proc *ir.Proc) *Error {
 	c.ModProc = proc
-	c.HirProc = c.GetSymbol(M.Name, proc.Name).Proc
+	c.PirProc = c.GetSymbol(M.Name, proc.Name).Proc
 
 	startID, start := c.NewBlock()
-	c.HirProc.Start = startID
+	c.PirProc.Start = startID
 	c.CurrBlock = start
 
 	body := proc.N.Leaves[4]
 	genBlock(M, c, body)
-	if !hir.ProperlyTerminates(c.HirProc) {
+	if !pir.ProperlyTerminates(c.PirProc) {
 		if proc.DoesReturnSomething() {
 			return msg.NotAllCodePathsReturnAValue(M, proc)
 		}
-		for _, bb := range c.HirProc.AllBlocks {
+		for _, bb := range c.PirProc.AllBlocks {
 			if !bb.HasFlow() {
 				setReturn(bb)
 			}
@@ -164,8 +164,8 @@ func genProc(c *context, M *ir.Module, proc *ir.Proc) *Error {
 	return nil
 }
 
-func setReturn(b *hir.BasicBlock) {
-	b.Return([]hir.Operand{})
+func setReturn(b *pir.BasicBlock) {
+	b.Return([]pir.Operand{})
 }
 
 func genBlock(M *ir.Module, c *context, body *ir.Node) {
@@ -196,8 +196,8 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	op := genExpr(M, c, exp)
 	trueblID, truebl := c.NewBlock()
 	falseblID, falsebl := c.NewBlock()
-	var outblID hir.BlockID
-	var outbl *hir.BasicBlock // we just generate an out block if it's reachable
+	var outblID pir.BlockID
+	var outbl *pir.BasicBlock // we just generate an out block if it's reachable
 
 	c.CurrBlock.Branch(op, trueblID, falseblID)
 
@@ -224,7 +224,7 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	c.CurrBlock = outbl
 }
 
-func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outblID hir.BlockID) {
+func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outblID pir.BlockID) {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
@@ -267,7 +267,7 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 	if c.CurrBlock.IsTerminal() {
 		return
 	}
-	operands := []hir.Operand{}
+	operands := []pir.Operand{}
 	for _, ret := range return_.Leaves {
 		op := genExpr(M, c, ret)
 		operands = append(operands, op)
@@ -308,14 +308,14 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 	genLoadAssignRets(M, c, assignees, rets)
 }
 
-func genIntOp(num int64) *hir.Operand {
-	return &hir.Operand{
-		Class: hirc.Lit,
+func genIntOp(num uint64) *pir.Operand {
+	return &pir.Operand{
+		Class: pirc.Lit,
 		Num:   num,
 	}
 }
 
-func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node, ops []hir.Operand) {
+func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node, ops []pir.Operand) {
 	for i, ass := range assignees.Leaves {
 		op := ops[i]
 		if ass.Lex == lex.IDENTIFIER {
@@ -329,10 +329,10 @@ func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node, ops []hir.O
 	}
 }
 
-func genCallInstr(c *context, proc hir.Operand, args, rets []hir.Operand) {
-	operands := []hir.Operand{proc}
+func genCallInstr(c *context, proc pir.Operand, args, rets []pir.Operand) {
+	operands := []pir.Operand{proc}
 	operands = append(operands, args...)
-	iCall := hir.Instr{
+	iCall := pir.Instr{
 		T:           IT.Call,
 		Operands:    operands,
 		Destination: rets,
@@ -340,8 +340,8 @@ func genCallInstr(c *context, proc hir.Operand, args, rets []hir.Operand) {
 	c.CurrBlock.AddInstr(iCall)
 }
 
-func genArgs(M *ir.Module, c *context, args *ir.Node) []hir.Operand {
-	output := []hir.Operand{}
+func genArgs(M *ir.Module, c *context, args *ir.Node) []pir.Operand {
+	output := []pir.Operand{}
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
 		output = append(output, res)
@@ -349,8 +349,8 @@ func genArgs(M *ir.Module, c *context, args *ir.Node) []hir.Operand {
 	return output
 }
 
-func genRets(M *ir.Module, c *context, proc hir.Operand) []hir.Operand {
-	output := []hir.Operand{}
+func genRets(M *ir.Module, c *context, proc pir.Operand) []pir.Operand {
+	output := []pir.Operand{}
 	for _, ret := range proc.Type.Proc.Rets {
 		op := c.AllocTemp(ret)
 		output = append(output, op)
@@ -358,14 +358,14 @@ func genRets(M *ir.Module, c *context, proc hir.Operand) []hir.Operand {
 	return output
 }
 
-func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op hir.Operand) {
+func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op pir.Operand) {
 	dest := genExprID(M, c, ass)
 	// TODO: OPT: try to avoid this COPY instruction
 	loadRet := RIU.Copy(op, dest)
 	c.CurrBlock.AddInstr(loadRet)
 }
 
-func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op hir.Operand) {
+func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op pir.Operand) {
 	ptrOp := genExpr(M, c, ass.Leaves[1])
 	loadPtr := RIU.StorePtr(op, ptrOp)
 	c.CurrBlock.AddInstr(loadPtr)
@@ -390,11 +390,11 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.L
 		return
 	}
 	instrT := mapOpToInstr(op)
-	instr := hir.Instr{
+	instr := pir.Instr{
 		T:           instrT,
 		Type:        dest.Type,
-		Operands:    []hir.Operand{dest, exp},
-		Destination: []hir.Operand{dest},
+		Operands:    []pir.Operand{dest, exp},
+		Destination: []pir.Operand{dest},
 	}
 	c.CurrBlock.AddInstr(instr)
 }
@@ -432,11 +432,11 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.LexKi
 
 	instrT := mapOpToInstr(op)
 	temp2 := c.AllocTemp(leftType.T)
-	instr := hir.Instr{
+	instr := pir.Instr{
 		T:           instrT,
 		Type:        temp.Type,
-		Operands:    []hir.Operand{temp, rightOp},
-		Destination: []hir.Operand{temp2},
+		Operands:    []pir.Operand{temp, rightOp},
+		Destination: []pir.Operand{temp2},
 	}
 	c.CurrBlock.AddInstr(instr) // op temp, right -> temp2
 
@@ -444,7 +444,7 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.LexKi
 	c.CurrBlock.AddInstr(store) // store temp2 -> left
 }
 
-func genExpr(M *ir.Module, c *context, exp *ir.Node) hir.Operand {
+func genExpr(M *ir.Module, c *context, exp *ir.Node) pir.Operand {
 	if T.IsInvalid(exp.T) {
 		panic("invalid type at: " + exp.Text)
 	}
@@ -455,7 +455,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) hir.Operand {
 		return genExternalID(c, M, exp)
 	case lex.FALSE, lex.TRUE:
 		return genBoolLit(M, c, exp)
-	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT, lex.CHAR_LIT:
+	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
+		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT, lex.CHAR_LIT:
 		return genNumLit(M, c, exp)
 	case lex.PLUS, lex.MINUS:
 		return genBinaryOp(M, c, exp)
@@ -471,7 +472,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) hir.Operand {
 		if len(out) == 1 {
 			return out[0]
 		}
-		return hir.Operand{}
+		return pir.Operand{}
 	case lex.AT:
 		return genDeref(M, c, exp)
 	case lex.NOT, lex.NEG:
@@ -483,7 +484,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) hir.Operand {
 }
 
 // assume a single return
-func genCall(M *ir.Module, c *context, call *ir.Node) []hir.Operand {
+func genCall(M *ir.Module, c *context, call *ir.Node) []pir.Operand {
 	proc := call.Leaves[1]
 	args := call.Leaves[0]
 
@@ -496,7 +497,7 @@ func genCall(M *ir.Module, c *context, call *ir.Node) []hir.Operand {
 	return retOps
 }
 
-func genDeref(M *ir.Module, c *context, memAccess *ir.Node) hir.Operand {
+func genDeref(M *ir.Module, c *context, memAccess *ir.Node) pir.Operand {
 	t := memAccess.Leaves[0].T
 	exp := memAccess.Leaves[1]
 
@@ -509,7 +510,7 @@ func genDeref(M *ir.Module, c *context, memAccess *ir.Node) hir.Operand {
 	return dest
 }
 
-func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) hir.Operand {
+func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) pir.Operand {
 	mod := dcolon.Leaves[0].Text
 	id := dcolon.Leaves[1].Text
 	otherM := M.Dependencies[mod].M
@@ -517,21 +518,21 @@ func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) hir.Operand {
 	return globalToOperand(c, sy)
 }
 
-func genExprID(M *ir.Module, c *context, id *ir.Node) hir.Operand {
+func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
 	decl, ok := c.ModProc.Vars[id.Text]
 	if ok {
-		return hir.Operand{
-			Class: hirc.Local,
+		return pir.Operand{
+			Class: pirc.Local,
 			Type:  id.T,
-			Num:   int64(decl.Position),
+			Num:   uint64(decl.Position),
 		}
 	}
 	posSy, ok := c.ModProc.ArgMap[id.Text]
 	if ok {
-		return hir.Operand{
-			Class: hirc.Arg,
+		return pir.Operand{
+			Class: pirc.Arg,
 			Type:  id.T,
-			Num:   int64(posSy.Position),
+			Num:   uint64(posSy.Position),
 		}
 	}
 	global, ok := M.Globals[id.Text]
@@ -541,24 +542,24 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) hir.Operand {
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(c *context, global *ir.Symbol) hir.Operand {
-	i := int64(c.symbolMap[global.ModuleName+"_"+global.Name])
+func globalToOperand(c *context, global *ir.Symbol) pir.Operand {
+	i := uint64(c.symbolMap[global.ModuleName+"_"+global.Name])
 	switch global.T {
 	case ST.Builtin:
-		return hir.Operand{
-			Class: hirc.Global,
+		return pir.Operand{
+			Class: pirc.Global,
 			Type:  global.Type,
 			Num:   i,
 		}
 	case ST.Proc:
-		return hir.Operand{
-			Class: hirc.Global,
+		return pir.Operand{
+			Class: pirc.Global,
 			Type:  global.N.T,
 			Num:   i,
 		}
 	case ST.Mem:
-		return hir.Operand{
-			Class: hirc.Global,
+		return pir.Operand{
+			Class: pirc.Global,
 			Type:  T.T_Ptr,
 			Num:   i,
 		}
@@ -566,7 +567,7 @@ func globalToOperand(c *context, global *ir.Symbol) hir.Operand {
 	panic("wht jus heppn?")
 }
 
-func genConversion(M *ir.Module, c *context, colon *ir.Node) hir.Operand {
+func genConversion(M *ir.Module, c *context, colon *ir.Node) pir.Operand {
 	a := genExpr(M, c, colon.Leaves[1])
 	dest := c.AllocTemp(colon.T)
 	instr := RIU.Convert(a, dest)
@@ -574,36 +575,36 @@ func genConversion(M *ir.Module, c *context, colon *ir.Node) hir.Operand {
 	return dest
 }
 
-func genNumLit(M *ir.Module, c *context, lit *ir.Node) hir.Operand {
-	return hir.Operand{
-		Class: hirc.Lit,
+func genNumLit(M *ir.Module, c *context, lit *ir.Node) pir.Operand {
+	return pir.Operand{
+		Class: pirc.Lit,
 		Type:  lit.T,
 		Num:   lit.Value,
 	}
 }
 
-func genBoolLit(M *ir.Module, c *context, lit *ir.Node) hir.Operand {
+func genBoolLit(M *ir.Module, c *context, lit *ir.Node) pir.Operand {
 	value := 0
 	if lit.Lex == lex.TRUE {
 		value = 1
 	}
-	return hir.Operand{
-		Class: hirc.Lit,
+	return pir.Operand{
+		Class: pirc.Lit,
 		Type:  lit.T,
-		Num:   int64(value),
+		Num:   uint64(value),
 	}
 }
 
-func genBinaryOp(M *ir.Module, c *context, op *ir.Node) hir.Operand {
+func genBinaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
 	it := lexToBinaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	b := genExpr(M, c, op.Leaves[1])
 	dest := c.AllocTemp(op.T)
-	instr := hir.Instr{
+	instr := pir.Instr{
 		T:           it,
 		Type:        a.Type,
-		Operands:    []hir.Operand{a, b},
-		Destination: []hir.Operand{dest},
+		Operands:    []pir.Operand{a, b},
+		Destination: []pir.Operand{dest},
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
@@ -641,15 +642,15 @@ func lexToBinaryOp(op lex.LexKind) IT.InstrKind {
 	panic("lexToBinaryOp: unexpected binOp: " + lex.FmtTypes(op))
 }
 
-func genUnaryOp(M *ir.Module, c *context, op *ir.Node) hir.Operand {
+func genUnaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
 	it := lexToUnaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	dest := c.AllocTemp(op.T)
-	instr := hir.Instr{
+	instr := pir.Instr{
 		T:           it,
 		Type:        op.T,
-		Operands:    []hir.Operand{a},
-		Destination: []hir.Operand{dest},
+		Operands:    []pir.Operand{a},
+		Destination: []pir.Operand{dest},
 	}
 	c.CurrBlock.AddInstr(instr)
 	return dest
@@ -665,23 +666,23 @@ func lexToUnaryOp(op lex.LexKind) IT.InstrKind {
 	panic("lexToUnaryOp: unexpected unaryOp")
 }
 
-func genDot(M *ir.Module, c *context, dot *ir.Node) hir.Operand {
+func genDot(M *ir.Module, c *context, dot *ir.Node) pir.Operand {
 	mem := dot.Leaves[1]
 	s, ok := M.Globals[mem.Text]
 	if !ok {
 		panic("oh my god")
 	}
-	return hir.Operand{
-		Class: hirc.Lit,
+	return pir.Operand{
+		Class: pirc.Lit,
 		Type:  T.T_I64,
-		Num:   int64(s.Mem.Size),
+		Num:   uint64(s.Mem.Size),
 	}
 }
 
-func newBuiltin(sy *ir.Symbol) *hir.Procedure {
+func newBuiltin(sy *ir.Symbol) *pir.Procedure {
 	rets := sy.Type.Proc.Rets
 	args := sy.Type.Proc.Args
-	return &hir.Procedure{
+	return &pir.Procedure{
 		Label: "_" + sy.Name,
 		Vars:  nil,
 		Rets:  rets,
@@ -689,7 +690,7 @@ func newBuiltin(sy *ir.Symbol) *hir.Procedure {
 	}
 }
 
-func newHirProc(modName string, P *ir.Proc) *hir.Procedure {
+func newPirProc(modName string, P *ir.Proc) *pir.Procedure {
 	args := []*T.Type{}
 	for _, arg := range P.Args {
 		args = append(args, arg.Type)
@@ -698,7 +699,7 @@ func newHirProc(modName string, P *ir.Proc) *hir.Procedure {
 	for _, ps := range P.Vars {
 		vars[ps.Position] = ps.Symbol.Type
 	}
-	return &hir.Procedure{
+	return &pir.Procedure{
 		Label: modName + "_" + P.Name,
 		Vars:  vars,
 		Rets:  P.Rets,
@@ -706,8 +707,8 @@ func newHirProc(modName string, P *ir.Proc) *hir.Procedure {
 	}
 }
 
-func newHirMem(modName string, M *ir.Mem) *hir.MemoryDecl {
-	return &hir.MemoryDecl{
+func newPirMem(modName string, M *ir.Mem) *pir.MemoryDecl {
+	return &pir.MemoryDecl{
 		Label: modName + "_" + M.Name,
 		Size:  M.Size,
 		Data:  M.Contents,

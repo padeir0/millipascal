@@ -11,32 +11,32 @@ begin
 	set p, size = itoa[32]
 	if not equals[p, size, result0, result0.size]
 	begin
-		exit 1r
+		exit 1ss
 	end if
 	set p, size = itoa[~32]
 	if not equals[p, size, result1, result1.size]
 	begin
-		exit 2r
+		exit 2ss
 	end if
 	set p, size = itoa[1]
 	if not equals[p, size, result2, result2.size]
 	begin
-		exit 3r
+		exit 3ss
 	end if
 	set p, size = itoa[0]
 	if not equals[p, size, result3, result3.size]
 	begin
-		exit 4r
+		exit 4ss
 	end if
 	set p, size = itoa[1000]
 	if not equals[p, size, result4, result4.size]
 	begin
-		exit 5r
+		exit 5ss
 	end if
 	set p, size = itoa[~1000]
 	if not equals[p, size, result5, result5.size]
 	begin
-		exit 6r
+		exit 6ss
 	end if
 end proc
 
@@ -66,7 +66,7 @@ memory itoa_buff 32
 proc itoa[n] ptr, i64
 var p:ptr, signal:i8
 begin
-	set signal = 0r
+	set signal = 0ss
 	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
 
 	if n == 0
@@ -98,22 +98,4 @@ begin
 
 	return p, itoa_buff.size-(p-itoa_buff):i64 
 end proc
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

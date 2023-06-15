@@ -5,12 +5,12 @@ import (
 	"os"
 	"os/exec"
 
-	hir "github.com/padeir0/pir"
+	"github.com/padeir0/pir"
 	amd64 "github.com/padeir0/pir/backends/linuxamd64/fasm"
 	mir "github.com/padeir0/pir/backends/linuxamd64/mir"
 	mirchecker "github.com/padeir0/pir/backends/linuxamd64/mir/checker"
 	resalloc "github.com/padeir0/pir/backends/linuxamd64/resalloc"
-	hirchecker "github.com/padeir0/pir/checker"
+	pirchecker "github.com/padeir0/pir/checker"
 
 	. "mpc/core"
 	mod "mpc/core/module"
@@ -59,8 +59,8 @@ func Mod(file string) (*mod.Module, *Error) {
 }
 
 // processes a file and all it's dependencies
-// generates HIR or an error
-func Hir(file string) (*hir.Program, *Error) {
+// generates PIR or an error
+func Pir(file string) (*pir.Program, *Error) {
 	m, err := Mod(file)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func Hir(file string) (*hir.Program, *Error) {
 		return nil, err
 	}
 
-	err = ProcessPirError(hirchecker.Check(p))
+	err = ProcessPirError(pirchecker.Check(p))
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ var NumRegisters = len(amd64.Registers)
 // processes a file and all it's dependencies
 // generates MIR or an error
 func Mir(file string) (*mir.Program, *Error) {
-	p, err := Hir(file)
+	p, err := Pir(file)
 	if err != nil {
 		return nil, err
 	}

@@ -17,7 +17,7 @@ type Node struct {
 
 	T *T.Type
 
-	Value int64 // for literals
+	Value uint64 // for int literals
 
 	Range *Range
 }
@@ -44,7 +44,7 @@ func ast(n *Node, i int) string {
 		rng = n.Range.String()
 	}
 	output := fmt.Sprintf("{%s, '%s':%s, %s",
-		lex.FmtNodeType(n.Lex),
+		lex.FmtLexKind(n.Lex),
 		n.Text,
 		n.T.String(),
 		rng,
@@ -209,7 +209,7 @@ func (p *Proc) DoesReturnSomething() bool {
 
 type Mem struct {
 	Name     string
-	Size     int64
+	Size     uint64
 	Contents string
 	Type     T.Type
 	Init     *Node

@@ -12,6 +12,10 @@ const (
 	I32_LIT
 	I16_LIT
 	I8_LIT
+	U64_LIT
+	U32_LIT
+	U16_LIT
+	U8_LIT
 	PTR_LIT
 	STRING_LIT
 	CHAR_LIT
@@ -74,6 +78,10 @@ const (
 	I16
 	I32
 	I64
+	U8
+	U16
+	U32
+	U64
 	BOOL
 	PTR
 
@@ -97,10 +105,14 @@ var tktostr = map[LexKind]string{
 	UNDEFINED: "\033[0;31m?\033[0m",
 
 	IDENTIFIER: "IDENTIFIER",
-	I64_LIT:    "INT_LIT",
+	I64_LIT:    "I64_LIT",
 	I32_LIT:    "I32_LIT",
 	I16_LIT:    "I16_LIT",
 	I8_LIT:     "I8_LIT",
+	U64_LIT:    "U64_LIT",
+	U32_LIT:    "U32_LIT",
+	U16_LIT:    "U16_LIT",
+	U8_LIT:     "U8_LIT",
 	PTR_LIT:    "PTR_LIT",
 	STRING_LIT: "STRING_LIT",
 	CHAR_LIT:   "CHAR_LIT",
@@ -162,6 +174,10 @@ var tktostr = map[LexKind]string{
 	I16:  "I16",
 	I32:  "I32",
 	I64:  "I64",
+	U8:   "I8",
+	U16:  "I16",
+	U32:  "I32",
+	U64:  "I64",
 	BOOL: "BOOL",
 	PTR:  "PTR",
 
@@ -180,12 +196,12 @@ var tktostr = map[LexKind]string{
 	EOF: "EOF",
 }
 
-func FmtNodeType(t LexKind) string {
+func FmtLexKind(t LexKind) string {
 	v, ok := tktostr[t]
 	if ok {
 		return v
 	}
-	panic("unspecified nodeType" + strconv.Itoa(int(t)))
+	panic("unspecified lexKind" + strconv.Itoa(int(t)))
 }
 
 func FmtTypes(t ...LexKind) string {
@@ -202,6 +218,10 @@ var tktosrc = map[LexKind]string{
 	I32_LIT:    "i32 literal",
 	I16_LIT:    "i16 literal",
 	I8_LIT:     "i8 literal",
+	U64_LIT:    "u64 literal",
+	U32_LIT:    "u32 literal",
+	U16_LIT:    "u16 literal",
+	U8_LIT:     "u8 literal",
 	PTR_LIT:    "pointer literal",
 	STRING_LIT: "string literal",
 	CHAR_LIT:   "char literal",
@@ -257,6 +277,10 @@ var tktosrc = map[LexKind]string{
 	I16:    "i16",
 	I32:    "i32",
 	I64:    "i64",
+	U8:     "u8",
+	U16:    "u16",
+	U32:    "u32",
+	U64:    "u64",
 	PTR:    "ptr",
 	BOOL:   "bool",
 	EXIT:   "exit",
