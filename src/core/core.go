@@ -58,6 +58,9 @@ type Location struct {
 }
 
 func (this *Location) String() string {
+	if this == nil {
+		return ""
+	}
 	if this.Range != nil {
 		return this.File + ":" +
 			this.Range.String()
@@ -132,16 +135,18 @@ func (this *Error) ErrCode() string {
 
 func ProcessFileError(e error) *Error {
 	return &Error{
-		Code:    et.FileError,
-		Message: e.Error(),
+		Code:     et.FileError,
+		Severity: sv.Error,
+		Message:  e.Error(),
 	}
 }
 
 func ProcessPirError(e *pErr.Error) *Error {
 	if e != nil {
 		return &Error{
-			Code:    et.InternalCompilerError,
-			Message: string(*e),
+			Code:     et.InternalCompilerError,
+			Severity: sv.InternalError,
+			Message:  string(*e),
 		}
 	}
 	return nil
