@@ -111,7 +111,7 @@ func _export(s *Lexer) (*mod.Node, *Error) {
 	return kw, nil
 }
 
-// Symbol := Procedure | Memory.
+// Symbol := Procedure | Memory | Const.
 func symbol(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "symbol")
 	var n *mod.Node
@@ -121,10 +121,30 @@ func symbol(s *Lexer) (*mod.Node, *Error) {
 		n, err = procDef(s)
 	case T.MEMORY:
 		n, err = memDef(s)
+	case T.CONST:
+		n, err = constDef(s)
 	default:
 		return nil, nil
 	}
 	return n, err
+}
+
+// Const := 'const' id number.
+func constDef(s *Lexer) (*mod.Node, *Error) {
+	kw, err := Expect(s, T.CONST)
+	if err != nil {
+		return nil, err
+	}
+	id, err := Expect(s, T.IDENTIFIER)
+	if err != nil {
+		return nil, err
+	}
+	definition, err := number(s)
+	if err != nil {
+		return nil, err
+	}
+	kw.SetLeaves([]*mod.Node{id, definition})
+	return kw, nil
 }
 
 // Memory := 'memory' id (number|string).
@@ -499,7 +519,7 @@ func multiplicative(s *Lexer) (*mod.Node, *Error) {
 	return RepeatBinary(s, unaryPrefix, "expression", multOp)
 }
 
-// Prefix = "not" | "~".
+// Prefix = "not" | "~" | "!".
 // UnaryPrefix := {Prefix} UnarySuffix.
 func unaryPrefix(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "unary prefix")
@@ -650,7 +670,8 @@ func annot(s *Lexer) (*mod.Node, *Error) {
 /*
 Factor := Name
 	| Terminal
-	| NestedExpr.
+	| NestedExpr
+	| "sizeof" Type.
 */
 func factor(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "factor")
@@ -675,6 +696,17 @@ func factor(s *Lexer) (*mod.Node, *Error) {
 			End:   rP.Range.End,
 		}
 		return n, nil
+	case T.SIZEOF:
+		kw, err := Consume(s)
+		if err != nil {
+			return nil, err
+		}
+		t, err := ExpectProd(s, _type, "type")
+		if err != nil {
+			return nil, err
+		}
+		kw.AddLeaf(t)
+		return kw, nil
 	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
 		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT,
 		T.CHAR_LIT, T.TRUE, T.FALSE, T.PTR_LIT:
@@ -852,6 +884,11 @@ func _while(s *Lexer) (*mod.Node, *Error) {
 	return keyword, nil
 }
 
+func number(s *Lexer) (*mod.Node, *Error) {
+	return Expect(s, T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
+		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT, T.PTR_LIT)
+}
+
 func numberOrString(s *Lexer) (*mod.Node, *Error) {
 	return Expect(s, T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
 		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT, T.PTR_LIT, T.STRING_LIT)
@@ -859,7 +896,7 @@ func numberOrString(s *Lexer) (*mod.Node, *Error) {
 
 func sumOp(n *mod.Node) bool {
 	switch n.Lex {
-	case T.PLUS, T.MINUS:
+	case T.PLUS, T.MINUS, T.BITWISEOR, T.BITWISEXOR:
 		return true
 	}
 	return false
@@ -867,7 +904,8 @@ func sumOp(n *mod.Node) bool {
 
 func multOp(n *mod.Node) bool {
 	switch n.Lex {
-	case T.MULTIPLICATION, T.DIVISION, T.REMAINDER:
+	case T.MULTIPLICATION, T.DIVISION, T.REMAINDER,
+		T.BITWISEAND, T.SHIFTLEFT, T.SHIFTRIGHT:
 		return true
 	}
 	return false
@@ -892,7 +930,7 @@ func andOp(n *mod.Node) bool {
 
 func prefixOp(st *Lexer) (*mod.Node, *Error) {
 	switch st.Word.Lex {
-	case T.NOT, T.NEG:
+	case T.NOT, T.NEG, T.BITWISENOT:
 		return Consume(st)
 	}
 	return nil, nil

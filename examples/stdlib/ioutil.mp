@@ -12,7 +12,7 @@ end proc
 proc fatal[p:ptr, size]
 begin
 	write_line[p, size]
-	exit 1r
+	exit 1ss
 end proc
 
 memory pchar_buff 1

@@ -212,8 +212,9 @@ const (
 	insideStr  = `\"`
 	insideChar = `\'`
 	digits     = "0123456789"
-	hex_digits = "0123456789ABCDEFabcdef"
-	bin_digits = "01"
+	dec_digits = digits + "_"
+	hex_digits = digits + "ABCDEFabcdef_"
+	bin_digits = "01_"
 	letters    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_" // yes _ is a letter, fuck you
 )
 
@@ -265,7 +266,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 	}
 
 	switch r {
-	case '+':
+	case '+': // + +=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -275,7 +276,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.PLUS
 		}
-	case '-':
+	case '-': // - -=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -285,7 +286,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.MINUS
 		}
-	case '/':
+	case '/': // / /=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -295,7 +296,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.DIVISION
 		}
-	case '*':
+	case '*': // * *=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -305,7 +306,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.MULTIPLICATION
 		}
-	case '%':
+	case '%': // % %=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -314,6 +315,29 @@ func any(st *Lexer) (*ir.Node, *Error) {
 			tp = T.REMAINDER_ASSIGN
 		default:
 			tp = T.REMAINDER
+		}
+	case '|': // || |^
+		nextRune(st)
+		r = peekRune(st)
+		switch r {
+		case '|':
+			nextRune(st)
+			tp = T.BITWISEOR
+		case '^':
+			nextRune(st)
+			tp = T.BITWISEXOR
+		default:
+			return nil, InvalidSymbol(st, r)
+		}
+	case '&': // &&
+		nextRune(st)
+		r = peekRune(st)
+		switch r {
+		case '&':
+			nextRune(st)
+			tp = T.BITWISEAND
+		default:
+			return nil, InvalidSymbol(st, r)
 		}
 	case '@':
 		nextRune(st)
@@ -348,7 +372,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 	case '.':
 		nextRune(st)
 		tp = T.DOT
-	case ':':
+	case ':': // : ::
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -358,27 +382,33 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.COLON
 		}
-	case '>': // >  >=
+	case '>': // >  >= >>
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
 		case '=':
 			nextRune(st)
 			tp = T.MOREEQ
+		case '>':
+			nextRune(st)
+			tp = T.SHIFTRIGHT
 		default:
 			tp = T.MORE
 		}
-	case '<': // <  <-  <=
+	case '<': // <  <=  <<
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
 		case '=':
 			nextRune(st)
 			tp = T.LESSEQ
+		case '<':
+			nextRune(st)
+			tp = T.SHIFTLEFT
 		default:
 			tp = T.LESS
 		}
-	case '!':
+	case '!': // ! !=
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -386,11 +416,9 @@ func any(st *Lexer) (*ir.Node, *Error) {
 			nextRune(st)
 			tp = T.DIFFERENT
 		default:
-			message := fmt.Sprintf("Invalid symbol: %v", string(r))
-			err := NewLexerError(st, et.InvalidSymbol, message)
-			return nil, err
+			tp = T.BITWISENOT
 		}
-	case '=':
+	case '=': // = ==
 		nextRune(st)
 		r = peekRune(st)
 		if r == '=' {
@@ -403,9 +431,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		nextRune(st)
 		return &ir.Node{Lex: T.EOF}, nil
 	default:
-		message := fmt.Sprintf("Invalid symbol: %v", string(r))
-		err := NewLexerError(st, et.InvalidSymbol, message)
-		return nil, err
+		return nil, InvalidSymbol(st, r)
 	}
 	return genNode(st, tp), nil
 }
@@ -427,11 +453,11 @@ func number(st *Lexer) *ir.Node {
 			acceptRun(st, bin_digits)
 			value = parseBin(st.Selected())
 		default:
-			acceptRun(st, digits)
+			acceptRun(st, dec_digits)
 			value = parseNormal(st.Selected())
 		}
 	} else {
-		acceptRun(st, digits)
+		acceptRun(st, dec_digits)
 		value = parseNormal(st.Selected())
 	}
 	r = peekRune(st)
@@ -531,6 +557,10 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.FROM
 	case "export":
 		tp = T.EXPORT
+	case "const":
+		tp = T.CONST
+	case "sizeof":
+		tp = T.SIZEOF
 	case "i8":
 		tp = T.I8
 	case "i16":
@@ -631,6 +661,9 @@ func IsValidIdentifier(s string) bool {
 func parseNormal(text string) uint64 {
 	var output uint64 = 0
 	for i := range text {
+		if text[i] == '_' {
+			continue
+		}
 		output *= 10
 		char := text[i]
 		if char >= '0' || char <= '9' {
@@ -646,6 +679,9 @@ func parseHex(oldText string) uint64 {
 	text := oldText[2:]
 	var output uint64 = 0
 	for i := range text {
+		if text[i] == '_' {
+			continue
+		}
 		output *= 16
 		char := text[i]
 		if char >= '0' && char <= '9' {
@@ -665,6 +701,9 @@ func parseBin(oldText string) uint64 {
 	text := oldText[2:]
 	var output uint64 = 0 // we can do that because integers are always positive
 	for i := range text {
+		if text[i] == '_' {
+			continue
+		}
 		output *= 2
 		char := text[i]
 		if char == '0' || char == '1' {
@@ -698,4 +737,10 @@ func parseCharLit(text string) uint64 {
 		}
 	}
 	return value
+}
+
+func InvalidSymbol(st *Lexer, r rune) *Error {
+	message := fmt.Sprintf("Invalid symbol: %v", string(r))
+	err := NewLexerError(st, et.InvalidSymbol, message)
+	return err
 }

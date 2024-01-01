@@ -13,7 +13,7 @@ end proc
 proc itoa[n] ptr, i64
 var p:ptr, signal:i8
 begin
-	set signal = 0r
+	set signal = 0ss
 	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
 
 	if n == 0

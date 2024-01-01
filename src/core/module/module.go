@@ -141,6 +141,7 @@ type Symbol struct {
 	Type       *T.Type
 	Proc       *Proc
 	Mem        *Mem
+	Const      *Const
 	ModuleName string
 }
 
@@ -213,4 +214,8 @@ type Mem struct {
 	Contents string
 	Type     T.Type
 	Init     *Node
+}
+
+type Const struct {
+	Value uint64
 }

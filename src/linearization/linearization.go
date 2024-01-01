@@ -451,6 +451,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) pir.Operand {
 	switch exp.Lex {
 	case lex.IDENTIFIER:
 		return genExprID(M, c, exp)
+	case lex.SIZEOF:
+		return genSizeOfNum(exp)
 	case lex.DOUBLECOLON:
 		return genExternalID(c, M, exp)
 	case lex.FALSE, lex.TRUE:
@@ -463,7 +465,8 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) pir.Operand {
 	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
 		lex.EQUALS, lex.DIFFERENT,
 		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
-		lex.AND, lex.OR:
+		lex.AND, lex.OR, lex.SHIFTLEFT, lex.SHIFTRIGHT,
+		lex.BITWISEAND, lex.BITWISEOR, lex.BITWISEXOR:
 		return genBinaryOp(M, c, exp)
 	case lex.COLON:
 		return genConversion(M, c, exp)
@@ -475,7 +478,7 @@ func genExpr(M *ir.Module, c *context, exp *ir.Node) pir.Operand {
 		return pir.Operand{}
 	case lex.AT:
 		return genDeref(M, c, exp)
-	case lex.NOT, lex.NEG:
+	case lex.NOT, lex.NEG, lex.BITWISENOT:
 		return genUnaryOp(M, c, exp)
 	case lex.DOT:
 		return genDot(M, c, exp)
@@ -563,8 +566,24 @@ func globalToOperand(c *context, global *ir.Symbol) pir.Operand {
 			Type:  T.T_Ptr,
 			Num:   i,
 		}
+	case ST.Const:
+		return pir.Operand{
+			Class: pirc.Lit,
+			Type:  global.Type,
+			Num:   global.Const.Value,
+		}
 	}
 	panic("wht jus heppn?")
+}
+
+func genSizeOfNum(sizeof *ir.Node) pir.Operand {
+	t := sizeof.Leaves[0]
+	size := t.T.Size()
+	return pir.Operand{
+		Class: pirc.Lit,
+		Type:  sizeof.T,
+		Num:   uint64(size),
+	}
 }
 
 func genConversion(M *ir.Module, c *context, colon *ir.Node) pir.Operand {
@@ -638,6 +657,16 @@ func lexToBinaryOp(op lex.LexKind) IT.InstrKind {
 		return IT.And
 	case lex.OR:
 		return IT.Or
+	case lex.SHIFTLEFT:
+		return IT.ShiftLeft
+	case lex.SHIFTRIGHT:
+		return IT.ShiftRight
+	case lex.BITWISEAND:
+		return IT.And
+	case lex.BITWISEOR:
+		return IT.Or
+	case lex.BITWISEXOR:
+		return IT.Xor
 	}
 	panic("lexToBinaryOp: unexpected binOp: " + lex.FmtTypes(op))
 }
@@ -661,6 +690,8 @@ func lexToUnaryOp(op lex.LexKind) IT.InstrKind {
 	case lex.NEG:
 		return IT.Neg
 	case lex.NOT:
+		return IT.Not
+	case lex.BITWISENOT:
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected unaryOp")

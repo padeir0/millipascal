@@ -24,6 +24,7 @@ const (
 	Proc
 	Builtin
 	Mem
+	Const
 	Var
 	Arg
 	Module

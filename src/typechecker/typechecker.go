@@ -83,6 +83,9 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *Error {
 			return err
 		}
 		sy.Type = T.T_Ptr
+	case ST.Const:
+		value := sy.N.Leaves[1]
+		sy.Type = termToType(value.Lex)
 	}
 	return nil
 }
@@ -552,6 +555,10 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	switch n.Lex {
 	case lex.IDENTIFIER:
 		return checkID(M, proc, n)
+	case lex.SIZEOF:
+		n.Leaves[0].T = getType(n.Leaves[0])
+		n.T = T.T_I64
+		return nil
 	case lex.DOUBLECOLON:
 		return checkExternalID(M, proc, n)
 	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
@@ -560,9 +567,12 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 		lex.CHAR_LIT:
 		n.T = termToType(n.Lex)
 		return nil
-	case lex.NEG:
+	case lex.NEG, lex.BITWISENOT:
 		return unaryOp(M, proc, n, number, outSame)
-	case lex.PLUS, lex.MINUS, lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER:
+	case lex.PLUS, lex.MINUS, lex.MULTIPLICATION,
+		lex.DIVISION, lex.REMAINDER, lex.BITWISEAND,
+		lex.BITWISEXOR, lex.BITWISEOR, lex.SHIFTLEFT,
+		lex.SHIFTRIGHT:
 		return binaryOp(M, proc, n, number, outSame)
 	case lex.EQUALS, lex.DIFFERENT,
 		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ:

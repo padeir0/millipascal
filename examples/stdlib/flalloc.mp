@@ -1,6 +1,6 @@
 export Init, Alloc, Free
 
-memory Heap 8192 # 8kb
+memory Heap 8192 # 8KB
 memory Head 8
 
 # [ SIZE, DATA...]

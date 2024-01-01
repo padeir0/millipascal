@@ -445,25 +445,31 @@ func declareSymbol(M *ir.Module, n *ir.Node) *Error {
 }
 
 func getSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
-	name := getSymbolName(n)
 	switch n.Lex {
 	case lex.PROC:
-		return &ir.Symbol{
-			T:          ST.Proc,
-			Name:       name,
-			ModuleName: M.Name,
-			Proc: &ir.Proc{
-				Name:   name,
-				ArgMap: map[string]ir.PositionalSymbol{},
-				Vars:   map[string]ir.PositionalSymbol{},
-				N:      n,
-			},
-			N: n,
-		}
+		return getProcSymbol(M, n)
 	case lex.MEMORY:
 		return getMemSymbol(M, n)
+	case lex.CONST:
+		return getConstSymbol(M, n)
 	}
 	panic("getSymbolType: what")
+}
+
+func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
+	name := getSymbolName(n)
+	return &ir.Symbol{
+		T:          ST.Proc,
+		Name:       name,
+		ModuleName: M.Name,
+		Proc: &ir.Proc{
+			Name:   name,
+			ArgMap: map[string]ir.PositionalSymbol{},
+			Vars:   map[string]ir.PositionalSymbol{},
+			N:      n,
+		},
+		N: n,
+	}
 }
 
 func getMemSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
@@ -479,6 +485,21 @@ func getMemSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 		ModuleName: M.Name,
 		Mem:        mem,
 		N:          n,
+	}
+}
+
+func getConstSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
+	name := getSymbolName(n)
+	value := n.Leaves[1]
+	c := &ir.Const{
+		Value: value.Value,
+	}
+	return &ir.Symbol{
+		T:          ST.Const,
+		Name:       name,
+		ModuleName: M.Name,
+		N:          n,
+		Const:      c,
 	}
 }
 

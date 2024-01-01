@@ -51,6 +51,12 @@ const (
 	COMMA
 	SEMICOLON
 	DOT
+	BITWISEAND
+	BITWISEOR
+	BITWISEXOR
+	BITWISENOT
+	SHIFTLEFT
+	SHIFTRIGHT
 
 	// keywords
 	VAR
@@ -73,6 +79,8 @@ const (
 	IMPORT
 	FROM
 	EXPORT
+	SIZEOF
+	CONST
 
 	I8
 	I16
@@ -147,6 +155,12 @@ var tktostr = map[LexKind]string{
 	ASSIGNMENT:            "ASSIGNMENT",
 	COMMA:                 "COMMA",
 	DOT:                   "DOT",
+	BITWISEAND:            "BITWISEAND",
+	BITWISEOR:             "BITWISEOR",
+	BITWISEXOR:            "BITWISEXOR",
+	BITWISENOT:            "BITWISENOT",
+	SHIFTLEFT:             "SHIFTLEFT",
+	SHIFTRIGHT:            "SHIFTRIGHT",
 
 	// keyword: "keyword"
 	VAR:    "VARS",
@@ -169,6 +183,8 @@ var tktostr = map[LexKind]string{
 	IMPORT: "IMPORT",
 	FROM:   "FROM",
 	EXPORT: "EXPORT",
+	SIZEOF: "SIZEOF",
+	CONST:  "CONST",
 
 	I8:   "I8",
 	I16:  "I16",
@@ -256,6 +272,12 @@ var tktosrc = map[LexKind]string{
 	DIFFERENT:             "!=",
 	ASSIGNMENT:            "=",
 	DOT:                   ".",
+	BITWISEAND:            "&&",
+	BITWISEOR:             "||",
+	BITWISEXOR:            "|^",
+	BITWISENOT:            "!",
+	SHIFTLEFT:             "<<",
+	SHIFTRIGHT:            ">>",
 
 	VAR:    "vars",
 	TRUE:   "true",
@@ -287,6 +309,8 @@ var tktosrc = map[LexKind]string{
 	IMPORT: "import",
 	FROM:   "from",
 	EXPORT: "export",
+	SIZEOF: "sizeof",
+	CONST:  "const",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",

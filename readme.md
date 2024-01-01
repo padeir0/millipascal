@@ -1,7 +1,6 @@
 # Millipascal
 
-Small procedural language so i can learn code generation.
-Don't use it, if you do, be prepared for it to blow up in your face.
+Millipascal is basically a thin wrap over assembly.
 
 ```
 memory hello "Hello, World!\n"
@@ -54,7 +53,7 @@ proc upper_case[a:i8] i8
 begin
 	if a >= 'a' and a <= 'z'
 	begin
-		return a - 32r
+		return a - 32ss
 	end if
 	return a
 end proc
@@ -124,7 +123,7 @@ declared inside any inner block.
 proc MyProc[]
 var this, is, the, only, place, you, can, declare, variables
 begin
-	exit 0r;
+	exit 0ss;
 end proc
 ```
 
@@ -139,5 +138,4 @@ and all modules must live in the same folder. The name of the module is the
 name of the file. Check the `examples/stdlib` folder.
 
 TODO:
- - Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
- - Generate minimum amount of copies in the linearization phase
+ - [ ] Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
