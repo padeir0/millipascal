@@ -1,43 +1,61 @@
-from ioutil import put_char, put_int, debug
+from ioutil import put_char, put_int, debug, fatal
 export Init, Alloc, Free
 
-memory Pool 8192 # 8KB
+const NULL 0p
+const MIN_CHUNK_SIZE 8
+
+memory Pool 1024 # 8KB
 memory Head 8
+memory Butt 8
 memory ChunkSize 8
+
+const FULL  1ss
+const EMPTY 0ss
+memory ByteMap 128 # Pool.size/MIN_CHUNK_SIZE
 
 memory OOM "Out of memory\n"
 memory ERRCHUNK "Chunk too small (minimum 8 bytes)\n"
 memory ERRBOUNDS "Pointer to be freed is out of bounds\n"
 memory ERRALIGN "Pointer to be freed is out of alignment\n"
 
-memory test 128
+memory test 512
 
 proc main
-var a:ptr, i:i64
+var a:ptr, i:i64, out:ptr
 begin
-	debug[]
 	Init[16];
-	debug[]
 	set i = 0
-	while i < 16
+	while i < 64
 	begin
-		set (test + (i*8):ptr)@ptr = Alloc[]
+		set out = Alloc[]
+		set (test + (i*8):ptr)@ptr = out
 		set i += 1
 	end while
 
-	debug[]
-
 	set i = 0
-	while i < 16
+	while i < 64
 	begin
-		Free[(test + (i*8):ptr)@ptr]
+		if i % 2 == 0
+		begin
+			Free[(test + (i*8):ptr)@ptr]
+		end if
 		set i += 1
+	end while
+
+	set i = 63
+	while 0 <= i
+	begin
+		if i % 2 != 0
+		begin
+			Free[(test + (i*8):ptr)@ptr]
+		end if
+		set i -= 1
 	end while
 end proc
 
 proc Init[chunksize:i64]
 begin
-	if chunksize < 8
+	if chunksize < MIN_CHUNK_SIZE
 	begin
 		fatal[ERRCHUNK, ERRCHUNK.size]
 	end if
@@ -46,15 +64,14 @@ begin
 	set Head@ptr = Pool
 	clear[Pool, Pool.size]
 
-	debug[]
 	setList[Pool, Pool.size, chunksize]
-	debug[]
+	clear[ByteMap, ByteMap.size]
 end proc
 
 proc Alloc[] ptr
-var curr:ptr
+var curr:ptr, position:ptr
 begin
-	if Head@ptr == ~1p
+	if Head@ptr == NULL
 	begin
 		fatal[OOM, OOM.size]
 	end if
@@ -62,11 +79,14 @@ begin
 	set curr = Head@ptr
 	set Head@ptr = (Head@ptr)@ptr # get the next one
 
+	set position = (curr - Pool) / (ChunkSize@ptr)
+	set (ByteMap + position)@i8 = FULL
+
 	return curr
 end proc
 
 proc Free[p:ptr]
-var curr:ptr
+var position:ptr
 begin
 	if p < Pool or p > (Pool + Pool.size:ptr)
 	begin
@@ -78,19 +98,39 @@ begin
 		fatal[ERRALIGN, ERRALIGN.size]
 	end if
 
-	set p@ptr = ~1p; # set header as nil
-	if Head@ptr == ~1p
+	set p@ptr = NULL
+	set position = (p - Pool) / (ChunkSize@ptr)
+	set (ByteMap + position)@i8 = EMPTY
+
+	if Head@ptr == NULL
 	begin
 		set Head@ptr = p
 		return;
 	end if
 
-	set curr = Head@ptr
-	while curr@ptr != ~1p
+	set (Butt@ptr)@ptr = p
+	set Butt@ptr = p
+end proc
+
+proc PrintMap[]
+var i
+begin
+	set i = 0
+	put_char['[']
+	while i < Pool.size/(ChunkSize@i64)
 	begin
-		set curr = curr@ptr
+		if (ByteMap+i:ptr)@i8 == EMPTY
+		begin
+			put_char[' ']
+		end if
+		if (ByteMap+i:ptr)@i8 == FULL
+		begin
+			put_char['X']
+		end if
+		set i += 1
 	end while
-	set curr@ptr = p;
+	put_char[']']
+	put_char['\n']
 end proc
 
 proc clear[start:ptr, size]
@@ -112,17 +152,9 @@ begin
 	while i < size
 	begin
 		set (start+i:ptr)@ptr = start + (i+chunksize):ptr
-		put_int[i];
-		put_char['\n'];
-		# set i += chunksize # TODO: not working
-		set i = i + chunksize
+		set i += chunksize
 	end while
 	set i -= chunksize
-	set (start+i:ptr)@ptr = ~1p # set the last one null
-end proc
-
-proc fatal[p:ptr, size]
-begin
-	write[p, size]
-	exit 1ss
+	set (start+i:ptr)@ptr = NULL
+	set Butt@ptr = (start+i:ptr)
 end proc

@@ -2,6 +2,11 @@ from conversion import itoa, btoa
 
 export put_int, put_bool, put_char, write_line, fatal, debug
 
+proc main
+begin
+	exit 0ss
+end proc
+
 memory here "here\n"
 
 proc debug

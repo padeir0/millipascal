@@ -135,7 +135,7 @@ works, this language is just a thin wrap over assembly.
 
 The language also has a very simple module system, each file is a module
 and all modules must live in the same folder. The name of the module is the
-name of the file. Check the `examples/stdlib` folder.
+name of the file. Check the `test_suite/big` folder.
 
 TODO:
  - [ ] Allow main to have the signature: `proc[argc:i64, argv:ptr] int`

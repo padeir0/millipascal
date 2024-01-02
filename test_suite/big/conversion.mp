@@ -3,10 +3,9 @@ export itoa, btoa
 memory itoa_buff 32
 
 proc main
-var p:ptr, size
 begin
-	set p, size = itoa[255]
-	write[p, size]
+	# TODO: create ATOI so we can test things like ATOI[ITOA[1]] == 1
+	exit 0ss
 end proc
 
 # do not modify the returned buffer
