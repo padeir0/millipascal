@@ -98,19 +98,19 @@ func Mir(file string) (*mir.Program, *Error) {
 
 // processes a file and all it's dependencies
 // generates Fasm program or an error
-func Fasm(file string) (*amd64.FasmProgram, *Error) {
+func Fasm(file string, outname string) (*amd64.FasmProgram, *Error) {
 	mirP, err := Mir(file)
 	if err != nil {
 		return nil, err
 	}
-	out := amd64.Generate(mirP)
+	out := amd64.Generate(mirP, outname)
 	return out, nil
 }
 
 // processes a Millipascal program and saves a binary
 // into disk
-func Compile(file string) (string, *Error) {
-	fp, err := Fasm(file)
+func Compile(file string, outname string) (string, *Error) {
+	fp, err := Fasm(file, outname)
 	if err != nil {
 		return "", err
 	}

@@ -40,7 +40,7 @@ func Test(file string) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
 
-	name, err := pipelines.Compile(file)
+	name, err := pipelines.Compile(file, "")
 
 	if err != nil {
 		if err.Code == et.InternalCompilerError {

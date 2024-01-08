@@ -20,6 +20,7 @@ var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
 var test = flag.Bool("test", false, "runs tests for all files in a folder,")
 
 var verbose = flag.Bool("v", false, "verbose tests")
+var outname = flag.String("o", "", "output name of file")
 
 func main() {
 	flag.Parse()
@@ -32,6 +33,9 @@ func main() {
 
 func eval(filename string) {
 	checkValid()
+	if !strings.Contains(filename, "/") {
+		filename = "./" + filename
+	}
 	if *test {
 		res := Test(filename)
 		printResults(res)
@@ -63,11 +67,11 @@ func normalMode(filename string) {
 		OkOrBurst(err)
 		fmt.Println(mirP)
 	case *asm:
-		fp, err := pipelines.Fasm(filename)
+		fp, err := pipelines.Fasm(filename, *outname)
 		OkOrBurst(err)
 		fmt.Println(fp.Contents)
 	default:
-		_, err := pipelines.Compile(filename)
+		_, err := pipelines.Compile(filename, *outname)
 		OkOrBurst(err)
 	}
 }
@@ -118,7 +122,7 @@ func Test(folder string) []*testing.TestResult {
 			if *verbose {
 				Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
 			}
-		} else {
+		} else if strings.HasSuffix(v.Name(), ".mp") {
 			res := testing.Test(fullpath)
 			results = append(results, &res)
 			if *verbose {

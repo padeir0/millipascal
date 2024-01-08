@@ -14,7 +14,7 @@ numEnding = 'p'|'s'|'ss'|'l'|'ll'|'us'|'uss'|'ul'|'ull'.
 number := decimal | hexadecimal | binary.
 decimal := digits {decDigits} [numEnding].
 hexadecimal := '0x' hexDigits {hexDigits} [numEnding].
-hexadecimal := '0b' binDigits {binDigits} [numEnding].
+binary := '0b' binDigits {binDigits} [numEnding].
 
 escapes := '\\"' | '\\'' | '\\n' | '\\t' | '\\r'.
 string := '"'(ascii|escapes)*'"'.
@@ -28,7 +28,7 @@ keywords
     u8     u16    u32    u64
     bool   ptr    true   false
     exit   import from   export
-	const  sizeof.
+	const  sizeof return set.
 
 ponctuation:
 	,   :   (   )   [   ]
@@ -38,7 +38,7 @@ ponctuation:
 	@   ::  ~   &&  ||  !
 	|^  >>  <<
 
-basicTypes:
+basicType:
 	i8  i16  i32  i64  ptr  bool
 	u8  u16  u32  u64
 
@@ -70,7 +70,7 @@ DeclList := Decl {',' Decl} [','].
 Decl := id [Annot].
 Annot := ':' Type.
 
-Type := basic | ProcType.
+Type := basicType | ProcType.
 ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
 ProcTypeRet := '[' [TypeList] ']'
              | [Type].
@@ -90,10 +90,10 @@ While := 'while' Expr Block 'while'.
 
 If   := 'if' Expr Block {ElseIf} [Else] 'if'.
 ElseIf := 'elseif' Expr Block.
-Else := 'else' Block
+Else := 'else' Block.
 
 Set := 'set' ExprList assignOp Expr.
-assignOp := '=' | '-=' | '+=' | '/=' | '*=' | '%='
+assignOp := '=' | '-=' | '+=' | '/=' | '*=' | '%='.
 
 Return := 'return' [ExprList].
 Exit := 'exit' Expr.
@@ -121,9 +121,9 @@ Deref := '@' Type.
 PropertyAccess := '.' id.
 
 Factor := Name
-	| Terminal
+	| Literal
 	| NestedExpr
 	| "sizeof" Type .
 NestedExpr := '(' Expr ')'.
-Terminal := true | false | number.
+Literal := true | false | number | char.
 Name := id ["::" id].

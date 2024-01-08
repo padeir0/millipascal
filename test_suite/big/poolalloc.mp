@@ -1,4 +1,5 @@
 from ioutil import put_char, put_int, debug, fatal
+from buffutil import clear_bytes, clear_words
 export Init, Alloc, Free
 
 const NULL 0p
@@ -6,7 +7,7 @@ const MIN_CHUNK_SIZE 8
 
 memory Pool 1024 # 8KB
 memory Head 8
-memory Butt 8
+memory Tail 8
 memory ChunkSize 8
 
 const FULL  1ss
@@ -21,7 +22,7 @@ memory ERRALIGN "Pointer to be freed is out of alignment\n"
 memory test 512
 
 proc main
-var a:ptr, i:i64, out:ptr
+var a:ptr, i, out:ptr
 begin
 	Init[16];
 	set i = 0
@@ -53,7 +54,7 @@ begin
 	end while
 end proc
 
-proc Init[chunksize:i64]
+proc Init[chunksize]
 begin
 	if chunksize < MIN_CHUNK_SIZE
 	begin
@@ -62,10 +63,10 @@ begin
 
 	set ChunkSize@i64 = chunksize
 	set Head@ptr = Pool
-	clear[Pool, Pool.size]
+	clear_words[Pool, Pool.size]
 
 	setList[Pool, Pool.size, chunksize]
-	clear[ByteMap, ByteMap.size]
+	clear_bytes[ByteMap, ByteMap.size]
 end proc
 
 proc Alloc[] ptr
@@ -108,8 +109,8 @@ begin
 		return;
 	end if
 
-	set (Butt@ptr)@ptr = p
-	set Butt@ptr = p
+	set (Tail@ptr)@ptr = p
+	set Tail@ptr = p
 end proc
 
 proc PrintMap[]
@@ -133,20 +134,8 @@ begin
 	put_char['\n']
 end proc
 
-proc clear[start:ptr, size]
-var p:ptr, i
-begin
-	set p = start
-	set i = 0
-	while i < size
-	begin
-		set (p+i:ptr)@i64 = 0
-		set i += 8
-	end while
-end proc
-
 proc setList[start:ptr, size, chunksize]
-var i:i64
+var i
 begin
 	set i = 0
 	while i < size
@@ -156,5 +145,5 @@ begin
 	end while
 	set i -= chunksize
 	set (start+i:ptr)@ptr = NULL
-	set Butt@ptr = (start+i:ptr)
+	set Tail@ptr = (start+i:ptr)
 end proc
