@@ -7,11 +7,13 @@ begin
 	exit 0ss
 end proc
 
-memory here "here\n"
+memory _debug "debug: "
 
-proc debug
+proc debug[c:i8]
 begin
-	write[here, here.size]
+	write[_debug, _debug.size]
+	put_char[c]
+	put_char['\n']
 end proc
 
 proc fatal[p:ptr, size]

@@ -42,33 +42,55 @@ memory Head 8
 
 memory OOM "Out of memory\n"
 memory UNREACHABLE "Code should not reach here!\n"
+memory OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
 
 memory test 512
 
 proc main
-var i, a:ptr
 begin
 	clear_words[test, test.size]
-
-	set i = 0 
 	Init[]
+	_alloc[]
+end proc
+
+proc _alloc
+var i, a:ptr
+begin
+	set i = 0
+	PrintMap[]
+	PrintList[]
 	while i < 64 begin
 		set a = NULL
-		if i % 2 == 0 begin
-			set a = Alloc[32, 0us, 0ul]
-		end elseif i % 3 == 0 begin
-			set a = Alloc[24, 0us, 0ul]
-		end elseif i % 5 == 0 begin
+	 	if i % 5 == 0 begin
+	 		set a = Alloc[16, 0us, 0ul]
+	 	end elseif i % 5 == 1 begin
+	 		set a = Alloc[24, 0us, 0ul]
+	 	end elseif i % 5 == 2 begin
+	 		set a = Alloc[48, 0us, 0ul]
+	 	end elseif i % 5 == 3 begin
+	 		set a = Alloc[25, 0us, 0ul]
+	 	end elseif i % 5 == 4 begin
+	 		set a = Alloc[33, 0us, 0ul]
+	 	end if
+
+		if i % 4 == 0 begin
+	 		freeN[1]
+		end elseif i % 4 == 3 begin
 			freeN[2]
-		end else begin
-			set a = Alloc[56, 0us, 0ul]
 		end if
 
 		if a != NULL begin
 			set (test + (i*8):ptr)@ptr = a
+		end else begin
+			fatal[OOM, OOM.size]
 		end if
 		PrintMap[]
+		PrintList[]
+		set i += 1
 	end while
+	freeN[64]
+	PrintMap[]
+	PrintList[]
 end proc
 
 proc freeN[n]
@@ -85,6 +107,7 @@ begin
 			set (test + (i*8):ptr)@ptr = NULL
 			set n -= 1
 		end if
+		set i += 1
 	end while
 end proc
 
@@ -103,12 +126,16 @@ begin
 	end if
 
 	set out, alloc_size = getNode[size]
+	if out == NULL begin
+		return NULL
+	end if
+	
 	# seta o header do objeto
 	set (out-OBJ_SIZE_OFFSET)@u16 = (alloc_size>>3):u16
 	set (out-OBJ_TAG_OFFSET)@u16 = tag
 	set (out-OBJ_BITMAP_OFFSET)@u32 = bitmap
 
-	setMap[out, alloc_size, FULL]
+	setMap[out-HEADER_SIZE:ptr, alloc_size, FULL]
 
 	return out
 end proc
@@ -188,9 +215,14 @@ end proc
 proc Free[obj:ptr]
 var obj_size, new:ptr, prev:ptr, curr:ptr
 begin
-	set obj_size = ((obj-OBJ_SIZE_OFFSET)@u16):i64 << 3
 	set new = obj - HEADER_SIZE:ptr
-	setMap[obj, obj_size, EMPTY]
+	if new < Heap or new > Heap + Heap.size:ptr begin
+		fatal[OUTOFBOUNDS, OUTOFBOUNDS.size]
+	end if
+
+	set obj_size = ((obj-OBJ_SIZE_OFFSET)@u16):i64 << 3
+
+	setMap[new, obj_size, EMPTY]
 
 	set (new+FL_SIZE_OFFSET)@i64 = obj_size
 	set (new+FL_NEXT_OFFSET)@ptr = NULL
@@ -200,24 +232,23 @@ begin
 		return
 	end if
 
-	set prev = NULL
-	set curr = Head@ptr
-
-	if prev == NULL and new < curr begin
+	if new < Head@ptr begin
 		# nesse caso, new é o primeiro nó da lista
 		# e vai virar o novo Head
-		join[new, curr]
-		set Head@ptr = new
+		prepend[new]
 		return
 	end if
+
+	set prev = NULL
+	set curr = Head@ptr
 
 	while curr != NULL
 	begin
 		if prev != NULL begin
 			if prev < new and new < curr begin
 				# nesse caso, new é algum nó do meio
-				join[prev, new]
-				join[new, curr]
+				join[prev, new, curr]
+				return
 			end if
 		end if
 		set prev = curr
@@ -225,21 +256,68 @@ begin
 	end while
 
 	# nesse caso, new é o ultimo nó
-	join[curr, new]
+	append[prev, new]
 end proc
 
-proc join[prev:ptr, new:ptr]
-var prev_size
+proc append[prev:ptr, new:ptr]
+var size
 begin
-	set prev_size = (prev+FL_SIZE_OFFSET)@i64
-	if prev+prev_size:ptr == new begin
-		# podemos fazer COALESCING aqui
-		set (prev+FL_SIZE_OFFSET)@i64 = prev_size + (new+FL_SIZE_OFFSET)@i64
-		set (prev+FL_NEXT_OFFSET)@ptr = (new+FL_NEXT_OFFSET)@ptr
+	set size = (prev+FL_SIZE_OFFSET)@i64
+	if prev+size:ptr == new begin
+		# COALESCING, append
+		set (prev+FL_SIZE_OFFSET)@i64 = size + (new+FL_SIZE_OFFSET)@i64
+		return
+	end if
+	set (prev+FL_NEXT_OFFSET)@ptr = new
+	set (new+FL_NEXT_OFFSET)@ptr = NULL
+end proc
+
+proc prepend[new:ptr]
+var size
+begin
+	set size = (new+FL_SIZE_OFFSET)@i64
+	if new + size:ptr == Head@ptr begin
+		# COALESCING, prepend
+		set (new+FL_SIZE_OFFSET)@i64 = size + (Head@ptr + FL_SIZE_OFFSET)@i64
+		set (new+FL_NEXT_OFFSET)@ptr = (Head@ptr + FL_NEXT_OFFSET)@ptr
+		set Head@ptr = new
+		return
+	end if
+
+	set (new+FL_NEXT_OFFSET)@ptr = Head@ptr
+	set Head@ptr = new
+end proc
+
+proc join[prev:ptr, new:ptr, curr:ptr]
+var size
+begin
+	set size = (prev+FL_SIZE_OFFSET)@i64
+	if prev+size:ptr == new begin
+		# COALESCING, append
+		set size = size + (new+FL_SIZE_OFFSET)@i64
+
+		if prev+size:ptr == curr begin
+			# nesse caso, prev, new e curr são adjacentes
+			set (prev+FL_SIZE_OFFSET)@i64 = size + (curr+FL_SIZE_OFFSET)@i64
+			set (prev+FL_NEXT_OFFSET)@ptr = (curr+FL_NEXT_OFFSET)@ptr
+		end else begin
+			# aqui, somente prev e new são adjacentes
+			set (prev+FL_SIZE_OFFSET)@i64 = size
+		end if
+		return
+	end if
+
+	set size = (new+FL_SIZE_OFFSET)@i64
+	if new + size:ptr == curr begin
+		# COALESCING, prepend
+		set (prev+FL_NEXT_OFFSET)@ptr = new
+		set (new+FL_SIZE_OFFSET)@i64 = size + (curr+FL_SIZE_OFFSET)@i64
+		set (new+FL_NEXT_OFFSET)@ptr = (curr+FL_NEXT_OFFSET)@ptr
 		return
 	end if
 
 	set (prev+FL_NEXT_OFFSET)@ptr = new
+	set (new+FL_NEXT_OFFSET)@ptr = curr
 end proc
 
 proc Init
@@ -252,19 +330,39 @@ begin
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end proc
 
+memory msg_total_free "free: "
+
+proc PrintList[]
+var curr:ptr, total_free
+begin
+	set curr = Head@ptr
+	set total_free = 0
+	while curr != NULL begin
+		put_char['{']
+		put_int[curr:i64]; put_char[',']
+		put_int[(curr+FL_SIZE_OFFSET)@i64]; put_char[',']
+		put_int[(curr+FL_NEXT_OFFSET)@i64]
+		put_char['}']
+		put_char[' ']
+		set total_free += (curr+FL_SIZE_OFFSET)@i64
+		set curr = (curr+FL_NEXT_OFFSET)@ptr
+	end while
+	put_char[' ']
+	write[msg_total_free, msg_total_free.size]
+	put_int[total_free]
+	put_char['\n']
+end proc
+
 proc PrintMap[]
 var i
 begin
 	set i = 0
 	put_char['[']
-	while i < Heap.size/WORD
-	begin
-		if (ByteMap+i:ptr)@i8 == EMPTY
-		begin
+	while i < Heap.size/WORD begin
+		if (ByteMap+i:ptr)@i8 == EMPTY begin
 			put_char[' ']
 		end if
-		if (ByteMap+i:ptr)@i8 == FULL
-		begin
+		if (ByteMap+i:ptr)@i8 == FULL begin
 			put_char['X']
 		end if
 		set i += 1
