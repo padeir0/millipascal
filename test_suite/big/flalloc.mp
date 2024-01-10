@@ -1,6 +1,8 @@
 from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, fatal, debug
 
+export Init, Alloc, Free
+
 const WORD 8     # uma word tem 8 bytes, toda memória será alinhada dessa forma.
 const NULL 0p
 
@@ -32,9 +34,9 @@ const FL_NEXT_OFFSET 8p
 const MIN_ALLOC_SIZE 8 # 8 bytes = WORD é o tamanho minimo
 const NODE_SIZE 16
 
-memory Heap 1024
+memory Heap 65536 # 64KB
 
-memory ByteMap 128   # Heap.size / 8, cada byte representa uma WORD na Heap
+memory ByteMap 8192   # Heap.size / 8, cada byte representa uma WORD na Heap
 const FULL  1ss
 const EMPTY 0ss
 
@@ -44,37 +46,45 @@ memory OOM "Out of memory\n"
 memory UNREACHABLE "Code should not reach here!\n"
 memory OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
 
-memory test 512
+memory test 2048
+const TOTAL_TEST_PTRS 256
 
 proc main
+var i
 begin
-	clear_words[test, test.size]
 	Init[]
-	_alloc[]
+
+	set i = 0
+
+	while i < 128 begin
+		clear_words[test, test.size]
+		_alloc[]
+		set i += 1
+	end while
 end proc
 
 proc _alloc
 var i, a:ptr
 begin
 	set i = 0
-	PrintMap[]
-	PrintList[]
-	while i < 64 begin
+	# PrintMap[]
+	# PrintList[]
+	while i < TOTAL_TEST_PTRS begin
 		set a = NULL
-	 	if i % 5 == 0 begin
-	 		set a = Alloc[16, 0us, 0ul]
-	 	end elseif i % 5 == 1 begin
-	 		set a = Alloc[24, 0us, 0ul]
-	 	end elseif i % 5 == 2 begin
-	 		set a = Alloc[48, 0us, 0ul]
-	 	end elseif i % 5 == 3 begin
-	 		set a = Alloc[25, 0us, 0ul]
-	 	end elseif i % 5 == 4 begin
-	 		set a = Alloc[33, 0us, 0ul]
-	 	end if
+		if i % 5 == 0 begin
+			set a = Alloc[16, 0us, 0ul]
+		end elseif i % 5 == 1 begin
+			set a = Alloc[24, 0us, 0ul]
+		end elseif i % 5 == 2 begin
+			set a = Alloc[48, 0us, 0ul]
+		end elseif i % 5 == 3 begin
+			set a = Alloc[25, 0us, 0ul]
+		end elseif i % 5 == 4 begin
+			set a = Alloc[33, 0us, 0ul]
+		end if
 
 		if i % 4 == 0 begin
-	 		freeN[1]
+			freeN[1]
 		end elseif i % 4 == 3 begin
 			freeN[2]
 		end if
@@ -84,20 +94,20 @@ begin
 		end else begin
 			fatal[OOM, OOM.size]
 		end if
-		PrintMap[]
-		PrintList[]
+		#PrintMap[]
+		#PrintList[]
 		set i += 1
 	end while
-	freeN[64]
-	PrintMap[]
-	PrintList[]
+	freeN[TOTAL_TEST_PTRS]
+	# PrintMap[]
+	# PrintList[]
 end proc
 
 proc freeN[n]
 var i, a:ptr
 begin
 	set i = 0
-	while i < 64 begin
+	while i < TOTAL_TEST_PTRS begin
 		if n <= 0 begin
 			return
 		end if
