@@ -22,3 +22,5 @@ github.com/padeir0/pir v0.0.0-20240107191255-87fd5090c167 h1:HijENAfKD3y0ZodRXCA
 github.com/padeir0/pir v0.0.0-20240107191255-87fd5090c167/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=
 github.com/padeir0/pir v0.0.0-20240109203245-867ac9695bd8 h1:L737y/pwINZU58VzPon2Sv3QOHzpl5oza2j2UqJeThI=
 github.com/padeir0/pir v0.0.0-20240109203245-867ac9695bd8/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=
+github.com/padeir0/pir v0.0.0-20240113224600-f23cbeb490c0 h1:OEWgBwi4BgZtGz8D51oOfztkoQGKy+g9eBuNM/+0oBw=
+github.com/padeir0/pir v0.0.0-20240113224600-f23cbeb490c0/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=

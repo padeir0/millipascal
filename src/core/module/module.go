@@ -159,6 +159,8 @@ func (v *Symbol) String() string {
 		return "module " + v.Name
 	case ST.Builtin:
 		return "builtin " + v.Name
+	case ST.Const:
+		return "const " + v.Name
 	default:
 		return "invalid"
 	}

@@ -1,12 +1,9 @@
 from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, fatal, debug
+from constants import WORD, NULL, FULL, EMPTY
 
 export Init, Alloc, Free
 
-const WORD 8     # uma word tem 8 bytes, toda memória será alinhada dessa forma.
-const NULL 0p
-
-# Esse alocador é o principio do runtime do Anu, portanto
 # cada objeto vai ter um header:
 #         v ptr
 #     [   | ..... ]
@@ -14,32 +11,26 @@ const NULL 0p
 #       ├── 2 bytes, offset -8: Tamanho do objeto em WORDs
 #       ├── 2 bytes, offset -6: Tag pra tipos de união
 #       └── 4 bytes, offset -4: Bitmap de ponteiros
-#
-# E teremos um bitmap separado do heap
+
+const HEADER_SIZE 8
 
 # offset negativo
 const OBJ_SIZE_OFFSET 8p
 const OBJ_TAG_OFFSET 6p
 const OBJ_BITMAP_OFFSET 4p
-const HEADER_SIZE 8
 
 # Além disso, cada nó da free-list terá 8 bytes,
 # Com os primeiros 8 bytes representando o tamanho da àrea a
 # ser alocada (em bytes)
 # e os 8 bytes sequentes sendo um ponteiro pro próximo nó
 
+const NODE_SIZE 16
+
 const FL_SIZE_OFFSET 0p
 const FL_NEXT_OFFSET 8p
 
-const MIN_ALLOC_SIZE 8 # 8 bytes = WORD é o tamanho minimo
-const NODE_SIZE 16
-
 memory Heap 65536 # 64KB
-
 memory ByteMap 8192   # Heap.size / 8, cada byte representa uma WORD na Heap
-const FULL  1ss
-const EMPTY 0ss
-
 memory Head 8
 
 memory OOM "Out of memory\n"
@@ -124,7 +115,7 @@ end proc
 proc Alloc[size, tag:u16, bitmap:u32] ptr
 var out:ptr, alloc_size
 begin
-	set size += 8 # adiciona o tamanho do header do objeto
+	set size += HEADER_SIZE
 	# alinhamento
 	if size%8 != 0 begin
 		set size = size + (8-size%8)

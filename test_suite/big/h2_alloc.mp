@@ -1,0 +1,518 @@
+from buffutil import clear_bytes, clear_words
+from ioutil import put_int, put_char, fatal, debug, put_4int
+from constants import WORD, NULL, FULL, EMPTY
+
+export Init, AllocFront, AllocBack, Free
+
+# cada objeto no frontheap vai ter um header de 16 bytes
+#         v ptr
+#     [   | ..... ]
+#       ^
+#       ├── 4 bytes, offset -16: Tamanho do objeto em WORDs
+#       ├── 4 bytes, offset -12: Length
+#       ├── 4 bytes, offset -8:  Cap
+#       └── 4 bytes, offset -4:  Ponteiro comprimido para Metadados
+
+const F_HEADER_SIZE 16
+
+# offset negativo
+const F_OBJ_SIZE_OFFSET 16p
+const F_OBJ_LEN_OFFSET 12p
+const F_OBJ_CAP_OFFSET 8p
+const F_OBJ_META_OFFSET 4p
+
+# cada objeto no backheap vai ter um header de 8 bytes
+#         v ptr
+#     [   | ..... ]
+#       ^
+#       ├── 2 bytes, offset -8: Tamanho do objeto em WORDs
+#       ├── 2 bytes, offset -6: Tag pra tipos de união
+#       └── 4 bytes, offset -4: Bitmap de ponteiros
+
+const B_HEADER_SIZE 8
+
+# offset negativo
+const B_OBJ_SIZE_OFFSET 8p
+const B_OBJ_TAG_OFFSET 6p
+const B_OBJ_BITMAP_OFFSET 4p
+
+const NODE_SIZE 24
+
+const FL_SIZE_OFFSET 0p
+const FL_PREV_OFFSET 8p
+const FL_NEXT_OFFSET 16p
+
+memory Heap 65536 # 64KB
+memory ByteMap 8192   # Heap.size / 8
+
+memory Head 8 # first node
+memory Tail 8 # last node
+
+memory FrontLimit 8 # limite do frontheap
+memory BackLimit 8  # limit do backheap
+
+memory OOM "Out of memory\n"
+memory UNREACHABLE "Code should not reach here!\n"
+memory OUTOFBOUNDS "Pointer to be freed is out of heap bounds\n"
+memory OUTOFLIMITS "Pointer to be freed is out of back or front limit bounds\n"
+
+proc main
+begin
+	Init[]
+end proc
+
+proc AllocFront[size, len:u32, cap:u32, meta:u32] ptr
+var out:ptr, alloc_size
+begin
+	set size += F_HEADER_SIZE
+	# alinhamento
+	if size%8 != 0 begin
+		set size = size + (8-size%8)
+	end if
+	# os objetos precisam de ter espaço pra colocar
+	# um nó quando forem dealocados
+	if size < NODE_SIZE begin
+		set size = NODE_SIZE
+	end if
+
+	set out, alloc_size = getNodeForward[size]
+	if out == NULL begin
+		return NULL
+	end if
+
+	if out > FrontLimit@ptr begin
+		set FrontLimit@ptr = out + alloc_size:ptr
+	end if
+	
+	set out += F_HEADER_SIZE:ptr
+	
+	# seta o header do objeto
+	set (out-F_OBJ_SIZE_OFFSET)@u32 = (alloc_size>>3):u32
+	set (out-F_OBJ_LEN_OFFSET)@u32 = len
+	set (out-F_OBJ_CAP_OFFSET)@u32 = cap
+	set (out-F_OBJ_META_OFFSET)@u32 = meta
+
+	setMap[out-F_HEADER_SIZE:ptr, alloc_size, FULL]
+
+	return out
+end proc
+
+
+proc AllocBack[size, tag:u16, bitmap:u32] ptr
+var out:ptr, alloc_size
+begin
+	set size += B_HEADER_SIZE
+	# alinhamento
+	if size%8 != 0 begin
+		set size = size + (8-size%8)
+	end if
+	# os objetos precisam de ter espaço pra colocar
+	# um nó quando forem dealocados
+	if size < NODE_SIZE begin
+		set size = NODE_SIZE
+	end if
+
+	set out, alloc_size = getNodeBackwards[size]
+	if out == NULL begin
+		return NULL
+	end if
+	if BackLimit@ptr < out begin
+		set BackLimit@ptr = out
+	end if
+	set out += B_HEADER_SIZE:ptr
+	
+	# seta o header do objeto
+	set (out-B_OBJ_SIZE_OFFSET)@u16 = (alloc_size>>3):u16
+	set (out-B_OBJ_TAG_OFFSET)@u16 = tag
+	set (out-B_OBJ_BITMAP_OFFSET)@u32 = bitmap
+
+	setMap[out-B_HEADER_SIZE:ptr, alloc_size, FULL]
+
+	return out
+end proc
+
+# precisamos retornar, junto com o ponteiro pro nó alocado,
+# o tamanho do nó, já que pode ser que ele seja maior que o
+# tamanho pedido
+proc getNodeForward[size] ptr, i64
+var curr:ptr, curr_size, next:ptr,
+    prev:ptr
+begin
+	if Head@ptr == NULL begin
+		return NULL, 0
+	end if
+
+	set curr = Head@ptr
+	set curr_size = 0
+
+	set next = NULL
+	set prev = NULL
+
+	while curr != NULL begin
+		set curr_size = (curr+FL_SIZE_OFFSET)@i64
+		set next = (curr+FL_NEXT_OFFSET)@ptr
+
+		if curr_size == size begin
+			return pop[prev, curr, next], curr_size
+		end if
+		if curr_size > size begin
+			# se alocarmos um objeto e o espaço que sobrar
+			# não ser suficiente pra um nó,
+			# alocamos o espaço inteiro sem quebrar
+			if curr_size - size < NODE_SIZE begin
+				return pop[prev, curr, next], curr_size
+			end if
+			return splitFront[prev, curr, next, size], size
+		end if
+
+		set prev = curr
+		set curr = next
+	end while
+
+	return NULL, 0
+end proc
+
+proc getNodeBackwards[size] ptr, i64
+var curr:ptr, curr_size, prev:ptr,
+    next:ptr
+begin
+	if Tail@ptr == NULL begin
+		return NULL, 0
+	end if
+
+	set next = NULL
+	set prev = NULL
+
+	set curr = Tail@ptr
+	set curr_size = 0
+
+	while curr != NULL begin
+		set curr_size = (curr+FL_SIZE_OFFSET)@i64
+		set prev = (curr+FL_PREV_OFFSET)@ptr
+
+		if curr_size == size begin
+			return pop[prev, curr, next], curr_size
+		end if
+		if curr_size > size begin
+			if curr_size - size < NODE_SIZE begin
+				return pop[prev, curr, next], curr_size
+			end if
+			return splitBack[prev, curr, next, size], size
+		end if
+
+		set next = curr
+		set curr = prev
+	end while
+
+	return NULL, 0
+end proc
+
+proc pop[prev:ptr, curr:ptr, next:ptr] ptr
+begin
+	if prev != NULL begin
+		set (prev+FL_NEXT_OFFSET)@ptr = next
+	end else begin
+		if Head@ptr == Tail@ptr begin # nesse caso, temos que atualizar a tail tbm
+			set Tail@ptr = next
+		end if
+        set Head@ptr = next
+	end if
+
+	if next != NULL begin
+		set (next+FL_PREV_OFFSET)@ptr = prev
+	end else begin
+		if Head@ptr == Tail@ptr begin
+			set Head@ptr = next
+		end if
+        set Tail@ptr = prev
+	end if
+
+	return curr:ptr
+end proc
+
+# divide o nó, alocando o espaço no começo
+#
+#   v alocado
+# [xxxxx|           ]
+#            ^ livre
+proc splitFront[prev:ptr, curr:ptr, next:ptr, requested_size] ptr
+var newnode:ptr, newnode_size, curr_size
+begin
+	set curr_size = (curr+FL_SIZE_OFFSET)@i64
+	set newnode_size = curr_size - requested_size
+	set newnode = curr + requested_size:ptr
+
+	set (newnode + FL_SIZE_OFFSET)@i64 = newnode_size
+	set (curr + FL_SIZE_OFFSET)@i64 = requested_size
+
+	set (newnode + FL_NEXT_OFFSET)@ptr = next
+	set (next + FL_PREV_OFFSET)@ptr = newnode
+
+	set (curr + FL_NEXT_OFFSET)@ptr = newnode
+	set (newnode + FL_PREV_OFFSET)@ptr = curr
+
+	return pop[prev, curr, newnode]
+end proc
+
+# divide o nó, alocando o espaço no fim
+#
+#   v livre
+# [            |xxxxxx]
+#                ^ alocado
+proc splitBack[prev:ptr, curr:ptr, next:ptr, requested_size] ptr
+var newnode:ptr, newnode_size, remaining_size, curr_size
+begin
+	set curr_size = (curr+FL_SIZE_OFFSET)@i64
+	set newnode_size = requested_size
+	set remaining_size = curr_size - requested_size
+	set newnode = curr + remaining_size:ptr
+
+	set (newnode + FL_SIZE_OFFSET)@i64 = newnode_size
+	set (curr + FL_SIZE_OFFSET)@i64 = remaining_size
+
+	set (newnode + FL_NEXT_OFFSET)@ptr = next
+	set (next + FL_PREV_OFFSET)@ptr = newnode
+
+	set (curr + FL_NEXT_OFFSET)@ptr = newnode
+	set (newnode + FL_PREV_OFFSET)@ptr = curr
+
+	return pop[curr, newnode, next]
+end proc
+
+#	if obj + obj_size:ptr >= FrontLimit@ptr begin
+#		set FrontLimit@ptr -= obj_size:ptr
+#	end elseif obj <= BackLimit@ptr begin
+#		set BackLimit@ptr += obj_size:ptr
+#	end if
+
+proc Free[obj:ptr]
+var obj_size, new:ptr, prev:ptr, curr:ptr, isFront:bool,
+	leftmost:ptr, rightmost:ptr
+begin
+	if obj < FrontLimit@ptr begin
+		set new = obj - F_HEADER_SIZE:ptr
+		set obj_size = ((obj-F_OBJ_SIZE_OFFSET)@u32):i64 << 3
+		set isFront = true
+	end elseif obj > BackLimit@ptr begin
+		set new = obj - B_HEADER_SIZE:ptr
+		set obj_size = ((obj-B_OBJ_SIZE_OFFSET)@u16):i64 << 3
+		set isFront = false
+	end else begin
+		fatal[OUTOFLIMITS, OUTOFLIMITS.size]
+	end if
+
+	if new < Heap or new > Heap + Heap.size:ptr begin
+		fatal[OUTOFBOUNDS, OUTOFBOUNDS.size]
+	end if
+
+	setMap[new, obj_size, EMPTY]
+
+	set (new+FL_SIZE_OFFSET)@i64 = obj_size
+	set (new+FL_NEXT_OFFSET)@ptr = NULL
+	set (new+FL_PREV_OFFSET)@ptr = NULL
+
+	if Head@ptr == NULL or Tail@ptr == NULL begin
+		set Head@ptr = new
+		set Tail@ptr = new
+		set FrontLimit@ptr = new
+		set BackLimit@ptr = new + obj_size:ptr
+		return
+	end if
+
+	if new < Head@ptr begin
+		# nesse caso, new é o primeiro nó da lista
+		# e vai virar o novo Head
+		prepend[new]
+		if isFront begin
+			set FrontLimit@ptr = new
+		end if
+		return
+	end if
+	if Tail@ptr < new begin
+		# nesse caso, new é o ultimo nó da lista
+		# e vai virar o novo Tail
+		append[Tail@ptr, new]
+		if not isFront begin
+			set BackLimit@ptr = new+obj_size:ptr
+		end if
+		return
+	end if
+
+	set prev = NULL
+	set curr = Head@ptr
+
+	while curr != NULL
+	begin
+		if prev != NULL begin
+			if prev < new and new < curr begin
+				# nesse caso, new é algum nó do meio
+				set leftmost, rightmost = join[prev, new, curr]
+				if isFront begin
+					set FrontLimit@ptr = leftmost
+				end else begin
+					set BackLimit@ptr = rightmost
+				end if
+				return
+			end if
+		end if
+		set prev = curr
+		set curr = (curr+FL_NEXT_OFFSET)@ptr
+	end while
+
+	# nesse caso, new é o ultimo nó (não deveria chegar aqui)
+	# append[prev, new]
+	# if not isFront begin
+	# 	set BackLimit@ptr = new+obj_size:ptr
+	# end if
+	fatal[UNREACHABLE, UNREACHABLE.size]
+end proc
+
+proc append[prev:ptr, new:ptr]
+var size
+begin
+	set size = (prev+FL_SIZE_OFFSET)@i64
+	if prev+size:ptr == new begin
+		# COALESCING, append
+		set (prev+FL_SIZE_OFFSET)@i64 = size + (new+FL_SIZE_OFFSET)@i64
+		return
+	end if
+	set (prev+FL_NEXT_OFFSET)@ptr = new
+	set (new+FL_PREV_OFFSET)@ptr = prev
+	set Tail@ptr = new
+end proc
+
+proc prepend[new:ptr]
+var size, next:ptr
+begin
+	set size = (new+FL_SIZE_OFFSET)@i64
+	if new + size:ptr == Head@ptr begin
+		# COALESCING, prepend
+		set next = (Head@ptr + FL_NEXT_OFFSET)@ptr
+		set (new+FL_SIZE_OFFSET)@i64 = size + (Head@ptr + FL_SIZE_OFFSET)@i64
+		set (new+FL_NEXT_OFFSET)@ptr = next
+		set (next+FL_PREV_OFFSET)@ptr = new
+		set Head@ptr = new
+		return 
+	end if
+
+	set next = Head@ptr
+	set (new+FL_NEXT_OFFSET)@ptr = next
+	set (next+FL_PREV_OFFSET)@ptr = new
+	set Head@ptr = new
+end proc
+
+proc join[prev:ptr, new:ptr, curr:ptr] ptr, ptr
+var size, next:ptr
+begin
+	set size = (prev+FL_SIZE_OFFSET)@i64
+	if prev+size:ptr == new begin
+		# COALESCING, append
+		set size = size + (new+FL_SIZE_OFFSET)@i64
+
+		if prev+size:ptr == curr begin
+			set next = (curr+FL_NEXT_OFFSET)@ptr
+			# nesse caso, prev, new e curr são adjacentes
+			set size += (curr+FL_SIZE_OFFSET)@i64
+			set (prev+FL_SIZE_OFFSET)@i64 = size
+
+			set (prev+FL_NEXT_OFFSET)@ptr = next
+			set (next+FL_PREV_OFFSET)@ptr = prev
+		end else begin
+			# aqui, somente prev e new são adjacentes
+			set (prev+FL_SIZE_OFFSET)@i64 = size
+		end if
+		return prev, prev+size:ptr
+	end if
+
+	set size = (new+FL_SIZE_OFFSET)@i64
+	if new + size:ptr == curr begin
+		# COALESCING, prepend
+		set next = (curr+FL_NEXT_OFFSET)@ptr
+
+		set (prev+FL_NEXT_OFFSET)@ptr = new
+		set (new+FL_PREV_OFFSET)@ptr = prev
+
+		set size += (curr+FL_SIZE_OFFSET)@i64
+		set (new+FL_SIZE_OFFSET)@i64 = size
+
+		set (new+FL_NEXT_OFFSET)@ptr = next
+		set (next+FL_PREV_OFFSET)@ptr = new
+		return new, new+size:ptr
+	end if
+
+	set (prev+FL_NEXT_OFFSET)@ptr = new
+	set (new+FL_PREV_OFFSET)@ptr = prev
+
+	set (new+FL_NEXT_OFFSET)@ptr = curr
+	set (curr+FL_PREV_OFFSET)@ptr = new
+	return new, new+size:ptr
+end proc
+
+proc Init
+begin
+	clear_words[Heap, Heap.size]
+	clear_bytes[ByteMap, ByteMap.size]
+
+	set Head@ptr = Heap
+	set Tail@ptr = Heap
+
+	set FrontLimit@ptr = Heap
+	set BackLimit@ptr = Heap + Heap.size:ptr
+	set (Heap+FL_SIZE_OFFSET)@i64 = Heap.size
+	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
+end proc
+
+memory msg_total_free "free: "
+
+proc PrintList[]
+var curr:ptr, total_free
+begin
+	set curr = Head@ptr
+	set total_free = 0
+	while curr != NULL begin
+		put_char['{']
+		put_4int[curr:i64,
+		         (curr+FL_SIZE_OFFSET)@i64,
+				 (curr+FL_PREV_OFFSET)@i64,
+				 (curr+FL_NEXT_OFFSET)@i64,
+				]
+		put_char['}']
+		put_char[' ']
+		set total_free += (curr+FL_SIZE_OFFSET)@i64
+		set curr = (curr+FL_NEXT_OFFSET)@ptr
+	end while
+	put_char[' ']
+	write[msg_total_free, msg_total_free.size]
+	put_int[total_free]
+	put_char['\n']
+end proc
+
+proc PrintMap[]
+var i
+begin
+	set i = 0
+	put_char['[']
+	while i < Heap.size/WORD begin
+		if (ByteMap+i:ptr)@i8 == EMPTY begin
+			put_char[' ']
+		end if
+		if (ByteMap+i:ptr)@i8 == FULL begin
+			put_char['X']
+		end if
+		set i += 1
+	end while
+	put_char[']']
+	put_char['\n']
+end proc
+
+proc setMap[obj:ptr, size, b:i8]
+var start:ptr, i:ptr, size_words:ptr
+begin
+	set size_words = (size>>3):ptr
+	set start = ByteMap + ((obj - Heap) / WORD:ptr)
+	set i = 0p
+	while i < size_words begin
+		set (start+i)@i8 = b
+		set i += 1p
+	end while
+end proc

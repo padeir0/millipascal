@@ -393,11 +393,11 @@ func fromImportSymbols(M *ir.Module, n *ir.Node) *Error {
 
 func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol) *Error {
 	newSy := &ir.Symbol{
-		Name:       sy.Name,
 		T:          sy.T,
+		Name:       sy.Name,
 		N:          sy.N,
-		ModuleName: sy.ModuleName,
 		External:   true,
+		ModuleName: sy.ModuleName,
 	}
 	_, ok := M.Globals[sy.Name]
 	if ok {

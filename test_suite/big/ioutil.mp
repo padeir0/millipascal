@@ -1,6 +1,7 @@
 from conversion import itoa, btoa
 
-export put_int, put_bool, put_char, write_line, fatal, debug
+export put_int, put_int_ln, put_2int, put_3int, put_4int, put_5int,
+       put_bool, put_char, write_line, fatal, debug
 
 proc main
 begin
@@ -28,6 +29,62 @@ proc put_char[n:i8]
 begin
 	set pchar_buff@i8 = n
 	write[pchar_buff, pchar_buff.size]
+end proc
+
+proc put_5int[a, b, c, d, e]
+begin
+	put_int[a]
+	put_char[',']
+	put_char[' ']
+	put_int[b]
+	put_char[',']
+	put_char[' ']
+	put_int[c]
+	put_char[',']
+	put_char[' ']
+	put_int[d]
+	put_char[',']
+	put_char[' ']
+	put_int[e]
+end proc
+
+proc put_4int[a, b, c, d]
+begin
+	put_int[a]
+	put_char[',']
+	put_char[' ']
+	put_int[b]
+	put_char[',']
+	put_char[' ']
+	put_int[c]
+	put_char[',']
+	put_char[' ']
+	put_int[d]
+end proc
+
+proc put_3int[a, b, c]
+begin
+	put_int[a]
+	put_char[',']
+	put_char[' ']
+	put_int[b]
+	put_char[',']
+	put_char[' ']
+	put_int[c]
+end proc
+
+proc put_2int[a, b]
+begin
+	put_int[a]
+	put_char[',']
+	put_char[' ']
+	put_int[b]
+end proc
+
+proc put_int_ln[n]
+begin
+	put_int[n]
+	put_char['\n']
 end proc
 
 proc put_int[n]

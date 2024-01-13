@@ -7,6 +7,8 @@ import (
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	msg "mpc/messages"
+
+	"fmt"
 )
 
 func Check(M *ir.Module) *Error {
@@ -19,6 +21,9 @@ func Check(M *ir.Module) *Error {
 }
 
 func checkModule(M *ir.Module) *Error {
+	if M.Visited {
+		return nil
+	}
 	M.Visited = true
 	for _, dep := range M.Dependencies {
 		err := checkModule(dep.M)
@@ -86,6 +91,7 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *Error {
 	case ST.Const:
 		value := sy.N.Leaves[1]
 		sy.Type = termToType(value.Lex)
+		sy.N.T = sy.Type
 	}
 	return nil
 }
@@ -446,6 +452,7 @@ func checkAssignment(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 	}
 
 	if right.T == nil {
+		fmt.Println(n)
 		panic("right side is nil!!")
 	}
 	if (T.IsMultiRet(right.T) || len(left.Leaves) > 1) &&

@@ -518,7 +518,7 @@ func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) pir.Operand {
 	id := dcolon.Leaves[1].Text
 	otherM := M.Dependencies[mod].M
 	sy := otherM.Exported[id]
-	return globalToOperand(c, sy)
+	return globalToOperand(c, M, sy)
 }
 
 func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
@@ -540,12 +540,15 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
 	}
 	global, ok := M.Globals[id.Text]
 	if ok {
-		return globalToOperand(c, global)
+		return globalToOperand(c, M, global)
 	}
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(c *context, global *ir.Symbol) pir.Operand {
+func globalToOperand(c *context, M *ir.Module, global *ir.Symbol) pir.Operand {
+	if global.External {
+		global = M.GetSymbol(global.Name)
+	}
 	i := uint64(c.symbolMap[global.ModuleName+"_"+global.Name])
 	switch global.T {
 	case ST.Builtin:
