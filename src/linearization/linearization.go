@@ -702,10 +702,7 @@ func lexToUnaryOp(op lex.LexKind) IT.InstrKind {
 
 func genDot(M *ir.Module, c *context, dot *ir.Node) pir.Operand {
 	mem := dot.Leaves[1]
-	s, ok := M.Globals[mem.Text]
-	if !ok {
-		panic("oh my god")
-	}
+	s := M.GetSymbol(mem.Text)
 	return pir.Operand{
 		Class: pirc.Lit,
 		Type:  T.T_I64,

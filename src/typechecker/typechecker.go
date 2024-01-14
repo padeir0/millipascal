@@ -88,6 +88,7 @@ func checkSymbol(M *ir.Module, sy *ir.Symbol) *Error {
 			return err
 		}
 		sy.Type = T.T_Ptr
+		sy.N.T = sy.Type
 	case ST.Const:
 		value := sy.N.Leaves[1]
 		sy.Type = termToType(value.Lex)

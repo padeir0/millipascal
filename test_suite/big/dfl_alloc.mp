@@ -1,25 +1,29 @@
 from buffutil import clear_bytes, clear_words
-from ioutil import put_int, put_char, fatal, debug, put_4int
+from ioutil import put_int, put_char, fatal, debug, put_2int, put_3int, put_4int
 from constants import WORD, NULL, FULL, EMPTY
 
-export Init, AllocFront, AllocBack, Free
+export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
+       AllocFront, AllocBack, Free, Init, GetTotalFree,
+	   PrintList, PrintMap 
 
 # cada objeto no frontheap vai ter um header de 16 bytes
 #         v ptr
 #     [   | ..... ]
 #       ^
-#       ├── 4 bytes, offset -16: Tamanho do objeto em WORDs
-#       ├── 4 bytes, offset -12: Length
-#       ├── 4 bytes, offset -8:  Cap
-#       └── 4 bytes, offset -4:  Ponteiro comprimido para Metadados
+#       ├── 4 bytes, offset -24: Tamanho do objeto em WORDs
+#       ├── 4 bytes, offset -20: Length
+#       ├── 4 bytes, offset -16: Cap
+#       └── 4 bytes, offset -12: Propriedades (se é Array ou mapa, por exemplo)
+#       └── 8 bytes, offset -8:  Ponteiro para Metadados
 
-const F_HEADER_SIZE 16
+const F_HEADER_SIZE 24
 
 # offset negativo
-const F_OBJ_SIZE_OFFSET 16p
-const F_OBJ_LEN_OFFSET 12p
-const F_OBJ_CAP_OFFSET 8p
-const F_OBJ_META_OFFSET 4p
+const F_OBJ_SIZE_OFFSET 24p
+const F_OBJ_LEN_OFFSET 20p
+const F_OBJ_CAP_OFFSET 16p
+const F_OBJ_PROP_OFFSET 12p
+const F_OBJ_META_OFFSET 8p
 
 # cada objeto no backheap vai ter um header de 8 bytes
 #         v ptr
@@ -51,17 +55,15 @@ memory Tail 8 # last node
 memory FrontLimit 8 # limite do frontheap
 memory BackLimit 8  # limit do backheap
 
-memory OOM "Out of memory\n"
 memory UNREACHABLE "Code should not reach here!\n"
 memory OUTOFBOUNDS "Pointer to be freed is out of heap bounds\n"
 memory OUTOFLIMITS "Pointer to be freed is out of back or front limit bounds\n"
 
 proc main
 begin
-	Init[]
 end proc
 
-proc AllocFront[size, len:u32, cap:u32, meta:u32] ptr
+proc AllocFront[size, len:u32, cap:u32, prop:u32, meta:ptr] ptr
 var out:ptr, alloc_size
 begin
 	set size += F_HEADER_SIZE
@@ -80,7 +82,7 @@ begin
 		return NULL
 	end if
 
-	if out > FrontLimit@ptr begin
+	if out + alloc_size:ptr > FrontLimit@ptr begin
 		set FrontLimit@ptr = out + alloc_size:ptr
 	end if
 	
@@ -90,13 +92,13 @@ begin
 	set (out-F_OBJ_SIZE_OFFSET)@u32 = (alloc_size>>3):u32
 	set (out-F_OBJ_LEN_OFFSET)@u32 = len
 	set (out-F_OBJ_CAP_OFFSET)@u32 = cap
-	set (out-F_OBJ_META_OFFSET)@u32 = meta
+	set (out-F_OBJ_PROP_OFFSET)@u32 = prop
+	set (out-F_OBJ_META_OFFSET)@ptr = meta
 
 	setMap[out-F_HEADER_SIZE:ptr, alloc_size, FULL]
 
 	return out
 end proc
-
 
 proc AllocBack[size, tag:u16, bitmap:u32] ptr
 var out:ptr, alloc_size
@@ -116,7 +118,7 @@ begin
 	if out == NULL begin
 		return NULL
 	end if
-	if BackLimit@ptr < out begin
+	if out < BackLimit@ptr begin
 		set BackLimit@ptr = out
 	end if
 	set out += B_HEADER_SIZE:ptr
@@ -167,6 +169,10 @@ begin
 
 		set prev = curr
 		set curr = next
+
+		if BackLimit@ptr <= curr begin
+			return NULL, 0
+		end if
 	end while
 
 	return NULL, 0
@@ -189,6 +195,9 @@ begin
 	while curr != NULL begin
 		set curr_size = (curr+FL_SIZE_OFFSET)@i64
 		set prev = (curr+FL_PREV_OFFSET)@ptr
+		if curr + curr_size:ptr <= FrontLimit@ptr begin
+			return NULL, 0
+		end if
 
 		if curr_size == size begin
 			return pop[prev, curr, next], curr_size
@@ -246,7 +255,12 @@ begin
 	set (curr + FL_SIZE_OFFSET)@i64 = requested_size
 
 	set (newnode + FL_NEXT_OFFSET)@ptr = next
-	set (next + FL_PREV_OFFSET)@ptr = newnode
+	if next != NULL begin
+		set (next + FL_PREV_OFFSET)@ptr = newnode
+	end else begin
+		# next == null implica que Tail@ptr == curr
+		set Tail@ptr = newnode 
+	end if
 
 	set (curr + FL_NEXT_OFFSET)@ptr = newnode
 	set (newnode + FL_PREV_OFFSET)@ptr = curr
@@ -271,19 +285,18 @@ begin
 	set (curr + FL_SIZE_OFFSET)@i64 = remaining_size
 
 	set (newnode + FL_NEXT_OFFSET)@ptr = next
-	set (next + FL_PREV_OFFSET)@ptr = newnode
+	if next != NULL begin
+		set (next + FL_PREV_OFFSET)@ptr = newnode
+	end else begin
+		# next == null implica que Tail@ptr == curr
+		set Tail@ptr = newnode 
+	end if
 
 	set (curr + FL_NEXT_OFFSET)@ptr = newnode
 	set (newnode + FL_PREV_OFFSET)@ptr = curr
 
 	return pop[curr, newnode, next]
 end proc
-
-#	if obj + obj_size:ptr >= FrontLimit@ptr begin
-#		set FrontLimit@ptr -= obj_size:ptr
-#	end elseif obj <= BackLimit@ptr begin
-#		set BackLimit@ptr += obj_size:ptr
-#	end if
 
 proc Free[obj:ptr]
 var obj_size, new:ptr, prev:ptr, curr:ptr, isFront:bool,
@@ -314,8 +327,7 @@ begin
 	if Head@ptr == NULL or Tail@ptr == NULL begin
 		set Head@ptr = new
 		set Tail@ptr = new
-		set FrontLimit@ptr = new
-		set BackLimit@ptr = new + obj_size:ptr
+		updateLimits[new, new + obj_size:ptr]
 		return
 	end if
 
@@ -323,18 +335,14 @@ begin
 		# nesse caso, new é o primeiro nó da lista
 		# e vai virar o novo Head
 		prepend[new]
-		if isFront begin
-			set FrontLimit@ptr = new
-		end if
+		updateLimits[new, new + obj_size:ptr]
 		return
 	end if
 	if Tail@ptr < new begin
 		# nesse caso, new é o ultimo nó da lista
 		# e vai virar o novo Tail
-		append[Tail@ptr, new]
-		if not isFront begin
-			set BackLimit@ptr = new+obj_size:ptr
-		end if
+		append[new]
+		updateLimits[new, new + obj_size:ptr]
 		return
 	end if
 
@@ -347,11 +355,7 @@ begin
 			if prev < new and new < curr begin
 				# nesse caso, new é algum nó do meio
 				set leftmost, rightmost = join[prev, new, curr]
-				if isFront begin
-					set FrontLimit@ptr = leftmost
-				end else begin
-					set BackLimit@ptr = rightmost
-				end if
+				updateLimits[leftmost, rightmost]
 				return
 			end if
 		end if
@@ -367,17 +371,28 @@ begin
 	fatal[UNREACHABLE, UNREACHABLE.size]
 end proc
 
-proc append[prev:ptr, new:ptr]
+proc updateLimits[leftmost:ptr, rightmost:ptr]
+begin
+	if leftmost <= BackLimit@ptr and BackLimit@ptr < rightmost begin
+		set BackLimit@ptr = rightmost
+	end if
+	if FrontLimit@ptr <= rightmost and leftmost < FrontLimit@ptr begin
+		set FrontLimit@ptr = leftmost
+	end if
+end proc
+
+proc append[new:ptr]
 var size
 begin
-	set size = (prev+FL_SIZE_OFFSET)@i64
-	if prev+size:ptr == new begin
+	set size = (Tail@ptr+FL_SIZE_OFFSET)@i64
+	if Tail@ptr+size:ptr == new begin
 		# COALESCING, append
-		set (prev+FL_SIZE_OFFSET)@i64 = size + (new+FL_SIZE_OFFSET)@i64
+		set size += (new+FL_SIZE_OFFSET)@i64 
+		set (Tail@ptr+FL_SIZE_OFFSET)@i64 = size
 		return
 	end if
-	set (prev+FL_NEXT_OFFSET)@ptr = new
-	set (new+FL_PREV_OFFSET)@ptr = prev
+	set (Tail@ptr + FL_NEXT_OFFSET)@ptr = new
+	set (new+FL_PREV_OFFSET)@ptr = Tail@ptr
 	set Tail@ptr = new
 end proc
 
@@ -390,7 +405,11 @@ begin
 		set next = (Head@ptr + FL_NEXT_OFFSET)@ptr
 		set (new+FL_SIZE_OFFSET)@i64 = size + (Head@ptr + FL_SIZE_OFFSET)@i64
 		set (new+FL_NEXT_OFFSET)@ptr = next
-		set (next+FL_PREV_OFFSET)@ptr = new
+		if next != NULL begin
+			set (next+FL_PREV_OFFSET)@ptr = new
+		end else begin
+			set Tail@ptr = new
+		end if
 		set Head@ptr = new
 		return 
 	end if
@@ -416,7 +435,11 @@ begin
 			set (prev+FL_SIZE_OFFSET)@i64 = size
 
 			set (prev+FL_NEXT_OFFSET)@ptr = next
-			set (next+FL_PREV_OFFSET)@ptr = prev
+			if next != NULL begin
+				set (next+FL_PREV_OFFSET)@ptr = prev
+			end else begin
+				set Tail@ptr = prev
+			end if
 		end else begin
 			# aqui, somente prev e new são adjacentes
 			set (prev+FL_SIZE_OFFSET)@i64 = size
@@ -436,7 +459,11 @@ begin
 		set (new+FL_SIZE_OFFSET)@i64 = size
 
 		set (new+FL_NEXT_OFFSET)@ptr = next
-		set (next+FL_PREV_OFFSET)@ptr = new
+		if next != NULL begin
+			set (next+FL_PREV_OFFSET)@ptr = new
+		end else begin
+			set Tail@ptr = new
+		end if
 		return new, new+size:ptr
 	end if
 
@@ -462,13 +489,26 @@ begin
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end proc
 
+proc setMap[obj:ptr, size, b:i8]
+var start:ptr, i:ptr, size_words:ptr
+begin
+	set size_words = (size>>3):ptr
+	set start = ByteMap + ((obj - Heap) / WORD:ptr)
+	set i = 0p
+	while i < size_words begin
+		set (start+i)@i8 = b
+		set i += 1p
+	end while
+end proc
+
 memory msg_total_free "free: "
+memory msg_flimit ", FrontLimit: "
+memory msg_blimit ", BackLimit: "
 
 proc PrintList[]
-var curr:ptr, total_free
+var curr:ptr
 begin
 	set curr = Head@ptr
-	set total_free = 0
 	while curr != NULL begin
 		put_char['{']
 		put_4int[curr:i64,
@@ -478,13 +518,32 @@ begin
 				]
 		put_char['}']
 		put_char[' ']
-		set total_free += (curr+FL_SIZE_OFFSET)@i64
 		set curr = (curr+FL_NEXT_OFFSET)@ptr
 	end while
 	put_char[' ']
+
 	write[msg_total_free, msg_total_free.size]
-	put_int[total_free]
+	put_int[GetTotalFree[]]
+
+	write[msg_flimit, msg_flimit.size]
+	put_int[FrontLimit@i64]
+
+	write[msg_blimit, msg_blimit.size]
+	put_int[BackLimit@i64]
+
 	put_char['\n']
+end proc
+
+proc GetTotalFree[] i64
+var curr:ptr, total_free
+begin
+	set curr = Head@ptr
+	set total_free = 0
+	while curr != NULL begin
+		set total_free += (curr+FL_SIZE_OFFSET)@i64
+		set curr = (curr+FL_NEXT_OFFSET)@ptr
+	end while
+	return total_free
 end proc
 
 proc PrintMap[]
@@ -503,16 +562,4 @@ begin
 	end while
 	put_char[']']
 	put_char['\n']
-end proc
-
-proc setMap[obj:ptr, size, b:i8]
-var start:ptr, i:ptr, size_words:ptr
-begin
-	set size_words = (size>>3):ptr
-	set start = ByteMap + ((obj - Heap) / WORD:ptr)
-	set i = 0p
-	while i < size_words begin
-		set (start+i)@i8 = b
-		set i += 1p
-	end while
 end proc
