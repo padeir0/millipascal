@@ -742,7 +742,7 @@ func block(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	n, err := Repeat(s, codeSemicolon)
+	leaves, err := Repeat(s, codeSemicolon)
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +757,7 @@ func block(s *Lexer) (*mod.Node, *Error) {
 			End:   end.Range.End,
 		},
 	}
-	bl.SetLeaves(n)
+	bl.SetLeaves(leaves)
 	return bl, nil
 }
 

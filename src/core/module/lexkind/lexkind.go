@@ -228,7 +228,7 @@ func FmtTypes(t ...LexKind) string {
 	return out
 }
 
-var tktosrc = map[LexKind]string{
+var Tktosrc = map[LexKind]string{
 	UNDEFINED:  "\033[0;31m?\033[0m",
 	I64_LIT:    "i64 literal",
 	I32_LIT:    "i32 literal",
@@ -327,7 +327,7 @@ var tktosrc = map[LexKind]string{
 }
 
 func fmtToUser(t LexKind) string {
-	v, ok := tktosrc[t]
+	v, ok := Tktosrc[t]
 	if ok {
 		return v
 	}

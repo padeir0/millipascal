@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"runtime/pprof"
 )
 
 var lexemes = flag.Bool("lexemes", false, "runs the lexer and prints the tokens")
@@ -22,8 +24,20 @@ var test = flag.Bool("test", false, "runs tests for all files in a folder,")
 var verbose = flag.Bool("v", false, "verbose tests")
 var outname = flag.String("o", "", "output name of file")
 
+var profile = flag.Bool("prof", false, "start profiler")
+
 func main() {
 	flag.Parse()
+	if *profile {
+		file := "out.pprof"
+		f, err := os.Create(file)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 	args := flag.Args()
 	if len(args) != 1 {
 		Fatal("invalid number of arguments\n")
@@ -37,7 +51,8 @@ func eval(filename string) {
 		filename = "./" + filename
 	}
 	if *test {
-		res := Test(filename)
+		var res []*testing.TestResult
+		res = Test(filename)
 		printResults(res)
 		return
 	}
