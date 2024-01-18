@@ -36,11 +36,52 @@ func (res *TestResult) String() string {
 	return "\u001b[31mfail\u001b[0m"
 }
 
-func Test(file string) TestResult {
+type Stage func(filename string, outname string) (outfile string, err *Error)
+
+func S_Lexer(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Lexemes(filename)
+	return "", err
+}
+
+func S_Parser(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Ast(filename)
+	return "", err
+}
+
+func S_Typechecker(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Mod(filename)
+	return "", err
+}
+
+func S_PirGeneration(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Pir(filename)
+	return "", err
+}
+
+func S_MirGeneration(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Mir(filename)
+	return "", err
+}
+
+func S_FasmGeneration(filename string, outname string) (string, *Error) {
+	_, err := pipelines.Fasm(filename, outname)
+	return "", err
+}
+
+func S_Compile(filename string, outname string) (string, *Error) {
+	return pipelines.Compile(filename, outname)
+}
+
+func S_Format(filename string, outname string) (string, *Error) {
+	_, err := pipelines.ModFmt(filename)
+	return "", err
+}
+
+func Test(file string, st Stage) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
 
-	name, err := pipelines.Compile(file, "")
+	outfile, err := st(file, "")
 
 	if err != nil {
 		if err.Code == et.InternalCompilerError {
@@ -53,12 +94,15 @@ func Test(file string) TestResult {
 		return compareError(file, err, expectedErr)
 	}
 
-	defer os.Remove("./" + name)
+	if outfile != "" {
+		defer os.Remove("./" + outfile)
 
-	oserror := execWithTimeout("./" + name)
-	if oserror != nil {
-		return newResult(file, ProcessFileError(oserror))
+		oserror := execWithTimeout("./" + outfile)
+		if oserror != nil {
+			return newResult(file, ProcessFileError(oserror))
+		}
 	}
+
 	return TestResult{
 		File: file,
 		Ok:   true,

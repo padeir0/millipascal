@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	. "mpc/core"
+	"mpc/format"
 	"mpc/pipelines"
 	"mpc/testing"
 	"os"
@@ -15,9 +16,11 @@ import (
 
 var lexemes = flag.Bool("lexemes", false, "runs the lexer and prints the tokens")
 var ast = flag.Bool("ast", false, "runs the lexer and parser, prints AST output")
+var mod = flag.Bool("mod", false, "runs the full frontend, prints typed AST")
 var pir = flag.Bool("pir", false, "runs the full frontend, prints pir")
 var mir = flag.Bool("mir", false, "runs the full compiler, prints mir")
 var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
+var _format = flag.Bool("fmt", false, "formats code and prints it to stdout")
 
 var test = flag.Bool("test", false, "runs tests for all files in a folder,")
 
@@ -52,7 +55,7 @@ func eval(filename string) {
 	}
 	if *test {
 		var res []*testing.TestResult
-		res = Test(filename)
+		res = Test(filename, getStage())
 		printResults(res)
 		return
 	}
@@ -73,6 +76,10 @@ func normalMode(filename string) {
 		n, err := pipelines.Ast(filename)
 		OkOrBurst(err)
 		fmt.Println(n)
+	case *mod:
+		m, err := pipelines.Mod(filename)
+		OkOrBurst(err)
+		fmt.Println(m)
 	case *pir:
 		pirP, err := pipelines.Pir(filename)
 		OkOrBurst(err)
@@ -85,6 +92,10 @@ func normalMode(filename string) {
 		fp, err := pipelines.Fasm(filename, *outname)
 		OkOrBurst(err)
 		fmt.Println(fp.Contents)
+	case *_format:
+		n, err := pipelines.Ast(filename)
+		OkOrBurst(err)
+		fmt.Println(format.Format(n))
 	default:
 		_, err := pipelines.Compile(filename, *outname)
 		OkOrBurst(err)
@@ -92,7 +103,7 @@ func normalMode(filename string) {
 }
 
 func checkValid() {
-	var selected = []bool{*lexemes, *ast, *pir, *mir, *asm}
+	var selected = []bool{*lexemes, *ast, *mod, *pir, *mir, *asm, *_format}
 	var count = 0
 	for _, b := range selected {
 		if b {
@@ -100,7 +111,7 @@ func checkValid() {
 		}
 	}
 	if count > 1 {
-		Fatal("only one of lex, parse, pir, mir or asm flags may be used at a time")
+		Fatal("only one of lex, parse, mod, pir, mir, asm or fmt flags may be used at a time")
 	}
 }
 
@@ -120,7 +131,7 @@ func printResults(results []*testing.TestResult) {
 	Stdout("total: " + strconv.Itoa(len(results)) + "\n")
 }
 
-func Test(folder string) []*testing.TestResult {
+func Test(folder string, st testing.Stage) []*testing.TestResult {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		Fatal(err.Error() + "\n")
@@ -132,13 +143,13 @@ func Test(folder string) []*testing.TestResult {
 			if *verbose {
 				Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
 			}
-			res := Test(fullpath)
+			res := Test(fullpath, st)
 			results = append(results, res...)
 			if *verbose {
 				Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
 			}
 		} else if strings.HasSuffix(v.Name(), ".mp") {
-			res := testing.Test(fullpath)
+			res := testing.Test(fullpath, st)
 			results = append(results, &res)
 			if *verbose {
 				Stdout("testing: " + fullpath + "\t")
@@ -147,6 +158,27 @@ func Test(folder string) []*testing.TestResult {
 		}
 	}
 	return results
+}
+
+func getStage() testing.Stage {
+	switch {
+	case *lexemes:
+		return testing.S_Lexer
+	case *ast:
+		return testing.S_Parser
+	case *mod:
+		return testing.S_Typechecker
+	case *pir:
+		return testing.S_PirGeneration
+	case *mir:
+		return testing.S_MirGeneration
+	case *asm:
+		return testing.S_FasmGeneration
+	case *_format:
+		return testing.S_Format
+	default:
+		return testing.S_Compile
+	}
 }
 
 func OkOrBurst(e *Error) {

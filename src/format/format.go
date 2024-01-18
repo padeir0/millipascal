@@ -1,12 +1,12 @@
-// prints formatter code from AST
-package printer
+// generates formatted code from AST
+package format
 
 import (
 	mod "mpc/core/module"
 	T "mpc/core/module/lexkind"
 )
 
-func Print(n *mod.Node) string {
+func Format(n *mod.Node) string {
 	ctx := _context()
 	module(ctx, n)
 	return ctx.String()
@@ -107,56 +107,83 @@ func commalist(ctx *context, leaves []*mod.Node, p printer) {
 
 func module(ctx *context, n *mod.Node) {
 	_coupling(ctx, n.Leaves[0])
+	ctx.Newline()
 	_symbols(ctx, n.Leaves[1])
 }
 
 func _coupling(ctx *context, n *mod.Node) {
-	for _, leaf := range n.Leaves {
+	for i, leaf := range n.Leaves {
 		switch leaf.Lex {
 		case T.IMPORT:
-			_impexp(ctx, n.Leaves, []byte("import"))
+			ctx.Place([]byte("import "))
+			commalist(ctx, leaf.Leaves, _id)
 		case T.FROM:
-			_from(ctx, n)
+			_from(ctx, leaf)
 		case T.EXPORT:
-			_impexp(ctx, n.Leaves, []byte("export"))
+			ctx.Place([]byte("export "))
+			commalist(ctx, leaf.Leaves, _id)
+		}
+		if i < len(n.Leaves)-1 {
+			ctx.Newline()
 		}
 		ctx.Newline()
 	}
 }
 
 func _from(ctx *context, n *mod.Node) {
-	ctx.Place([]byte("from"))
-	ctx.depth++
-	ctx.Newline()
+	ctx.Place([]byte("from "))
 	id := n.Leaves[0]
 	ctx.Place([]byte(id.Text))
-	ctx.depth--
-	_impexp(ctx, n.Leaves, []byte("import"))
+	ctx.Newline()
+	ctx.Place([]byte("import "))
+	idlist := n.Leaves[1]
+	commalist(ctx, idlist.Leaves, _id)
 }
 
 func _impexp(ctx *context, leaves []*mod.Node, kw []byte) {
-	ctx.Place(kw)
-	ctx.depth++
-	ctx.Newline()
-	commalist(ctx, leaves, _id)
-	ctx.depth--
 }
 
 func _id(ctx *context, n *mod.Node) {
 	ctx.Place([]byte(n.Text))
 }
 
-func _symbols(ctx *context, n *mod.Node) {
+func _onlyConst(ctx *context, n *mod.Node) {
 	for _, leaf := range n.Leaves {
-		switch leaf.Lex {
-		case T.MEMORY:
-			_mem(ctx, n)
-		case T.CONST:
-			_const(ctx, n)
-		case T.PROC:
-			_proc(ctx, n)
+		if leaf.Lex == T.CONST {
+			_const(ctx, leaf)
+			ctx.Newline()
 		}
 	}
+	ctx.Newline()
+}
+
+func _onlyMem(ctx *context, n *mod.Node) {
+	for _, leaf := range n.Leaves {
+		if leaf.Lex == T.MEMORY {
+			_mem(ctx, leaf)
+			ctx.Newline()
+		}
+	}
+	ctx.Newline()
+}
+
+func _onlyProcs(ctx *context, n *mod.Node) {
+	for i, leaf := range n.Leaves {
+		if leaf.Lex == T.PROC {
+			_proc(ctx, leaf)
+
+			if i < len(n.Leaves)-1 {
+				ctx.Newline()
+			}
+			ctx.Newline()
+		}
+	}
+}
+
+func _symbols(ctx *context, n *mod.Node) {
+	_onlyConst(ctx, n)
+	_onlyMem(ctx, n)
+	_onlyProcs(ctx, n)
 }
 
 func _mem(ctx *context, n *mod.Node) {
@@ -182,11 +209,10 @@ func _proc(ctx *context, n *mod.Node) {
 	id := n.Leaves[0]
 	ctx.Place([]byte(id.Text))
 	_args(ctx, n.Leaves[1])
+	ctx.Place([]byte(" "))
 	_rets(ctx, n.Leaves[2])
 	ctx.Newline()
-	ctx.depth++
 	_vars(ctx, n.Leaves[3])
-	ctx.depth--
 	_block(ctx, n.Leaves[4])
 	ctx.Place([]byte(" proc"))
 }
@@ -194,7 +220,8 @@ func _proc(ctx *context, n *mod.Node) {
 func _vars(ctx *context, n *mod.Node) {
 	if n != nil {
 		ctx.Place([]byte("var "))
-		commalist(ctx, n.Leaves, _type)
+		commalist(ctx, n.Leaves, _decl)
+		ctx.Newline()
 	}
 }
 
@@ -235,12 +262,15 @@ func _type(ctx *context, n *mod.Node) {
 func _procType(ctx *context, n *mod.Node) {
 	ctx.Place([]byte("proc "))
 	args := n.Leaves[0]
-	rets := n.Leaves[1]
 	_procTypeTypeList(ctx, args)
-	if len(rets.Leaves) == 1 {
-		_type(ctx, rets.Leaves[0])
-	} else {
-		_procTypeTypeList(ctx, rets)
+
+	rets := n.Leaves[1]
+	if rets != nil {
+		if len(rets.Leaves) == 1 {
+			_type(ctx, rets.Leaves[0])
+		} else {
+			_procTypeTypeList(ctx, rets)
+		}
 	}
 }
 
@@ -257,9 +287,11 @@ func _block(ctx *context, n *mod.Node) {
 	ctx.depth++
 	ctx.Newline()
 
-	for _, leaf := range n.Leaves {
+	for i, leaf := range n.Leaves {
 		_code(ctx, leaf)
-		ctx.Newline()
+		if i < len(n.Leaves)-1 {
+			ctx.Newline()
+		}
 	}
 
 	ctx.depth--
@@ -297,7 +329,7 @@ func _exit(ctx *context, n *mod.Node) {
 	ctx.Place([]byte("exit"))
 	if n.Leaves != nil && len(n.Leaves) > 0 {
 		ctx.Place([]byte(" "))
-		_expr(ctx, n)
+		_expr(ctx, n.Leaves[0])
 	}
 	ctx.Place([]byte(";"))
 }
@@ -313,6 +345,7 @@ func _while(ctx *context, n *mod.Node) {
 func _if(ctx *context, n *mod.Node) {
 	ctx.Place([]byte("if "))
 	_expr(ctx, n.Leaves[0])
+	ctx.Place([]byte(" "))
 	_block(ctx, n.Leaves[1])
 	_elseifchain(ctx, n.Leaves[2])
 	_else(ctx, n.Leaves[3])
@@ -329,15 +362,18 @@ func _elseifchain(ctx *context, n *mod.Node) {
 }
 
 func _elseif(ctx *context, n *mod.Node) {
-	ctx.Place([]byte("elseif "))
+	ctx.Place([]byte(" elseif "))
 	_expr(ctx, n.Leaves[0])
 	ctx.Place([]byte(" "))
 	_block(ctx, n.Leaves[1])
 }
 
 func _else(ctx *context, n *mod.Node) {
-	ctx.Place([]byte("else "))
-	_block(ctx, n.Leaves[1])
+	if n == nil {
+		return
+	}
+	ctx.Place([]byte(" else "))
+	_block(ctx, n.Leaves[0])
 }
 
 func _set(ctx *context, n *mod.Node) {
@@ -345,13 +381,13 @@ func _set(ctx *context, n *mod.Node) {
 	assignees := n.Leaves[0]
 	commalist(ctx, assignees.Leaves, _expr)
 	op := n.Leaves[1]
-	ctx.Place([]byte(op.Text))
+	ctx.Place([]byte(" " + op.Text + " "))
 	_expr(ctx, n.Leaves[2])
 }
 
 func _expr(ctx *context, n *mod.Node) {
-	bigNumber := 1 << 10
-	_exprPrec(ctx, n, bigNumber)
+	smallNumber := -1 * (1 << 10)
+	_exprPrec(ctx, n, smallNumber)
 }
 
 func _exprPrec(ctx *context, n *mod.Node, prevPrecedence int) {
@@ -362,9 +398,9 @@ func _exprPrec(ctx *context, n *mod.Node, prevPrecedence int) {
 		ctx.Place([]byte("sizeof "))
 		_type(ctx, n.Leaves[0])
 	case T.DOUBLECOLON:
-		_id(ctx, n)
+		_id(ctx, n.Leaves[0])
 		ctx.Place([]byte("::"))
-		_id(ctx, n)
+		_id(ctx, n.Leaves[1])
 	case T.I64_LIT, T.I32_LIT, T.I16_LIT, T.I8_LIT,
 		T.U64_LIT, T.U32_LIT, T.U16_LIT, T.U8_LIT,
 		T.FALSE, T.TRUE, T.PTR_LIT, T.STRING_LIT,
@@ -393,35 +429,36 @@ func _exprPrec(ctx *context, n *mod.Node, prevPrecedence int) {
 		}
 	// these have the highest precedence
 	case T.COLON:
-		_exprPrec(ctx, n.Leaves[0], precedence(T.COLON))
+		_exprPrec(ctx, n.Leaves[1], precedence(T.COLON))
 		ctx.Place([]byte(":"))
-		_type(ctx, n.Leaves[1])
+		_type(ctx, n.Leaves[0])
 	case T.AT:
-		_exprPrec(ctx, n.Leaves[0], precedence(T.AT))
+		_exprPrec(ctx, n.Leaves[1], precedence(T.AT))
 		ctx.Place([]byte("@"))
-		_type(ctx, n.Leaves[1])
+		_type(ctx, n.Leaves[0])
 	case T.DOT:
-		_exprPrec(ctx, n.Leaves[0], precedence(T.DOT))
+		_exprPrec(ctx, n.Leaves[1], precedence(T.DOT))
 		ctx.Place([]byte("."))
-		_id(ctx, n.Leaves[1])
+		_id(ctx, n.Leaves[0])
 	case T.CALL:
-		_exprPrec(ctx, n.Leaves[0], precedence(T.CALL))
+		_exprPrec(ctx, n.Leaves[1], precedence(T.CALL))
 		ctx.Place([]byte("["))
-		exprs := n.Leaves[1]
+		exprs := n.Leaves[0]
 		commalist(ctx, exprs.Leaves, _expr)
 		ctx.Place([]byte("]"))
+	default:
+		panic("oh no!")
 	}
-	panic("oh no!")
 }
 
 func binary(ctx *context, n *mod.Node) {
 	_exprPrec(ctx, n.Leaves[0], precedence(n.Lex))
-	ctx.Place([]byte(T.Tktosrc[n.Lex]))
+	ctx.Place([]byte(" " + T.Tktosrc[n.Lex] + " "))
 	_exprPrec(ctx, n.Leaves[1], precedence(n.Lex))
 }
 
 func unary(ctx *context, n *mod.Node) {
-	ctx.Place([]byte(T.Tktosrc[n.Lex]))
+	ctx.Place([]byte(T.Tktosrc[n.Lex] + " "))
 	_exprPrec(ctx, n.Leaves[0], precedence(n.Lex))
 }
 

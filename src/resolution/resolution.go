@@ -8,19 +8,21 @@ import (
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
+	"mpc/format"
 	"mpc/lexer"
 	msg "mpc/messages"
 	"mpc/parser"
 	"strings"
 )
 
-func Resolve(filePath string) (*ir.Module, *Error) {
+// _fmt set to true will format every file from AST before parsing again
+func Resolve(filePath string, _fmt bool) (*ir.Module, *Error) {
 	name, err := extractName(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	s, ioerr := newState(filePath)
+	s, ioerr := newState(filePath, _fmt)
 	if ioerr != nil {
 		return nil, processFileError(ioerr)
 	}
@@ -47,9 +49,11 @@ type state struct {
 
 	RefNode   *ir.Node // for errors
 	RefModule *ir.Module
+
+	_fmt bool
 }
 
-func newState(fullPath string) (*state, error) {
+func newState(fullPath string, _fmt bool) (*state, error) {
 	folder := getFolder(fullPath)
 	files, err := ioutil.ReadDir(folder)
 	if err != nil {
@@ -63,6 +67,7 @@ func newState(fullPath string) (*state, error) {
 		Modules:       map[string]*ir.Module{},
 		BaseFolder:    folder,
 		FilesInFolder: filenames,
+		_fmt:          _fmt,
 	}, nil
 }
 
@@ -215,6 +220,15 @@ func openAndParse(s *state, filename string) (*ir.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if s._fmt {
+		text := format.Format(n)
+		n, err = parser.Parse(path, string(text))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return n, nil
 }
 

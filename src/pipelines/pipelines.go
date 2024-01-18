@@ -46,7 +46,22 @@ func Ast(file string) (*mod.Node, *Error) {
 // processes a file and all it's dependencies
 // returns a typed Module or an error
 func Mod(file string) (*mod.Module, *Error) {
-	m, err := resolution.Resolve(file)
+	m, err := resolution.Resolve(file, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = typechecker.Check(m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// processes a file and all it's dependencies
+// returns a typed Module or an error
+func ModFmt(file string) (*mod.Module, *Error) {
+	m, err := resolution.Resolve(file, true)
 	if err != nil {
 		return nil, err
 	}
