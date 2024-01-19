@@ -4,7 +4,12 @@ from constants import WORD, NULL, FULL, EMPTY
 
 export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
        AllocFront, AllocBack, Free, Init, GetTotalFree,
-	   PrintList, PrintMap 
+       PrintList, PrintMap,
+       F_HEADER_SIZE,
+       F_OBJ_SIZE_OFFSET, F_OBJ_LEN_OFFSET, F_OBJ_CAP_OFFSET, 
+       F_OBJ_PROP_OFFSET, F_OBJ_META_OFFSET,
+	   B_HEADER_SIZE,
+       B_OBJ_SIZE_OFFSET, B_OBJ_TAG_OFFSET, B_OBJ_BITMAP_OFFSET
 
 # cada objeto no frontheap vai ter um header de 16 bytes
 #         v ptr
@@ -13,7 +18,7 @@ export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
 #       ├── 4 bytes, offset -24: Tamanho do objeto em WORDs
 #       ├── 4 bytes, offset -20: Length
 #       ├── 4 bytes, offset -16: Cap
-#       └── 4 bytes, offset -12: Propriedades (se é Array ou mapa, por exemplo)
+#       ├── 4 bytes, offset -12: Propriedades (se é Array ou mapa, por exemplo)
 #       └── 8 bytes, offset -8:  Ponteiro para Metadados
 
 const F_HEADER_SIZE 24
@@ -63,6 +68,7 @@ proc main
 begin
 end proc
 
+# size é em bytes, não em words
 proc AllocFront[size, len:u32, cap:u32, prop:u32, meta:ptr] ptr
 var out:ptr, alloc_size
 begin

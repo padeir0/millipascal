@@ -179,8 +179,10 @@ func genBlock(M *ir.Module, c *context, body *ir.Node) {
 			genSet(M, c, code)
 		case lex.RETURN:
 			genReturn(M, c, code)
+			return
 		case lex.EXIT:
 			genExit(M, c, code)
+			return
 		default:
 			genExpr(M, c, code)
 		}
@@ -276,9 +278,6 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 }
 
 func genExit(M *ir.Module, c *context, exit_ *ir.Node) {
-	if c.CurrBlock.IsTerminal() {
-		return
-	}
 	ret := exit_.Leaves[0]
 	op := genExpr(M, c, ret)
 	c.CurrBlock.Exit(op)
