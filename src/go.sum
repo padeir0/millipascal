@@ -28,3 +28,7 @@ github.com/padeir0/pir v0.0.0-20240118025354-19af548fcae5 h1:0rgo2euyrNRtTJz75s0
 github.com/padeir0/pir v0.0.0-20240118025354-19af548fcae5/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=
 github.com/padeir0/pir v0.0.0-20240119000419-8eed68dd22a6 h1:K+WoO4z+/0UnpEpSly0zZ4I4r/NmFxtuWXtPx2RERks=
 github.com/padeir0/pir v0.0.0-20240119000419-8eed68dd22a6/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=
+github.com/padeir0/pir v0.0.0-20240121175900-23063a2ce662 h1:3GvXn8YiHydgz19EVpHBzUIZbBa21MsqLfayT2ZoYHc=
+github.com/padeir0/pir v0.0.0-20240121175900-23063a2ce662/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=
+github.com/padeir0/pir v0.0.0-20240121183448-c23e5d098214 h1:CVrfeMPaEpOe0est5tX4u/dl6j8qtHZ5tFRv6N7dzkQ=
+github.com/padeir0/pir v0.0.0-20240121183448-c23e5d098214/go.mod h1:w2c1aK2PtE3O0nIRWJ+XIuNJd5KbVrqGgInxxTKaT0s=

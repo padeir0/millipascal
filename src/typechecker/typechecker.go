@@ -409,10 +409,10 @@ func checkWhile(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 }
 
 func checkReturn(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
+	if len(n.Leaves) != len(proc.Rets) {
+		return msg.ErrorInvalidNumberOfReturns(M, proc, n)
+	}
 	for i, ret := range n.Leaves {
-		if i >= len(proc.Rets) {
-			return msg.ErrorInvalidNumberOfReturns(M, proc, ret)
-		}
 		err := checkExpr(M, proc, ret)
 		if err != nil {
 			return err
