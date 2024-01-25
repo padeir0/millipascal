@@ -1,6 +1,7 @@
 # Millipascal
 
-Millipascal is basically a thin wrap over assembly.
+Millipascal is basically a thin wrap over assembly that evolved to
+be used as an intermediate language.
 
 ```
 memory hello "Hello, World!\n"
@@ -11,7 +12,7 @@ begin
 end proc
 ```
 
-It has only 10 basic types:
+It has 10 basic types:
 
 ```
 i8    i16    i32    i64
@@ -66,23 +67,6 @@ it doesn't share parenthesis in the middle of expressions, being easier to read.
 
 Control flow is `if`, `while`, `return` and `exit`.
 
-```
-proc iffi[a] i64
-begin
-	if a == 0 begin
-		return iffi[a+1];
-	end elseif a == 1 begin
-		return iffi[a*5];
-	end else begin
-		while a < 10
-		begin
-			set a = a + 1;
-		end while
-		return a;
-	end if
-end proc
-```
-
 If you notice, omiting the type of an argument makes it default to `i64`.
 The compiler allocates on the stack every type as 8 byte chunks
 anyway, so it doesn't matter.
@@ -120,7 +104,7 @@ Variables are declared together with the procedure, and cannot be
 declared inside any inner block.
 
 ```
-proc MyProc[]
+proc my_proc[]
 var this, is, the, only, place, you, can, declare, variables
 begin
 	exit 0ss;
@@ -130,12 +114,103 @@ end proc
 This comes from old TurboPascal implementations, it just makes it easier
 to find names in the frontend, and makes lifetimes easier in the IR,
 but not by much.
-I won't change this, however, since this is how the stack frame
-works, this language is just a thin wrap over assembly.
 
 The language also has a very simple module system, each file is a module
 and all modules must live in the same folder. The name of the module is the
 name of the file. Check the `test_suite/big` folder.
 
-TODO:
+# Style
+
+Although the language is deceptively simple, it's good to keep a 
+consistent style. If something is not listed here, just try to follow
+the style of `./test_suite/big/bignat.mp`.
+
+## Identifiers
+
+Constants and string memory should be in ALL_CAPS_SNAKE_CASE:
+
+```
+const OBJ_SIZE_OFFSET 8p
+const OBJ_TAG_OFFSET 6p
+const OBJ_BITMAP_OFFSET 4p
+
+memory ERR_NAT_OVERFLOW "number is too big (max 72 digits)\n"
+memory ERR_NAT_NEGATIVE "number subtraction went negative\n"
+memory ERR_DIVISION_BY_ZERO "division by zero\n"
+```
+
+Procedures should be in lower_snake_case:
+
+```
+proc test_guess[
+    natIDD:ptr,
+    scratch:ptr,
+    natB:ptr,
+    guess:i32
+] i64
+begin
+	...
+end proc
+
+proc slow_div[
+		natA:ptr,
+		natB:ptr,
+		natQ:ptr,
+		natRem:ptr
+]
+begin
+	...
+end proc
+```
+
+While reserved memory and local variables and arguments should follow
+camelCase:
+
+```
+memory natIDD 40
+memory scratch 40
+
+proc div[natA:ptr, natB:ptr, natQ:ptr, natRem:ptr]
+var sizeA, sizeB, i, j,
+    low:i32, high:i32, guess:i32,
+    res
+begin
+end proc
+```
+
+## Block delimiters
+
+Regarding `begin`/`end` keywords, they should
+always come in the same line as `if` and `while` keywords, unless
+the conditions are broken into multiple lines. Eg:
+
+```
+if res == HIGH begin
+    set high = guess
+end elseif res == LOW begin
+    set low = guess
+end else begin 
+    exit 1ss
+end if
+```
+
+If the conditions are in multiple lines, it's preferable to
+keep `begin` in another line:
+
+```
+if (guess*y == x) or
+   (guess*y < x and (guess+1)*y > x)
+begin
+    return EQ
+end if
+```
+
+However, never keep `begin` in the same line as `end`.
+
+# TODO
+
  - [ ] Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
+ - [ ] Allow arguments and variables be marked to signal that it's pointing to an object
+ - [ ] Have a way to access the frame pointer
+ - [ ] Inject function information on stack frame
+ - [ ] Have a built-in to open files

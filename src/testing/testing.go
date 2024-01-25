@@ -114,7 +114,7 @@ func execWithTimeout(cmdstr string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	timer := time.AfterFunc(1*time.Second, func() {
+	timer := time.AfterFunc(5*time.Second, func() {
 		cmd.Process.Kill()
 	})
 	err := cmd.Wait()
