@@ -163,12 +163,12 @@ begin
 end proc
 ```
 
-While reserved memory and local variables and arguments should follow
-camelCase:
+Reserved memory should follow UpperCammelCase,
+while local variables and arguments should follow lowerCamelCase:
 
 ```
-memory natIDD 40
-memory scratch 40
+memory NatIDD 40
+memory Scratch 40
 
 proc div[natA:ptr, natB:ptr, natQ:ptr, natRem:ptr]
 var sizeA, sizeB, i, j,

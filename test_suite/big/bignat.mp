@@ -56,8 +56,8 @@ memory ERR_NAT_NEGATIVE "number subtraction went negative\n"
 memory ERR_DIVISION_BY_ZERO "division by zero\n"
 memory WTF "wtf\n"
 
-memory natIDD 40
-memory scratch 40
+memory NatIDD 40
+memory Scratch 40
 
 const MAXITER 33
 
@@ -78,30 +78,30 @@ begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
     end if
 
-    set_buff[natIDD, NAT_SIZE, 0ss]
-    set_buff[scratch, NAT_SIZE, 0ss]
+    set_buff[NatIDD, NAT_SIZE, 0ss]
+    set_buff[Scratch, NAT_SIZE, 0ss]
 
     set sizeA = (natA+BN_SIZE_OFFSET)@i64
     set sizeB = (natB+BN_SIZE_OFFSET)@i64
 
     set natA = natA + BN_FIRST_OFFSET
 
-    set (natIDD+BN_SIZE_OFFSET)@i64 = 0
-    set (natIDD+BN_FIRST_OFFSET)@i32 = 0l
+    set (NatIDD+BN_SIZE_OFFSET)@i64 = 0
+    set (NatIDD+BN_FIRST_OFFSET)@i32 = 0l
     set i = sizeA-1
 
 
     while 0 <= i begin
-        mult_base[natIDD] # multiplies by Base
-        add_digit[natIDD, (natA+(i*sizeof i32):ptr)@i32]
+        mult_base[NatIDD] # multiplies by Base
+        add_digit[NatIDD, (natA+(i*sizeof i32):ptr)@i32]
 
         # find quotient digit
-        if more[natIDD, natB] begin
+        if more[NatIDD, natB] begin
             set low = 1l
             set guess = BASE/2l
             set high = BASE
             set j = 0
-            set res = test_guess[natIDD, scratch, natB, guess]
+            set res = test_guess[NatIDD, Scratch, natB, guess]
             while res != EQ and j < MAXITER begin
                 if res == LESS begin
                     set low = guess
@@ -109,20 +109,20 @@ begin
                     set high = guess
                 end if
                 set guess = (low + high)/2l
-                set res = test_guess[natIDD, scratch, natB, guess]
+                set res = test_guess[NatIDD, Scratch, natB, guess]
                 set j += 1
             end while
             if j >= MAXITER begin
                 exit 4ss
             end if
 
-            copy_bnat[scratch, natB]
-            mult_digit[scratch, guess]
-            sub[natIDD, scratch]
+            copy_bnat[Scratch, natB]
+            mult_digit[Scratch, guess]
+            sub[NatIDD, Scratch]
             mult_base[natQ]
             add_digit[natQ, guess]
-        end elseif eq[natIDD, natB] begin
-            set_zero[natIDD]
+        end elseif eq[NatIDD, natB] begin
+            set_zero[NatIDD]
             mult_base[natQ]
             add_digit[natQ, 1l]
         end else begin
@@ -132,26 +132,26 @@ begin
         end if
         set i -= 1
     end while
-    copy_bnat[natRem, natIDD]
+    copy_bnat[natRem, NatIDD]
 end proc
 
 proc test_guess[
-    natIDD:ptr,
-    scratch:ptr,
+    NatIDD:ptr,
+    Scratch:ptr,
     natB:ptr,
     guess:i32
 ] i64
 var res
 begin
-    copy_bnat[scratch, natB]
-    mult_digit[scratch, guess]
-    set res = comp[scratch, natIDD]
+    copy_bnat[Scratch, natB]
+    mult_digit[Scratch, guess]
+    set res = comp[Scratch, NatIDD]
     if (res == EQ) begin
         return EQ
     end if
     if res == LESS begin 
-        add[scratch, natB]
-        set res = comp[scratch, natIDD]
+        add[Scratch, natB]
+        set res = comp[Scratch, NatIDD]
         if res == MORE begin # guess*B < IDD and (guess+1)*B > IDD
             return EQ
         end if
@@ -564,13 +564,13 @@ end proc
 
 memory ERR_STR_OVERFLOW "overflow of string buffer\n"
 
-memory strBuff 72 # 8 * 9 = 72 digits
+memory StrBuff 72 # 8 * 9 = 72 digits
 
 proc put_bnat[nat:ptr]
 var size
 begin
-    set size = write_bnat[nat, strBuff, strBuff.size]
-    write[strBuff, size]
+    set size = write_bnat[nat, StrBuff, StrBuff.size]
+    write[StrBuff, size]
 end proc
 
 proc write_bnat[nat:ptr, buff:ptr, buffSize] i64

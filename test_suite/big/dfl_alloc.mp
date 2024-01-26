@@ -3,46 +3,41 @@ from ioutil import put_int, put_char, fatal, debug, put_2int, put_3int, put_4int
 from constants import WORD, NULL, FULL, EMPTY
 
 export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
-       AllocFront, AllocBack, Free, Init, GetTotalFree,
-       PrintList, PrintMap,
+       alloc_f, alloc_b, free, init, get_total_free,
+       print_list, print_map,
        F_HEADER_SIZE,
-       F_OBJ_SIZE_OFFSET, F_OBJ_LEN_OFFSET, F_OBJ_CAP_OFFSET, 
-       F_OBJ_PROP_OFFSET, F_OBJ_META_OFFSET,
+       F_OBJ_SIZE_OFFSET,
 	   B_HEADER_SIZE,
-       B_OBJ_SIZE_OFFSET, B_OBJ_TAG_OFFSET, B_OBJ_BITMAP_OFFSET
+       B_OBJ_SIZE_OFFSET, B_OBJ_META_OFFSET,
+	   B_OBJ_STUFF_OFFSET, B_OBJ_BITMAP_OFFSET
 
-# cada objeto no frontheap vai ter um header de 16 bytes
+# cada objeto no frontheap vai ter um header de 8 bytes
 #         v ptr
 #     [   | ..... ]
 #       ^
-#       ├── 4 bytes, offset -24: Tamanho do objeto em WORDs
-#       ├── 4 bytes, offset -20: Length
-#       ├── 4 bytes, offset -16: Cap
-#       ├── 4 bytes, offset -12: Propriedades (se é Array ou mapa, por exemplo)
-#       └── 8 bytes, offset -8:  Ponteiro para Metadados
+#       ├── 4 bytes, offset -8: Tamanho do objeto em WORDs
+#       └── 4 bytes sobrando
 
-const F_HEADER_SIZE 24
+const F_HEADER_SIZE 8
 
 # offset negativo
-const F_OBJ_SIZE_OFFSET 24p
-const F_OBJ_LEN_OFFSET 20p
-const F_OBJ_CAP_OFFSET 16p
-const F_OBJ_PROP_OFFSET 12p
-const F_OBJ_META_OFFSET 8p
+const F_OBJ_SIZE_OFFSET 8p
 
 # cada objeto no backheap vai ter um header de 8 bytes
 #         v ptr
 #     [   | ..... ]
 #       ^
-#       ├── 2 bytes, offset -8: Tamanho do objeto em WORDs
-#       ├── 2 bytes, offset -6: Tag pra tipos de união
+#       ├── 1 byte, offset -8: Tamanho do objeto em WORDs
+#       ├── 1 byte, offset -7: Metadados pro GC sobre a natureza do objeto
+#       ├── 2 bytes, offset -6: Lenght para bigint ou Tag pra tipos de união
 #       └── 4 bytes, offset -4: Bitmap de ponteiros
 
 const B_HEADER_SIZE 8
 
 # offset negativo
 const B_OBJ_SIZE_OFFSET 8p
-const B_OBJ_TAG_OFFSET 6p
+const B_OBJ_META_OFFSET 7p
+const B_OBJ_STUFF_OFFSET 6p
 const B_OBJ_BITMAP_OFFSET 4p
 
 const NODE_SIZE 24
@@ -60,16 +55,17 @@ memory Tail 8 # last node
 memory FrontLimit 8 # limite do frontheap
 memory BackLimit 8  # limit do backheap
 
-memory UNREACHABLE "Code should not reach here!\n"
-memory OUTOFBOUNDS "Pointer to be freed is out of heap bounds\n"
-memory OUTOFLIMITS "Pointer to be freed is out of back or front limit bounds\n"
+memory UNREACHABLE "code should not reach here!\n"
+memory OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
+memory OUTOFLIMITS "pointer to be freed is out of back or front limit bounds\n"
+memory OBJ_TOO_BIG "object is too big, max of 255 words\n"
 
 proc main
 begin
 end proc
 
 # size é em bytes, não em words
-proc AllocFront[size, len:u32, cap:u32, prop:u32, meta:ptr] ptr
+proc alloc_f[size] ptr
 var out:ptr, alloc_size
 begin
 	set size += F_HEADER_SIZE
@@ -96,17 +92,13 @@ begin
 	
 	# seta o header do objeto
 	set (out-F_OBJ_SIZE_OFFSET)@u32 = (alloc_size>>3):u32
-	set (out-F_OBJ_LEN_OFFSET)@u32 = len
-	set (out-F_OBJ_CAP_OFFSET)@u32 = cap
-	set (out-F_OBJ_PROP_OFFSET)@u32 = prop
-	set (out-F_OBJ_META_OFFSET)@ptr = meta
 
 	setMap[out-F_HEADER_SIZE:ptr, alloc_size, FULL]
 
 	return out
 end proc
 
-proc AllocBack[size, tag:u16, bitmap:u32] ptr
+proc alloc_b[size, meta:u8, stuff:u16, bitmap:u32] ptr
 var out:ptr, alloc_size
 begin
 	set size += B_HEADER_SIZE
@@ -124,14 +116,20 @@ begin
 	if out == NULL begin
 		return NULL
 	end if
+
+	if (alloc_size>>3) > 255 begin
+		fatal[OBJ_TOO_BIG, OBJ_TOO_BIG.size]
+	end if
+	
 	if out < BackLimit@ptr begin
 		set BackLimit@ptr = out
 	end if
 	set out += B_HEADER_SIZE:ptr
 	
 	# seta o header do objeto
-	set (out-B_OBJ_SIZE_OFFSET)@u16 = (alloc_size>>3):u16
-	set (out-B_OBJ_TAG_OFFSET)@u16 = tag
+	set (out-B_OBJ_SIZE_OFFSET)@u8 = (alloc_size>>3):u8
+	set (out-B_OBJ_META_OFFSET)@u8 = meta
+	set (out-B_OBJ_STUFF_OFFSET)@u16 = stuff
 	set (out-B_OBJ_BITMAP_OFFSET)@u32 = bitmap
 
 	setMap[out-B_HEADER_SIZE:ptr, alloc_size, FULL]
@@ -304,7 +302,7 @@ begin
 	return pop[curr, newnode, next]
 end proc
 
-proc Free[obj:ptr]
+proc free[obj:ptr]
 var obj_size, new:ptr, prev:ptr, curr:ptr, isFront:bool,
 	leftmost:ptr, rightmost:ptr
 begin
@@ -481,7 +479,7 @@ begin
 	return new, new+size:ptr
 end proc
 
-proc Init
+proc init
 begin
 	clear_words[Heap, Heap.size]
 	clear_bytes[ByteMap, ByteMap.size]
@@ -511,7 +509,7 @@ memory msg_total_free "free: "
 memory msg_flimit ", FrontLimit: "
 memory msg_blimit ", BackLimit: "
 
-proc PrintList[]
+proc print_list[]
 var curr:ptr
 begin
 	set curr = Head@ptr
@@ -529,7 +527,7 @@ begin
 	put_char[' ']
 
 	write[msg_total_free, msg_total_free.size]
-	put_int[GetTotalFree[]]
+	put_int[get_total_free[]]
 
 	write[msg_flimit, msg_flimit.size]
 	put_int[FrontLimit@i64]
@@ -540,7 +538,7 @@ begin
 	put_char['\n']
 end proc
 
-proc GetTotalFree[] i64
+proc get_total_free[] i64
 var curr:ptr, total_free
 begin
 	set curr = Head@ptr
@@ -552,7 +550,7 @@ begin
 	return total_free
 end proc
 
-proc PrintMap[]
+proc print_map[]
 var i
 begin
 	set i = 0

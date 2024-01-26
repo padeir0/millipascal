@@ -1,48 +1,48 @@
 from ioutil import put_char, put_int, put_4int, fatal
 from constants import NULL, FULL, EMPTY, WORD
 from dfl_alloc import Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
-                      AllocFront, AllocBack, Free, Init,
-					  PrintList, PrintMap, GetTotalFree
+                      alloc_f, alloc_b, free, init,
+					  print_list, print_map, get_total_free
 
 memory OOM "Out of memory\n"
 
-memory test_ptrs 1024
+memory TestPtrs 1024
 const TOTAL_TEST_PTRS 128
 
 proc main
 var i
 begin
 	set i = 0
-	Init[]
+	init[]
 	while i < 16 begin
-		test[i, AllocF, AllocF]
-		Validate[]
+		test[i, _alloc_f, _alloc_f]
+		validate[]
 		set i += 1
 	end while
 	set i = 0
 	while i < 16 begin
-		test[i, AllocB, AllocB]
-		Validate[]
+		test[i, _alloc_b, _alloc_b]
+		validate[]
 		set i += 1
 	end while
 	set i = 0
 	while i < 16 begin
-		test[i, AllocB, AllocF]
-		Validate[]
+		test[i, _alloc_b, _alloc_f]
+		validate[]
 		set i += 1
 	end while
 	set i = 0
 	while i < 16 begin
-		test[i, AllocF, AllocB]
-		Validate[]
+		test[i, _alloc_f, _alloc_b]
+		validate[]
 		set i += 1
 	end while
 end proc
 
 # valida se estamos de volta no estado inicial
-proc Validate
+proc validate
 begin
-	if GetTotalFree[] != Heap.size begin
+	if get_total_free[] != Heap.size begin
 		exit 2ss
 	end if
 	if Head@ptr != Tail@ptr begin
@@ -56,14 +56,14 @@ begin
 	end if
 end proc
 
-proc AllocF[size] ptr
+proc _alloc_f[size] ptr
 begin
-	return AllocFront[size, 0ul, 0ul, 0ul, 0p]
+	return alloc_f[size]
 end proc
 
-proc AllocB[size] ptr
+proc _alloc_b[size] ptr
 begin
-	return AllocBack[size, 0us, 0ul]
+	return alloc_b[size, 0uss, 0us, 0ul]
 end proc
 
 const debug 0
@@ -73,8 +73,8 @@ var i, a:ptr
 begin
 	set i = 0
 	if debug != 0 begin
-		PrintMap[]
-		PrintList[]
+		print_map[]
+		print_list[]
 	end if
 	while i < TOTAL_TEST_PTRS begin
 		set a = NULL
@@ -91,31 +91,31 @@ begin
 		end if
 
 		if i % 4 == 0 begin
-			freeN[1+(n%4)]
+			free_n[1+(n%4)]
 		end elseif i % 4 == 3 begin
-			freeN[1]
+			free_n[1]
 		end if
 
 		if a != NULL begin
-			set (test_ptrs + (i*8):ptr)@ptr = a
+			set (TestPtrs + (i*8):ptr)@ptr = a
 		end else begin
 			fatal[OOM, OOM.size]
 		end if
 		if debug != 0 begin
 			put_char['\n']
-			PrintMap[]
-			PrintList[]
+			print_map[]
+			print_list[]
 		end if
 		set i += 1
 	end while
-	freeN[TOTAL_TEST_PTRS]
+	free_n[TOTAL_TEST_PTRS]
 	if debug != 0 begin
-		PrintMap[]
-		PrintList[]
+		print_map[]
+		print_list[]
 	end if
 end proc
 
-proc freeN[n]
+proc free_n[n]
 var i, a:ptr
 begin
 	set i = 0
@@ -123,10 +123,10 @@ begin
 		if n <= 0 begin
 			return
 		end if
-		set a = (test_ptrs + (i*8):ptr)@ptr
+		set a = (TestPtrs + (i*8):ptr)@ptr
 		if a != NULL begin
-			Free[a]
-			set (test_ptrs + (i*8):ptr)@ptr = NULL
+			free[a]
+			set (TestPtrs + (i*8):ptr)@ptr = NULL
 			set n -= 1
 		end if
 		set i += 1
