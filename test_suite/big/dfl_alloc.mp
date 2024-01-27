@@ -4,7 +4,7 @@ from constants import WORD, NULL, FULL, EMPTY
 
 export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
        alloc_f, alloc_b, free, init, get_total_free,
-       print_list, print_map,
+       print_list, print_map, validate_init,
        F_HEADER_SIZE,
        F_OBJ_SIZE_OFFSET,
 	   B_HEADER_SIZE,
@@ -46,8 +46,11 @@ const FL_SIZE_OFFSET 0p
 const FL_PREV_OFFSET 8p
 const FL_NEXT_OFFSET 16p
 
-memory Heap 65536 # 64KB
-memory ByteMap 8192   # Heap.size / 8
+# memory Heap 2048 # 2KB
+# memory ByteMap 256 # Heap.size / 8
+
+memory Heap 1048576 # 1MB (wow)
+memory ByteMap 131072 # Heap.size / 8
 
 memory Head 8 # first node
 memory Tail 8 # last node
@@ -566,4 +569,21 @@ begin
 	end while
 	put_char[']']
 	put_char['\n']
+end proc
+
+# validates if we're back to the initial position
+proc validate_init
+begin
+	if get_total_free[] != Heap.size begin
+		exit 2ss
+	end if
+	if Head@ptr != Tail@ptr begin
+		exit 3ss
+	end if
+	if FrontLimit@ptr != Heap begin
+		exit 4ss
+	end if
+	if BackLimit@ptr != Heap+Heap.size:ptr begin
+		exit 5ss
+	end if
 end proc

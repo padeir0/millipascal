@@ -1,0 +1,15 @@
+proc main
+var a, b, c
+begin
+    set a = 0
+    set b = 1
+    set c = 2
+    if f[a, b] != 1 or f[a, c] != 2 begin
+        exit 1ss
+    end if
+end proc
+
+proc f[a, b] i64
+begin
+    return a+b
+end proc

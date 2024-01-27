@@ -82,14 +82,13 @@ begin
     set_buff[Scratch, NAT_SIZE, 0ss]
 
     set sizeA = (natA+BN_SIZE_OFFSET)@i64
-    set sizeB = (natB+BN_SIZE_OFFSET)@i64
 
     set natA = natA + BN_FIRST_OFFSET
 
     set (NatIDD+BN_SIZE_OFFSET)@i64 = 0
     set (NatIDD+BN_FIRST_OFFSET)@i32 = 0l
-    set i = sizeA-1
 
+    set i = sizeA-1
 
     while 0 <= i begin
         mult_base[NatIDD] # multiplies by Base
