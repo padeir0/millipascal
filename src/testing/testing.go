@@ -77,7 +77,7 @@ func S_Format(filename string, outname string) (string, *Error) {
 	return "", err
 }
 
-func Test(file string, st Stage) TestResult {
+func Test(file string, st Stage, timeout time.Duration) TestResult {
 	defer recoverIfFatal()
 	expectedErr := extractError(file)
 
@@ -97,7 +97,7 @@ func Test(file string, st Stage) TestResult {
 	if outfile != "" {
 		defer os.Remove("./" + outfile)
 
-		oserror := execWithTimeout("./" + outfile)
+		oserror := execWithTimeout("./"+outfile, timeout)
 		if oserror != nil {
 			return newResult(file, ProcessFileError(oserror))
 		}
@@ -109,12 +109,12 @@ func Test(file string, st Stage) TestResult {
 	}
 }
 
-func execWithTimeout(cmdstr string) error {
+func execWithTimeout(cmdstr string, t time.Duration) error {
 	cmd := exec.Command(cmdstr)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	timer := time.AfterFunc(5*time.Second, func() {
+	timer := time.AfterFunc(t, func() {
 		cmd.Process.Kill()
 	})
 	err := cmd.Wait()

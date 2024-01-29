@@ -2,9 +2,9 @@
 
 go build .
 
-for i in {0..100}
+for i in {0..50}
 do
-   ./mpc -test ../test_suite
+   ./mpc -test -testtimeout 50ms ../test_suite
 done
 
 rm mpc

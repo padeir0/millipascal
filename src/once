@@ -1,5 +1,5 @@
 #!/bin/bash
 
 go build .
-./mpc -test ../test_suite
+./mpc -test -testtimeout 5s ../test_suite
 rm mpc

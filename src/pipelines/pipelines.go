@@ -20,6 +20,8 @@ import (
 	"mpc/parser"
 	"mpc/resolution"
 	"mpc/typechecker"
+
+	"fmt"
 )
 
 // processes a single file and returns all tokens
@@ -106,6 +108,7 @@ func Mir(file string) (*mir.Program, *Error) {
 	mirP := resalloc.Allocate(p, NumRegisters)
 	err = ProcessPirError(mirchecker.Check(mirP))
 	if err != nil {
+		fmt.Println(mirP)
 		return nil, err
 	}
 	return mirP, nil

@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"runtime/pprof"
 )
@@ -22,7 +23,8 @@ var mir = flag.Bool("mir", false, "runs the full compiler, prints mir")
 var asm = flag.Bool("asm", false, "runs the full compiler, prints asm")
 var _format = flag.Bool("fmt", false, "formats code and prints it to stdout")
 
-var test = flag.Bool("test", false, "runs tests for all files in a folder,")
+var test = flag.Bool("test", false, "runs tests for all files in a folder")
+var testTimeout = flag.Duration("testtimeout", 5*time.Second, "sets timeout limit for a test")
 
 var verbose = flag.Bool("v", false, "verbose tests")
 var outname = flag.String("o", "", "output name of file")
@@ -55,7 +57,7 @@ func eval(filename string) {
 	}
 	if *test {
 		var res []*testing.TestResult
-		res = Test(filename, getStage())
+		res = Test(filename, getStage(), *testTimeout)
 		printResults(res)
 		return
 	}
@@ -131,7 +133,7 @@ func printResults(results []*testing.TestResult) {
 	Stdout("total: " + strconv.Itoa(len(results)) + "\n")
 }
 
-func Test(folder string, st testing.Stage) []*testing.TestResult {
+func Test(folder string, st testing.Stage, t time.Duration) []*testing.TestResult {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		Fatal(err.Error() + "\n")
@@ -143,13 +145,13 @@ func Test(folder string, st testing.Stage) []*testing.TestResult {
 			if *verbose {
 				Stdout("\u001b[35m entering: " + fullpath + "\u001b[0m\n")
 			}
-			res := Test(fullpath, st)
+			res := Test(fullpath, st, t)
 			results = append(results, res...)
 			if *verbose {
 				Stdout("\u001b[35m leaving: " + fullpath + "\u001b[0m\n")
 			}
 		} else if strings.HasSuffix(v.Name(), ".mp") {
-			res := testing.Test(fullpath, st)
+			res := testing.Test(fullpath, st, t)
 			results = append(results, &res)
 			if *verbose {
 				Stdout("testing: " + fullpath + "\t")
