@@ -15,10 +15,10 @@ begin
 
 	while gen < 1024
 	begin
-		write[b1, buff1.size]
-		putchar[' ']
-		pint[gen]
-		putchar['\n']
+		# write[b1, buff1.size]
+		# putchar[' ']
+		# pint[gen]
+		# putchar['\n']
 
 		generation[b1, b2, buff1.size]
 		set b3 = b2

@@ -238,7 +238,7 @@ func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outblID pir.
 
 		c.CurrBlock = truebl
 		genBlock(M, c, block)
-		if !c.CurrBlock.HasFlow() {
+		if c.CurrBlock != nil && !c.CurrBlock.HasFlow() {
 			c.CurrBlock.Jmp(outblID)
 		}
 		c.CurrBlock = falsebl

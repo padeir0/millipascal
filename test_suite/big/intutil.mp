@@ -1,4 +1,4 @@
-export min, max
+export min, max, abs, abs_i32
 
 proc main
 begin
@@ -51,4 +51,20 @@ begin
 	begin
 		return b
 	end if
+end proc
+
+proc abs_i32[a:i32] i32
+begin
+	if a >= 0l begin
+		return a
+	end if
+	return ~a
+end proc
+
+proc abs[a] i64
+begin
+	if a >= 0 begin
+		return a
+	end if
+	return ~a
 end proc
