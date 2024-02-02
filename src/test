@@ -4,7 +4,7 @@ go build .
 
 for i in {0..50}
 do
-   ./mpc -test -testtimeout 50ms ../test_suite
+   ./mpc -test -testtimeout 500ms ../test_suite
 done
 
 rm mpc

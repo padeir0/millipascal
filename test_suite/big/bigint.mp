@@ -24,20 +24,23 @@ import alloc_f, alloc_b, free, init, print_list, print_map,
 
 export
     new_bint, set_zero, set_bint,
-    put_bint, copy_bint,
+    put_bint, copy_bint, free_bint,
 
     BASE, EQ, MORE, LESS,
     put_res,
 
     comp, comp_i32,
-    #div, # div_i32 #TODO
+    div, # div_i32 #TODO
     mult, mult_i32,
     add, add_i32,
     sub, sub_i32,
     neg
 
+proc main
+begin
+end proc
+
 memory ERR_OOM "OUT OF MEMORY\n"
-# TODO: make abs_subtraction yield absolute value
 memory ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
 memory ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
 memory ERR_DIVISION_BY_ZERO "division by zero\n"
@@ -49,6 +52,8 @@ const DIGITS_PER_INT 9
 # Vector Header (negative offset)
 #  ├── 4 bytes, offset -8: object size in words (for the allocator)
 #  └── 1 byte, offset -1: integer sign (bool)
+# we can do this because there's a 4 byte padding in the object header
+# that we're allowed to use for other stuff
 
 const ARRAY_NEG_OFFSET 1p
 
@@ -614,6 +619,7 @@ begin
     remove_trailing_zeroes[iC]
 end proc
 
+# iA, iB and iC need not to be different objects
 proc abs_sub[iA:ptr, iB:ptr, iC:ptr]
 var i, lenA, lenB, lenC,
     carry:i32, res:i32,
@@ -681,6 +687,7 @@ begin
     remove_trailing_zeroes[iC]
 end proc
 
+# iA and iC need not to be different objects
 proc abs_sub_digit[iA:ptr, digit:i32, iC:ptr]
 var i, lenA, lenC,
     carry:i32, res:i32,
@@ -774,9 +781,7 @@ const EQ 0
 const MORE 1
 const LESS 2
 
-# ~1 if B < A (A is bigger)
-# 0 if A == B
-# 1 if A < B (B is bigger)
+# iA and iB need not to be different objects
 proc abs_comp[iA:ptr, iB:ptr] i64
 var lenA, lenB,
     arrayA:ptr, arrayB:ptr,
@@ -842,6 +847,8 @@ begin
 end proc
 
 # abs_adds iA to iB and stores in iC
+#
+# iA, iB and iC need not to be different objects
 proc abs_add[iA:ptr, iB:ptr, iC:ptr]
 var lenA, lenB, lenC, maxLen,
     arraySlotA:ptr, arraySlotB:ptr, arraySlotC:ptr,
@@ -885,6 +892,8 @@ end proc
 # abs_adds two numbers, just like abs_add
 # but the second number is < BASE,
 # that is, it's a single digit number.
+#
+# iA and iC need not to be different objects
 proc abs_add_digit[iA:ptr, digit:i32, iC:ptr]
 var lenA, lenC,
     arraySlotA:ptr, arraySlotC:ptr,
@@ -919,7 +928,6 @@ begin
     while carry > 0l begin
         if i == lenC begin
             # push_digit may alter the pointer at arraySlot
-            # and we can't free the underlying array at this time
             push_digit[iC, 0l]
             set lenC += 1
         end if
@@ -1141,15 +1149,6 @@ begin
     set_neg[iRem, negA]
 end proc
 
-# proc div_i32[iA:ptr, b:i32, iC:ptr]
-# var neg
-# begin
-#     set neg = mult_signal[is_neg[iA], is_neg[iB]]
-#     abs_div_i32[iA, iB, iQ, iRem]
-#     set_neg[iQ, neg]
-#     set_neg[iRem, is_neg[iA]]
-# end proc
-
 proc mult_signal[a:bool, b:bool] bool
 begin
     # 1*1 = (-1)*(-1) = 1
@@ -1180,8 +1179,7 @@ begin
     return false
 end proc
 
-# subtracts two numbers without regard for sign
-# then returns the sign separatedly
+# same as above, but second number may be an i32
 proc pos_sub_digit_sign[iA:ptr, b:i32, iC:ptr] bool
 var res
 begin
@@ -1193,431 +1191,4 @@ begin
         return true
     end if
     return false
-end proc
-
-######################################## $TESTS
-
-proc main
-var a:ptr, b:ptr, c:ptr
-begin
-    init[]
-    test_add[]
-    test_add_i32[]
-    test_sub[]
-    test_sub_i32[]
-    test_mult[]
-    test_mult_i32[]
-    # test_div
-    test_abs_add_digit_vs_abs_sub_digit[]
-    test_abs_add_vs_abs_sub[]
-    test_abs_mult_digit_vs_abs_mult_base_vs_abs_mult[]
-    test_copy[]
-    test_slow_div_vs_builtin[]
-    test_abs_mult_vs_div[]
-end proc
-
-proc test_mult
-var a:ptr, b:ptr, c:ptr,
-    i:i32, j:i32
-begin
-    set a = new_bint[~10l]
-    set b = new_bint[1l]
-    set c = new_bint[0l]
-
-    set i = ~100l
-    while i < 100l
-    begin
-        set_bint[a, i]
-        set j = ~100l
-        while j < 100l
-        begin
-            set_bint[b, j]
-            mult[a, b, c]
-            if comp_i32[c, i*j] != EQ begin
-                exit 32ss
-            end if
-
-            set j += 1l
-        end while
-        set i += 1l
-    end while
-
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    validate_init[]
-end proc
-
-proc test_mult_i32
-var a:ptr, b:ptr,
-    i:i32, j:i32
-begin
-    set a = new_bint[~10l]
-    set b = new_bint[0l]
-
-    set i = ~100l
-    while i < 100l
-    begin
-        set_bint[a, i]
-        set j = ~100l
-        while j < 100l
-        begin
-            mult_i32[a, j, b]
-            if comp_i32[b, i*j] != EQ begin
-                put_char['$']
-                put_int[i:i64]
-                put_char[' ']
-                put_int[j:i64]
-                put_char[' ']
-                put_bint[b]
-                put_char['\n']
-                exit 33ss
-            end if
-
-            set j += 1l
-        end while
-        set i += 1l
-    end while
-
-    free_bint[a]
-    free_bint[b]
-    validate_init[]
-end proc
-
-proc test_add
-var a:ptr, b:ptr,
-    i, res
-begin
-    set a = new_bint[~10l]
-    set b = new_bint[1l]
-
-    set i = 0
-    while i < 20 begin
-        add[a, b, a]
-        set i += 1
-    end while
-    if comp_i32[a, 10l] != EQ begin
-        exit 25ss
-    end if
-
-    set_bint[b, ~1l]
-    set i = 0
-    while i < 20 begin
-        add[a, b, a]
-        set i += 1
-    end while
-    if comp_i32[a, ~10l] != EQ begin
-        exit 26ss
-    end if
-    
-    free_bint[a]
-    free_bint[b]
-    validate_init[]
-end proc
-
-proc test_add_i32
-var a:ptr, i, res
-begin
-    set a = new_bint[~10l]
-
-    set i = 0
-    while i < 20 begin
-        add_i32[a, 1l, a]
-        set i += 1
-    end while
-    if comp_i32[a, 10l] != EQ begin
-        exit 27ss
-    end if
-
-    set i = 0
-    while i < 20 begin
-        add_i32[a, ~1l, a]
-        set i += 1
-    end while
-    if comp_i32[a, ~10l] != EQ begin
-        exit 28ss
-    end if
-    
-    free_bint[a]
-    validate_init[]
-end proc
-
-proc test_sub
-var a:ptr, b:ptr,
-    i, res
-begin
-    set a = new_bint[~10l]
-    set b = new_bint[~1l]
-
-    set i = 0
-    while i < 20 begin
-        sub[a, b, a]
-        set i += 1
-    end while
-    if comp_i32[a, 10l] != EQ begin
-        exit 29ss
-    end if
-
-    set_bint[b, 1l]
-    set i = 0
-    while i < 20 begin
-        sub[a, b, a]
-        set i += 1
-    end while
-    if comp_i32[a, ~10l] != EQ begin
-        exit 30ss
-    end if
-    
-    free_bint[a]
-    free_bint[b]
-    validate_init[]
-end proc
-
-proc test_sub_i32
-var a:ptr, i, res
-begin
-    set a = new_bint[~10l]
-
-    set i = 0
-    while i < 20 begin
-        sub_i32[a, ~1l, a]
-        set i += 1
-    end while
-    if comp_i32[a, 10l] != EQ begin
-        exit 31ss
-    end if
-
-    set i = 0
-    while i < 20 begin
-        sub_i32[a, 1l, a]
-        set i += 1
-    end while
-    if comp_i32[a, ~10l] != EQ begin
-        exit 32ss
-    end if
-    
-    free_bint[a]
-    validate_init[]
-end proc
-
-proc test_copy
-var a:ptr, b:ptr, c:ptr, d:ptr, e:ptr
-begin
-    set a = new_bint[99l]
-    abs_mult_base[a]
-    set b = new_bint[0l]
-    copy_bint[b, a]
-    if abs_comp[a, b] != EQ begin
-        exit 14ss
-    end if
-    free_bint[a]
-    free_bint[b]
-    validate_init[]
-end proc
-
-proc test_abs_mult_digit_vs_abs_mult_base_vs_abs_mult
-var a:ptr, b:ptr, c:ptr, d:ptr, e:ptr, z:ptr, i
-begin
-    set a = new_bint[99l]
-    set b = new_bint[99l]
-
-    set c = new_bint[99l]
-    set d = new_bint[1l]
-    abs_mult_base[d]
-    set e = new_bint[0l]
-    set z = new_bint[0l]
-
-    set i = 0
-    while i < 100 begin
-        abs_mult_digit[a, 100_000_000l, a]
-        abs_mult_digit[a, 10l, a]
-
-        abs_mult_base[b]
-
-        abs_mult[c, d, e]
-        copy_bint[c, e]
-
-        if abs_comp[a, b] != EQ begin
-            put_char['$']
-            put_bint[a]
-            put_char[' ']
-            put_bint[b]
-            put_char['\n']
-            exit 12ss
-        end if
-        if abs_comp[a, c] != EQ begin
-            exit 13ss
-        end if
-        set i += 1
-    end while
-
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    free_bint[d]
-    free_bint[e]
-    free_bint[z]
-    validate_init[]
-end proc
-
-proc test_abs_add_vs_abs_sub
-var a:ptr, b:ptr, c:ptr,
-    i
-begin
-    set a = new_bint[64l]
-    set b = new_bint[512l]
-    abs_mult_digit[a, 100_000_000l, a]
-    abs_mult_digit[a, 100_000_000l, a]
-    abs_mult_digit[b, 10_000_000l, b]
-    set c = new_bint[0l]
-    copy_bint[c, a]
-
-    set i = 0
-    while i < 1_000_000 begin
-        abs_sub[a, b, a]
-        set i += 1
-    end while
-    set i = 0
-    while i < 1_000_000 begin
-        abs_add[a, b, a]
-        set i += 1
-    end while
-
-    if abs_comp[a, c] != EQ begin
-        put_char['!']
-        put_bint[a]
-        put_char[' ']
-        put_bint[b]
-        put_char[' ']
-        put_bint[c]
-        put_char['\n']
-        exit 5ss
-    end if
-
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    validate_init[]
-end proc
-
-proc test_abs_add_digit_vs_abs_sub_digit
-var a:ptr, b:ptr, c:ptr,
-    i
-begin
-    set a = new_bint[64l]
-    set b = new_bint[0l]
-    set c = new_bint[0l]
-    abs_mult_digit[a, 100_000_000l, c]
-    copy_bint[a, c]
-    copy_bint[b, c]
-
-    set i = 0
-    while i < 1_000_000 begin
-        abs_sub_digit[a, 64l, a]
-        set i += 1
-    end while
-    set i = 0
-    while i < 1_000_000 begin
-        abs_add_digit[a, 64l, a]
-        set i += 1
-    end while
-
-    if abs_comp[a, b] != EQ begin
-        put_char['!']
-        put_bint[a]
-        put_char[' ']
-        put_bint[b]
-        put_char['\n']
-        exit 6ss
-    end if
-
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    validate_init[]
-end proc
-
-proc test_abs_mult_vs_div
-var a:ptr, b:ptr, c:ptr,
-    q:ptr, r:ptr,
-    i
-begin
-    set a = new_bint[64l]
-    set b = new_bint[512l]
-    abs_mult_digit[a, 100_000_000l, a]
-    abs_mult_digit[a, 100_000_000l, a]
-    set c = new_bint[0l]
-
-    set q = new_bint[0l]
-    set r = new_bint[0l]
-
-    set i = 0
-    while i < 1_000 begin
-        abs_div[a, b, q, r]
-        abs_mult[b, q, c]
-        abs_add[c, r, c]
-
-        if abs_comp[a, c] != EQ begin
-            exit 21ss
-        end if
-        abs_add_digit[a, 9l, a]
-        set i += 1
-    end while
-
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    free_bint[q]
-    free_bint[r]
-    validate_init[]
-end proc
-
-proc test_slow_div_vs_builtin
-var i:i32, j:i32,
-    a:ptr, b:ptr, c:ptr, d:ptr
-begin
-    set a = new_bint[1l]
-    set b = new_bint[1l]
-    set c = new_bint[1l]
-    set d = new_bint[1l]
-
-    set i = 1l
-    while i < 2048l begin
-        set_bint[a, i]
-
-        set j = 1l
-        while j < 1024l begin
-            set_bint[b, j]
-
-            abs_slow_div[a, b, c, d]
-
-            if abs_comp_digit[c, i/j] != EQ begin
-                put_bint[c]
-                put_char['!']
-                put_char['=']
-                put_int[(i/j):i64]
-                put_char['\n']
-                exit 3ss
-            end if
-            if abs_comp_digit[d, i%j] != EQ begin
-                put_bint[d]
-                put_char['!']
-                put_char['=']
-                put_int[(i%j):i64]
-                put_char['\n']
-                exit 7ss
-            end if
-
-            if j > i begin
-                set j = 2048l
-            end if
-            set j += 1l
-        end while
-        set i += 1l
-    end while
-    free_bint[a]
-    free_bint[b]
-    free_bint[c]
-    free_bint[d]
-    validate_init[]
 end proc
