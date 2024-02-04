@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# as if coverage results would help LOL
+# even if i had complete coverage, far apart features can
+# interact in mysterious ways...
+# that said, we only check the important parts
+pir="github.com/padeir0/pir"
+piramd64="$pir/backends/linuxamd64"
+
+mpcpkg="mpc,mpc/lexer,mpc/parser,mpc/resolution,mpc/typechecker,mpc/linearization"
+pirpkg="$pir,$pir/checker,$piramd64/resalloc,$piramd64/fasm,$piramd64/mir/checker"
+
+go build -cover -coverpkg="$mpcpkg,$pirpkg" -o mpc .
+
+mkdir covdatafiles
+
+GOCOVERDIR=covdatafiles \
+    ./mpc -test -testtimeout 5s ../test_suite
+
+echo ""
+echo "packages:"
+go tool covdata percent -i=covdatafiles
+
+echo ""
+echo "functions (with <70% coverage only):"
+go tool covdata func -i=covdatafiles | grep -P '(6\d.\d%)|(5\d.\d%)|(4\d\.\d%)|(3\d\.\d%)|(2\d\.\d%)|(1\d\.\d%)|(\s0.\d%)' #tehee
+
+rm mpc
+rm -rf covdatafiles

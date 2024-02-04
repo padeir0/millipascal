@@ -1,7 +1,8 @@
 #!/bin/bash
 
-go build .
+go build -o mpc .
 
+# we use this to find nondeterministic behaviour
 for i in {0..50}
 do
    ./mpc -test -testtimeout 500ms ../test_suite

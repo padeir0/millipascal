@@ -1,5 +1,3 @@
-from ioutil import put_int, put_char
-
 proc main
 var a, b
 begin

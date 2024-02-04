@@ -30,10 +30,10 @@ export
     put_res,
 
     comp, comp_i32,
-    div, # div_i32 #TODO
+    div,  div_i32,
     mult, mult_i32,
-    add, add_i32,
-    sub, sub_i32,
+    add,  add_i32,
+    sub,  sub_i32,
     neg
 
 proc main
@@ -476,6 +476,49 @@ begin
         return MORE
     end if
     exit 99ss
+end proc
+
+# since 0 <= rem < B
+# we can store rem in a i32
+# and return it from the procedure
+#
+# furthermore,
+# IDD will have at most 2 digits, because B has only 1
+# so we can store it in an i64
+proc abs_div_digit[
+    iA:ptr,
+    b:i32,
+    iQ:ptr
+] i32
+var idd, q, b64,
+    lenA, arrayA:ptr, i
+begin
+    if b == 0l begin
+        fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
+    end if
+    set_zero[iQ]
+
+    set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
+    set arrayA = (iA+BINT_PTR_OFFSET)@ptr
+    set b64 = b:i64
+
+    set idd = 0
+    set i = lenA-1
+    while 0 <= i begin
+        set idd *= BASE:i64
+        set idd += (arrayA+(i*sizeof i32):ptr)@i32:i64
+
+        set q = idd / b64
+        set idd -= q*b64
+
+        abs_mult_base[iQ]
+        abs_add_digit[iQ, q:i32, iQ]
+        
+        set i -= 1
+    end while
+    # at the end of the loop, idd will be less than BASE,
+    # so we can safely cast it
+    return idd:i32
 end proc
 
 # abs_slow_div computes the solution to A = Q*B + Rem
@@ -1145,8 +1188,31 @@ begin
     set negB = is_neg[iB]
     set neg = mult_signal[negA, negB]
     abs_div[iA, iB, iQ, iRem]
-    set_neg[iQ, neg]
-    set_neg[iRem, negA]
+    if abs_comp_digit[iQ, 0l] != EQ begin
+        set_neg[iQ, neg]
+    end if
+    if abs_comp_digit[iRem, 0l] != EQ begin
+        set_neg[iRem, negA]
+    end if
+end proc
+
+proc div_i32[iA:ptr, b:i32, iQ:ptr] i32
+var neg:bool, negA:bool, negB:bool, rem:i32
+begin
+    set negA = is_neg[iA]
+    set negB = b < 0l
+    set neg = mult_signal[negA, negB]
+    set b = abs_i32[b]
+
+    set rem = abs_div_digit[iA, b, iQ]
+    if abs_comp_digit[iQ, 0l] != EQ begin
+        set_neg[iQ, neg]
+    end if
+
+    if rem != 0l and negA != (rem < 0l) begin
+        set rem = ~rem
+    end if
+    return rem
 end proc
 
 proc mult_signal[a:bool, b:bool] bool

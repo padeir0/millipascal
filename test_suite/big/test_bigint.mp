@@ -11,7 +11,7 @@ from bigint import
     put_res,
 
     comp, comp_i32,
-    div, # div_i32 #TODO
+    div, div_i32,
     mult, mult_i32,
     add, add_i32,
     sub, sub_i32,
@@ -21,18 +21,101 @@ proc main
 var a:ptr, b:ptr, c:ptr
 begin
     init[]
+
     test_add[]
     test_add_i32[]
+
     test_sub[]
     test_sub_i32[]
+
     test_mult[]
     test_mult_i32[]
-    # test_div
+
+    test_div[]
+    test_div_i32[]
+
     test_add_i32_vs_sub_i32[]
     test_add_vs_sub[]
     test_mult_i32_vs_mult[]
     test_copy[]
     test_mult_vs_div[]
+end proc
+
+proc test_div_i32
+var a:ptr, q:ptr, rem:i32, i:i32, j:i32
+begin
+    set a = new_bint[~10l]
+    set q = new_bint[0l]
+
+    set i = ~100l
+    while i < 100l
+    begin
+        set_bint[a, i]
+        set j = ~100l
+        while j < 100l
+        begin
+            set rem = div_i32[a, j, q]
+            if comp_i32[q, i/j] != EQ begin
+                put_bint[q]
+                put_char[' ']
+                put_int[(i/j):i64]
+                put_char['\n']
+                exit 36ss
+            end if
+            if rem != i%j begin
+                exit 37ss
+            end if
+
+            set j += 1l
+            if j == 0l begin
+                set j += 1l
+            end if
+        end while
+        set i += 1l
+    end while
+
+    free_bint[a]
+    free_bint[q]
+    validate_init[]
+end proc
+
+proc test_div
+var a:ptr, b:ptr, q:ptr, r:ptr, i:i32, j:i32
+begin
+    set a = new_bint[~10l]
+    set b = new_bint[1l]
+    set q = new_bint[0l]
+    set r = new_bint[0l]
+
+    set i = ~100l
+    while i < 100l
+    begin
+        set_bint[a, i]
+        set j = ~100l
+        while j < 100l
+        begin
+            set_bint[b, j]
+            div[a, b, q, r]
+            if comp_i32[q, i/j] != EQ begin
+                exit 34ss
+            end if
+            if comp_i32[r, i%j] != EQ begin
+                exit 35ss
+            end if
+
+            set j += 1l
+            if j == 0l begin
+                set j += 1l
+            end if
+        end while
+        set i += 1l
+    end while
+
+    free_bint[a]
+    free_bint[b]
+    free_bint[q]
+    free_bint[r]
+    validate_init[]
 end proc
 
 proc test_mult
