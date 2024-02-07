@@ -1,7 +1,7 @@
 from conversion import itoa, btoa
 
 export put_int, put_int_ln, put_2int, put_3int, put_4int, put_5int,
-       put_bool, put_char, write_line, fatal, debug
+       put_bool, put_char, put_ln, write_line, fatal, debug
 
 proc main
 begin
@@ -29,6 +29,11 @@ proc put_char[n:i8]
 begin
 	set pchar_buff@i8 = n
 	write[pchar_buff, pchar_buff.size]
+end proc
+
+proc put_ln[]
+begin
+	put_char['\n']
 end proc
 
 proc put_5int[a, b, c, d, e]

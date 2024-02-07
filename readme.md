@@ -123,7 +123,7 @@ name of the file. Check the `test_suite/big` folder.
 
 Although the language is deceptively simple, it's good to keep a 
 consistent style. If something is not listed here, just try to follow
-the style of `./test_suite/big/bignat.mp`.
+the style of `./test_suite/big/bigint.mp`.
 
 ## Identifiers
 

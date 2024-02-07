@@ -679,6 +679,7 @@ begin
         set_zero[iC]
         return;
     end if
+    # for now on, we know that lenB <= lenA
 
     # if iB and iC are the same object set to zero
     # then iC will not be set to iA, so we do a separate check
@@ -687,8 +688,6 @@ begin
         return
     end if
 
-    # por causa da verificação anterior,
-    # sabemos que lenB <= lenA
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
     set lenB = (iB+BINT_LEN_OFFSET)@i32:i64
     set lenC = (iC+BINT_LEN_OFFSET)@i32:i64
@@ -750,9 +749,8 @@ begin
         set_zero[iC]
         return;
     end if
+    # for now on, we know that 1 <= lenA
 
-    # por causa da verificação anterior,
-    # sabemos que 1 <= lenA
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
     set lenC = (iC+BINT_LEN_OFFSET)@i32:i64
 

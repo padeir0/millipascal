@@ -553,7 +553,7 @@ func checkMultiAssignment(M *ir.Module, left *ir.Node, n *ir.Node) *Error {
 	}
 	for i, assignee := range left.Leaves {
 		if !assignee.T.Equals(proc.Proc.Rets[i]) {
-			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, left, i)
+			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, assignee, i)
 		}
 	}
 	return nil
