@@ -1,4 +1,4 @@
-from ioutil import put_char, put_int, put_4int, fatal
+from ioutil import put_char, put_int, fatal
 from constants import NULL, FULL, EMPTY, WORD
 from dfl_alloc import Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
                       alloc_f, alloc_b, free, init,

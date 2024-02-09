@@ -5,6 +5,7 @@
 from ioutil import put_char, put_ln, put_int, put_bool, debug, fatal
 from constants import NULL, WORD
 from dfl_alloc import alloc_f, alloc_b, free, init
+from utf8 import utf8_decode, utf8_encode
 
 # 16 bytes
 # - 8 bytes pointer to underlying byte array
@@ -185,7 +186,7 @@ end proc
 
 proc peek_rune[str:ptr] i32
 var array:ptr, start:i32, size:i32,
-    rune:i32, runeSize:i32
+    rune:i32, runeSize
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -195,7 +196,7 @@ begin
         return ~1l
     end if
 
-    set rune, runeSize = utf8_read[array+start:ptr]
+    set rune, runeSize = utf8_decode[array+start:ptr]
 
     return rune
 end proc
@@ -207,7 +208,7 @@ proc peek[str:ptr, length] ptr
 var array:ptr, size:i32,
     old_start:i32, new_start:i32,
     outStr:ptr,
-    rune:i32, runeSize:i32, i
+    rune:i32, runeSize, i
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set old_start = (str+STR_START_OFFSET)@i32
@@ -223,9 +224,9 @@ begin
         if size <= 0l begin
             return NULL
         end if
-        set rune, runeSize = utf8_read[array+new_start:ptr]
-        set size -= runeSize
-        set new_start += runeSize
+        set rune, runeSize = utf8_decode[array+new_start:ptr]
+        set size -= runeSize:i32
+        set new_start += runeSize:i32
         set i += 1
     end while
 
@@ -238,7 +239,7 @@ end proc
 
 proc pop_rune[str:ptr] i32
 var array:ptr, start:i32, size:i32,
-    rune:i32, runeSize:i32
+    rune:i32, runeSize
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -248,10 +249,10 @@ begin
         return ~1l
     end if
 
-    set rune, runeSize = utf8_read[array+start:ptr]
+    set rune, runeSize = utf8_decode[array+start:ptr]
 
-    set (str+STR_START_OFFSET)@i32 += runeSize
-    set (str+STR_SIZE_OFFSET)@i32 -= runeSize
+    set (str+STR_START_OFFSET)@i32 += runeSize:i32
+    set (str+STR_SIZE_OFFSET)@i32 -= runeSize:i32
 
     return rune
 end proc
@@ -264,7 +265,7 @@ proc pop[str:ptr, length] ptr
 var array:ptr, size:i32,
     old_start:i32, new_start:i32,
     outStr:ptr,
-    rune:i32, runeSize:i32, i
+    rune:i32, runeSize, i
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set old_start = (str+STR_START_OFFSET)@i32
@@ -280,9 +281,9 @@ begin
         if size <= 0l begin
             return NULL
         end if
-        set rune, runeSize = utf8_read[array+new_start:ptr]
-        set size -= runeSize
-        set new_start += runeSize
+        set rune, runeSize = utf8_decode[array+new_start:ptr]
+        set size -= runeSize:i32
+        set new_start += runeSize:i32
         set i += 1
     end while
 
@@ -320,7 +321,7 @@ end proc
 # the number of utf-8 codepoints
 proc length[str:ptr] i64
 var array:ptr, size:i32, start:i32,
-    rune:i32, runeSize:i32, i
+    rune:i32, runeSize, i
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -332,9 +333,9 @@ begin
 
     set i = 0
     while 0l < size begin
-        set rune, runeSize = utf8_read[array+start:ptr]
-        set size -= runeSize
-        set start += runeSize
+        set rune, runeSize = utf8_decode[array+start:ptr]
+        set size -= runeSize:i32
+        set start += runeSize:i32
         set i += 1
     end while
 
@@ -342,13 +343,6 @@ begin
 end proc
 
 ################################# INTERNAL UTILITARIES
-
-# returns rune and width of rune
-# if rune < 0, an error has ocurred
-proc utf8_read[dest:ptr] i32, i32
-begin
-    return dest@i8:i32, 1l # just treat it as ascii for now
-end proc
 
 proc copy[dest:ptr, source:ptr, source_size]
 var i
@@ -359,12 +353,4 @@ begin
 		set (dest + i:ptr)@i8 = (source + i:ptr)@i8
 		set i += 1
 	end while
-end proc
-
-memory _PutRune 4
-
-proc put_rune[r:i32]
-begin
-    set _PutRune@i32 = r
-    write[_PutRune, _PutRune.size]
 end proc

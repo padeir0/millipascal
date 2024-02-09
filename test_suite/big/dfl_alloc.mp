@@ -1,5 +1,5 @@
 from buffutil import clear_bytes, clear_words
-from ioutil import put_int, put_char, fatal, debug, put_2int, put_3int, put_4int
+from ioutil import put_int, put_ln, put_char, fatal, debug
 from constants import WORD, NULL, FULL, EMPTY
 
 export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
@@ -538,7 +538,21 @@ begin
 	write[msg_blimit, msg_blimit.size]
 	put_int[BackLimit@i64]
 
-	put_char['\n']
+	put_ln[]
+end proc
+
+proc put_4int[a, b, c, d]
+begin
+	put_int[a]
+	put_char[',']
+	put_char[' ']
+	put_int[b]
+	put_char[',']
+	put_char[' ']
+	put_int[c]
+	put_char[',']
+	put_char[' ']
+	put_int[d]
 end proc
 
 proc get_total_free[] i64
@@ -568,7 +582,7 @@ begin
 		set i += 1
 	end while
 	put_char[']']
-	put_char['\n']
+	put_ln[]
 end proc
 
 # validates if we're back to the initial position
