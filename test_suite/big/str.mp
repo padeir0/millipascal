@@ -7,6 +7,13 @@ from constants import NULL, WORD
 from dfl_alloc import alloc_f, alloc_b, free, init
 from utf8 import utf8_decode, utf8_encode
 
+export
+    new_str, free_str, set_str,
+    put_str, put_str_debug,
+    concat, eq_str, copy_str, dup_str,
+    peek_rune, peek, pop_rune, pop,
+    hash, length
+
 # 16 bytes
 # - 8 bytes pointer to underlying byte array
 # - 4 bytes i32 index to start of string
@@ -59,6 +66,13 @@ begin
     set (header+STR_SIZE_OFFSET)@i32 = 0l
 
     return header
+end proc
+
+# we do not free the underlying array,
+# since it may be shared. let the gc handle this.
+proc free_str[str:ptr]
+begin
+    free[str]
 end proc
 
 proc set_str[str:ptr, mem:ptr, mem_size]

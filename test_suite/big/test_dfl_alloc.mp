@@ -12,8 +12,15 @@ const TOTAL_TEST_PTRS 128
 proc main
 var i
 begin
-	set i = 0
 	init[]
+
+	set i = 0
+	while i < 100 begin
+		free[alloc_f[50]]
+		set i += 1
+	end while
+	
+	set i = 0
 	while i < 16 begin
 		test[i, _alloc_f, _alloc_f]
 		validate[]

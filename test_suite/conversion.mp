@@ -2,10 +2,12 @@ proc main
 var c:i32
 begin
 	signed_positive[]
-	signed_negative[]
 	unsigned[]
 	unsigned_to_signed[]
 	signed_to_unsigned[]
+	signed_negative[]
+
+	signed_to_ptr[]
 end proc
 
 proc signed_positive[]
@@ -310,5 +312,49 @@ begin
 	end if
 	if d:i8 != ~31ss begin
 		exit 80ss
+	end if
+end proc
+
+proc signed_to_ptr[]
+var a:i8, b:i16, c:i32, d:i64
+begin
+	set a = 3ss
+	set b = 7s
+	set c = 15l
+	set d = 31
+
+	if a:ptr != 3p begin
+		exit 81ss
+	end if
+	if b:ptr != 7p begin
+		exit 82ss
+	end if
+	if c:ptr != 15p begin
+		exit 83ss
+	end if
+	if d:ptr != 31p begin
+		exit 84ss
+	end if
+end proc
+
+proc unsigned_to_ptr[]
+var a:u8, b:u16, c:u32, d:u64
+begin
+	set a = 3uss
+	set b = 7us
+	set c = 15ul
+	set d = 3u1
+
+	if a:ptr != 3p begin
+		exit 85ss
+	end if
+	if b:ptr != 7p begin
+		exit 86ss
+	end if
+	if c:ptr != 15p begin
+		exit 87ss
+	end if
+	if d:ptr != 31p begin
+		exit 88ss
 	end if
 end proc
