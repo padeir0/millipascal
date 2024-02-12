@@ -1,11 +1,13 @@
-from ioutil import put_char, put_int, put_ln, debug, fatal
+from ioutil import put_char, put_int, put_uint, put_ln, debug, fatal
 from constants import NULL, WORD
 from dfl_alloc import alloc_f, alloc_b, free, print_list
 
 export
     new_vec, free_vec,
-    put_vec, length,
+    put_vec, put_vec_header,
+    length,
     last, push, pop, index,
+    concat, copy_vec, eq_vec, slice,
     set_meta
 
 proc main
@@ -23,9 +25,9 @@ end proc
 
 const META_SIZE 24
 
-const M_ITEMSIZE_OFFSET 0p
-const M_EQPROC_OFFSET 8p
-const M_COPYPROC_OFFSET 16p
+const M_ITEMSIZE_OFFSET 0p  # i32
+const M_EQPROC_OFFSET 8p    # proc[ptr, ptr]bool
+const M_COPYPROC_OFFSET 16p # proc[ptr, ptr]
 
 proc set_meta[
     meta:ptr,
@@ -85,6 +87,33 @@ begin
     free[vec]
 end proc
 
+proc put_vec_header[vec:ptr]
+var array:ptr, len, cap, meta:ptr
+begin
+    set array = (vec+VH_PTR_OFFSET)@ptr
+    set len   = (vec+VH_LEN_OFFSET)@i32:i64
+    set cap   = (vec+VH_CAP_OFFSET)@i32:i64
+    set meta  = (vec+VH_META_OFFSET)@ptr
+
+    put_char['{']
+    put_char['a']
+    put_char[':']
+    put_uint[array:u64]
+    put_char[' ']
+    put_char['l']
+    put_char[':']
+    put_int[len:i64]
+    put_char[' ']
+    put_char['c']
+    put_char[':']
+    put_int[cap:i64]
+    put_char[' ']
+    put_char['m']
+    put_char[':']
+    put_uint[meta:u64]
+    put_char['}']
+end proc
+
 proc put_vec[vec:ptr, printer:proc[ptr]]
 var i, len
 begin
@@ -126,7 +155,7 @@ begin
     set array = (vec+VH_PTR_OFFSET)@ptr
     set len = (vec+VH_LEN_OFFSET)@i32
 
-    if index:i32 >= len and index:i32 < 0l begin
+    if index:i32 >= len or index:i32 < 0l begin
         fatal[ERR_OUT_OF_BOUNDS, ERR_OUT_OF_BOUNDS.size]
     end if
 
@@ -136,29 +165,135 @@ begin
     return array+(itemSize:ptr*index:ptr)
 end proc
 
+memory ERR_INCOMPATIBLE_META "vectors have incompatible metadata\n"
+
 # allocates a new vector; copies A and B into it
 # returns the vector;
 proc concat[vecA:ptr, vecB:ptr] ptr
+var metaA:ptr, metaB:ptr,
+    lenA, lenB,
+    itemSize,
+    vecRes:ptr,
+    aArray:ptr, bArray:ptr, destArray:ptr,
+    copy:proc[ptr, ptr]
 begin
     # if metaA != metaB then fatal, because they must match types
-    return NULL
+    set metaA = (vecA+VH_META_OFFSET)@ptr
+    set metaB = (vecB+VH_META_OFFSET)@ptr
+
+    if metaA != metaB begin
+        fatal[ERR_INCOMPATIBLE_META, ERR_INCOMPATIBLE_META.size]
+    end if
+
+    set itemSize = (metaA+M_ITEMSIZE_OFFSET)@i32:i64
+    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr,ptr]
+
+    set lenA = (vecA+VH_LEN_OFFSET)@i32:i64
+    set lenB = (vecB+VH_LEN_OFFSET)@i32:i64
+
+    set vecRes = new_vec[metaA, (lenA+lenB):i32, (lenA+lenB):i32]
+
+    set destArray = (vecRes+VH_PTR_OFFSET)@ptr
+    set aArray = (vecA+VH_PTR_OFFSET)@ptr
+    set bArray = (vecB+VH_PTR_OFFSET)@ptr
+
+    copy_array[destArray, aArray, lenA, itemSize:i64, copy]
+    copy_array[destArray+(lenA*itemSize):ptr, bArray, lenB, itemSize:i64, copy]
+
+    return vecRes
 end proc
 
-proc eq[vecA:ptr, vecB:ptr] bool
+proc eq_vec[vecA:ptr, vecB:ptr] bool
+var lenA, metaA:ptr,
+    lenB, metaB:ptr,
+    eq:proc[ptr, ptr]bool, i,
+    a:ptr, b:ptr
 begin
-    return false
+    set metaA = (vecA+VH_META_OFFSET)@ptr
+    set metaB = (vecB+VH_META_OFFSET)@ptr
+
+    if metaA != metaB begin # should we crash instead?
+        return false
+    end if
+
+    set eq = (metaA+M_EQPROC_OFFSET)@proc[ptr, ptr]bool
+
+    set lenA = (vecA+VH_LEN_OFFSET)@i32:i64
+    set lenB = (vecB+VH_LEN_OFFSET)@i32:i64
+    if lenA != lenB begin
+        return false
+    end if
+
+    set i = 0
+    while i < lenA begin
+        set a = index[vecA, i]
+        set b = index[vecB, i]
+
+        if not eq[a, b] begin
+            return false
+        end if
+        set i += 1
+    end while
+
+    return true
 end proc
 
-proc copy[vecA:ptr, vecB:ptr] ptr
+proc copy_vec[vecA:ptr, vecB:ptr]
+var arrayA:ptr, lenA, capA, metaA:ptr,
+    arrayB:ptr, lenB, capB, metaB:ptr,
+    itemSize, copy:proc[ptr, ptr]
 begin
-    return NULL
+    set metaA = (vecA+VH_META_OFFSET)@ptr
+    set metaB = (vecB+VH_META_OFFSET)@ptr
+
+    if metaA != metaB begin
+        fatal[ERR_INCOMPATIBLE_META, ERR_INCOMPATIBLE_META.size]
+    end if
+
+    set itemSize = (metaA+M_ITEMSIZE_OFFSET)@i32:i64
+    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+
+    set lenB = (vecB+VH_LEN_OFFSET)@i32:i64
+    set capA = (vecA+VH_CAP_OFFSET)@i32:i64
+
+    set arrayA = (vecA+VH_PTR_OFFSET)@ptr
+    set arrayB = (vecB+VH_PTR_OFFSET)@ptr
+
+    if capA < lenB begin
+        free[arrayA]
+        set (vecA+VH_PTR_OFFSET)@ptr = alloc_f[ (lenB*itemSize):i64 ]
+        set (vecA+VH_CAP_OFFSET)@i32 = lenB:i32
+        set arrayA = (vecA+VH_PTR_OFFSET)@ptr
+    end if
+    copy_array[arrayA, arrayB, lenB, itemSize, copy]
+    set (vecA+VH_LEN_OFFSET)@i32 = lenB:i32
 end proc
+
+memory ERR_SLICE_OUT_OF_BOUNDS "slicing goes out of bounds\n"
 
 # Make a new header; alloc a new array;
 # copy the contents; return it;
-proc slice[vec:ptr, start:i64, length:i64] ptr
+proc slice[vec:ptr, start, length] ptr
+var array:ptr, len, meta:ptr,
+    arrayOut:ptr, vecOut:ptr,
+    itemSize, copy:proc[ptr, ptr]
 begin
-    return NULL
+    set len   = (vec+VH_LEN_OFFSET)@i32:i64
+
+    if start+length > len begin
+        fatal[ERR_SLICE_OUT_OF_BOUNDS, ERR_SLICE_OUT_OF_BOUNDS.size]
+    end if
+    set array    = (vec+VH_PTR_OFFSET)@ptr
+    set meta     = (vec+VH_META_OFFSET)@ptr
+    set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32:i64
+    set copy     = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+
+    set vecOut   = new_vec[meta, length:i32, length:i32]
+    set arrayOut = (vecOut+VH_PTR_OFFSET)@ptr
+    
+    copy_array[arrayOut, array+(start*itemSize):ptr, length, itemSize, copy]
+    
+    return vecOut
 end proc
 
 memory ERR_POPPED_TOO_MUCH "pop in array with length 0\n"
@@ -179,34 +314,50 @@ end proc
 # everything else shall be type specific
 proc push[vec:ptr]
 var meta:ptr, array:ptr, len:i32, cap:i32, itemSize:i32,
-    new_array:ptr, copy:proc[ptr, ptr],
-    i, a:ptr, b:ptr
+    newArray:ptr, copy:proc[ptr, ptr]
 begin
     set len = (vec+VH_LEN_OFFSET)@i32
     set cap = (vec+VH_CAP_OFFSET)@i32
 
     if len == cap begin
-        set array = (vec+VH_PTR_OFFSET)@ptr
-        set meta = (vec+VH_META_OFFSET)@ptr
+        set array    = (vec+VH_PTR_OFFSET)@ptr
+        set meta     = (vec+VH_META_OFFSET)@ptr
         set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32
-        set copy = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+        set copy     = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
 
-        set cap *= 2l
-        set new_array = alloc_f[ (cap*itemSize):i64 ]
+        if cap == 0l begin
+            set cap = 2l
+        end else begin
+            set cap *= 2l
+        end if
+        set newArray = alloc_f[ (cap*itemSize):i64 ]
 
-        set i = 0
-        while i < len:i64 begin
-            set a = array+(itemSize:ptr*i:ptr)
-            set b = new_array+(itemSize:ptr*i:ptr)
+        copy_array[newArray, array, len:i64, itemSize:i64, copy]
 
-            copy[b, a]
-
-            set i += 1
-        end while
         free[array]
-        set (vec+VH_PTR_OFFSET)@ptr = new_array
-        set (vec+VH_CAP_OFFSET)@i32= cap
+        set (vec+VH_PTR_OFFSET)@ptr = newArray
+        set (vec+VH_CAP_OFFSET)@i32 = cap
     end if
 
     set (vec+VH_LEN_OFFSET)@i32 += 1l
+end proc
+
+proc copy_array[
+    destArray:ptr,
+    sourceArray:ptr,
+    len,
+    itemSize,
+    copy:proc[ptr, ptr]
+]
+var i, a:ptr, b:ptr
+begin
+    set i = 0
+    while i < len begin
+        set a = sourceArray+(itemSize:ptr*i:ptr)
+        set b = destArray+(itemSize:ptr*i:ptr)
+
+        copy[b, a]
+
+        set i += 1
+    end while
 end proc
