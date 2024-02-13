@@ -1,5 +1,5 @@
 from buffutil import clear_bytes, clear_words
-from ioutil import put_int, put_char, fatal, debug
+from ioutil import put_int, put_char, fatal, debug, oom
 from constants import WORD, NULL, FULL, EMPTY
 
 export Init, Alloc, Free
@@ -33,7 +33,6 @@ memory Heap 65536 # 64KB
 memory ByteMap 8192   # Heap.size / 8, cada byte representa uma WORD na Heap
 memory Head 8
 
-memory OOM "Out of memory\n"
 memory UNREACHABLE "Code should not reach here!\n"
 memory OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
 
@@ -83,7 +82,7 @@ begin
 		if a != NULL begin
 			set (test + (i*8):ptr)@ptr = a
 		end else begin
-			fatal[OOM, OOM.size]
+			oom[]
 		end if
 		#PrintMap[]
 		#PrintList[]

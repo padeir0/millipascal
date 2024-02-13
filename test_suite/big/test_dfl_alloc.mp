@@ -1,10 +1,19 @@
-from ioutil import put_char, put_int, fatal
-from constants import NULL, FULL, EMPTY, WORD
-from dfl_alloc import Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
-                      alloc_f, alloc_b, free, init,
-					  print_list, print_map, get_total_free
+from
+	ioutil
+import
+	put_char, put_int, fatal, oom
 
-memory OOM "Out of memory\n"
+from
+	constants
+import
+	NULL, FULL, EMPTY, WORD
+
+from
+	dfl_alloc
+import
+	Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
+    alloc_f, alloc_b, free, init,
+	print_list, print_map, get_total_free
 
 memory TestPtrs 1024
 const TOTAL_TEST_PTRS 128
@@ -106,7 +115,7 @@ begin
 		if a != NULL begin
 			set (TestPtrs + (i*8):ptr)@ptr = a
 		end else begin
-			fatal[OOM, OOM.size]
+			oom[]
 		end if
 		if debug != 0 begin
 			put_char['\n']

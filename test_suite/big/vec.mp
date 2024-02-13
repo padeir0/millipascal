@@ -6,7 +6,7 @@ import
 from
     ioutil
 import
-    put_char, put_int, put_uint, put_ln, debug, fatal
+    put_char, put_int, put_uint, put_ln, debug, fatal, oom
 
 from
     constants
@@ -37,26 +37,30 @@ end proc
 #   - 4 bytes padding
 #   - 8 bytes: pointer to equality procedure (proc[a:ptr,b:ptr]bool)
 #   - 8 bytes: pointer to copy procedure (proc[dest:ptr, source:ptr])
+#   - 8 bytes: pointer to free item procedure (proc[item:ptr])
 # all pointers in the above procedures are pointers to
 # inside the array, that is, they're just calculated indexes
 # of the array.
 
-const META_SIZE 24
+const META_SIZE 32
 
 const M_ITEMSIZE_OFFSET 0p  # i32
 const M_EQPROC_OFFSET 8p    # proc[ptr, ptr]bool
 const M_COPYPROC_OFFSET 16p # proc[ptr, ptr]
+const M_FREEPROC_OFFSET 24p # proc[ptr]
 
 proc set_meta[
     meta:ptr,
     itemSize:i32,
     eqProc:proc[ptr,ptr]bool,
-    copyProc:proc[ptr,ptr]
+    copyProc:proc[ptr,ptr],
+    freeProc:proc[ptr]
 ]
 begin
     set (meta+M_ITEMSIZE_OFFSET)@i32 = itemSize
     set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr]bool = eqProc
     set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr] = copyProc
+    set (meta+M_FREEPROC_OFFSET)@proc[ptr] = freeProc
 end proc
 
 # vec header has 24 bytes of size, consisting of:
@@ -86,7 +90,14 @@ begin
 
     set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32
     set header = alloc_b[VEC_HEADER_SIZE, 0uss, 0us, VEC_PTR_BITMAP]
+    if header == NULL begin
+        oom[]
+    end if
+
     set array = alloc_f[(itemSize * cap):i64]
+    if array == NULL begin
+        oom[]
+    end if
 
     set (header+VH_PTR_OFFSET)@ptr = array
     set (header+VH_LEN_OFFSET)@i32 = length
@@ -99,10 +110,34 @@ end proc
 # no vectors share the underlying array,
 # this is important! vectors are mutable.
 proc free_vec[vec:ptr]
-var i
 begin
+    # if free != no_op begin # TODO: needs procedures to be comparable
+    #     do the thing
+    # end if
+    free_items[vec]
     free[(vec+VH_PTR_OFFSET)@ptr]
     free[vec]
+end proc
+
+proc free_items[vec:ptr]
+var array:ptr, meta:ptr, itemSize, free_item:proc[ptr]
+begin
+    set meta      = (vec+VH_META_OFFSET)@ptr
+    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
+    set itemSize  = (meta+M_ITEMSIZE_OFFSET)@i32:i64
+    set array     = (vec+VH_PTR_OFFSET)@ptr
+
+    free_array_items[array, itemSize, length[vec], free_item]
+end proc
+
+proc free_array_items[array:ptr, itemSize, len, free_item:proc[ptr]]
+var i
+begin
+    set i = 0
+    while i < len begin
+        free_item[ array+(itemSize:ptr*i:ptr) ]
+        set i += 1
+    end while
 end proc
 
 proc put_vec_header[vec:ptr]
@@ -132,7 +167,7 @@ begin
     put_char['}']
 end proc
 
-proc get_copy[vec:ptr] proc[ptr, ptr]
+proc get_copy[vec:ptr] proc[ptr, ptr] # TODO: refactor the code by employing these "get" procedures
 begin
     return (
         (vec+VH_META_OFFSET)@ptr+ # meta
@@ -275,7 +310,8 @@ end proc
 proc copy_vec[vecA:ptr, vecB:ptr]
 var arrayA:ptr, lenA, capA, metaA:ptr,
     arrayB:ptr, lenB, capB, metaB:ptr,
-    itemSize, copy:proc[ptr, ptr]
+    itemSize, copy:proc[ptr, ptr],
+    newArray:ptr
 begin
     set metaA = (vecA+VH_META_OFFSET)@ptr
     set metaB = (vecB+VH_META_OFFSET)@ptr
@@ -293,9 +329,15 @@ begin
     set arrayA = (vecA+VH_PTR_OFFSET)@ptr
     set arrayB = (vecB+VH_PTR_OFFSET)@ptr
 
+    free_items[vecA]
+
     if capA < lenB begin
         free[arrayA]
-        set (vecA+VH_PTR_OFFSET)@ptr = alloc_f[ (lenB*itemSize):i64 ]
+        set newArray = alloc_f[ (lenB*itemSize):i64 ]
+        if newArray == NULL begin
+            oom[]
+        end if
+        set (vecA+VH_PTR_OFFSET)@ptr = newArray
         set (vecA+VH_CAP_OFFSET)@i32 = lenB:i32
         set arrayA = (vecA+VH_PTR_OFFSET)@ptr
     end if
@@ -332,45 +374,54 @@ end proc
 
 memory ERR_POPPED_TOO_MUCH "pop in array with length 0\n"
 
-# just decrements the length by 1,
+# just decrements the length by 1, freeing the underlying object, if any
 # everything else shall be type specific
 proc pop[vec:ptr]
-var len:i32
+var len:i32, meta:ptr, free_item:proc[ptr]
 begin
     set len = (vec+VH_LEN_OFFSET)@i32
     if len == 0l begin
         fatal[ERR_POPPED_TOO_MUCH, ERR_POPPED_TOO_MUCH.size]
     end if
+    set meta = (vec+VH_META_OFFSET)@ptr
+    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
+    free_item[last[vec]]
     set (vec+VH_LEN_OFFSET)@i32 -= 1l
 end proc
 
 # just increments the length by 1, may trigger allocation,
 # everything else shall be type specific
 proc push[vec:ptr]
-var meta:ptr, array:ptr, len:i32, cap:i32, itemSize:i32,
-    newArray:ptr, copy:proc[ptr, ptr]
+var meta:ptr, array:ptr, len, cap, itemSize,
+    newArray:ptr,
+    copy:proc[ptr, ptr], free_item:proc[ptr]
 begin
-    set len = (vec+VH_LEN_OFFSET)@i32
-    set cap = (vec+VH_CAP_OFFSET)@i32
+    set len = (vec+VH_LEN_OFFSET)@i32:i64
+    set cap = (vec+VH_CAP_OFFSET)@i32:i64
 
     if len == cap begin
-        set array    = (vec+VH_PTR_OFFSET)@ptr
-        set meta     = (vec+VH_META_OFFSET)@ptr
-        set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32
-        set copy     = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+        set array     = (vec+VH_PTR_OFFSET)@ptr
+        set meta      = (vec+VH_META_OFFSET)@ptr
+        set itemSize  = (meta+M_ITEMSIZE_OFFSET)@i32:i64
+        set copy      = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+        set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
 
-        if cap == 0l begin
-            set cap = 2l
+        if cap == 0 begin
+            set cap = 2
         end else begin
-            set cap *= 2l
+            set cap *= 2
         end if
-        set newArray = alloc_f[ (cap*itemSize):i64 ]
+        set newArray = alloc_f[ cap*itemSize ]
+        if newArray == NULL begin
+            oom[]
+        end if
 
-        copy_array[newArray, array, len:i64, itemSize:i64, copy]
+        copy_array[newArray, array, len, itemSize, copy]
 
+        free_array_items[array, itemSize, len, free_item]
         free[array]
         set (vec+VH_PTR_OFFSET)@ptr = newArray
-        set (vec+VH_CAP_OFFSET)@i32 = cap
+        set (vec+VH_CAP_OFFSET)@i32 = cap:i32
     end if
 
     set (vec+VH_LEN_OFFSET)@i32 += 1l
@@ -409,4 +460,3 @@ begin
         set i += 1
     end while
 end proc
-

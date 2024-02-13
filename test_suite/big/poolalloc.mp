@@ -1,6 +1,15 @@
-from ioutil import put_char, put_int, debug, fatal
-from buffutil import clear_bytes, clear_words
-export Init, Alloc, Free
+from
+	ioutil
+import
+	put_char, put_int, debug, fatal, oom
+
+from
+	buffutil
+import
+	clear_bytes, clear_words
+
+export
+	Init, Alloc, Free
 
 const NULL 0p
 const MIN_CHUNK_SIZE 8
@@ -14,7 +23,6 @@ const FULL  1ss
 const EMPTY 0ss
 memory ByteMap 128 # Pool.size/MIN_CHUNK_SIZE
 
-memory OOM "Out of memory\n"
 memory ERRCHUNK "Chunk too small (minimum 8 bytes)\n"
 memory ERRBOUNDS "Pointer to be freed is out of bounds\n"
 memory ERRALIGN "Pointer to be freed is out of alignment\n"
@@ -74,7 +82,7 @@ var curr:ptr, position:ptr
 begin
 	if Head@ptr == NULL
 	begin
-		fatal[OOM, OOM.size]
+		oom[]
 	end if
 
 	set curr = Head@ptr

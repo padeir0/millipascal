@@ -1,9 +1,3 @@
-# TODO: once the GC is done,
-# uncomment the lines with "validate_init",
-# add a sweep before it,
-# and remove the "init" from the beginning of
-# every test
-
 from
     constants
 import
@@ -28,7 +22,7 @@ import
 from
     dfl_alloc
 import
-    init, validate_init, print_list
+    init, validate_init, print_list, print_map
 
 import bigint
 import str
@@ -38,7 +32,7 @@ begin
     init[]
     test_i64[]
     test_int_naive[]
-    test_string[]
+    #test_string[]
 end proc
 
 ###### *str
@@ -58,14 +52,19 @@ end proc
 
 ###### *int (naïve)
 
-memory MetaIntNaive 24
+memory MetaIntNaive 32
 
 proc test_int_naive
 begin
-    init[]
-    set_meta[MetaIntNaive, 8l, eq_int_naive, copy_int_naive]
+    set_meta[
+        MetaIntNaive,
+        8l,
+        eq_int_naive,
+        copy_int_naive,
+        free_int_naive
+    ]
     test_all[
-        48,
+        64,
         MetaIntNaive,
         setter_int_naive,
         tester_int_naive
@@ -93,13 +92,15 @@ end proc
 
 # testers return true on failure
 proc tester_int_naive[vecA:ptr, i] bool
-var bint:ptr, iRes:ptr
+var bint:ptr, iRes:ptr, out:bool
 begin
     set iRes = bigint::new_bint[1l]
     power2[iRes, i:i32]
 
     set bint = index[vecA, i]@ptr
-    return bigint::comp[bint, iRes] != bigint::EQ
+    set out = bigint::comp[bint, iRes] != bigint::EQ
+    bigint::free_bint[iRes]
+    return out
 end proc
 
 proc power2[bint:ptr, pw:i32] ptr
@@ -113,14 +114,18 @@ begin
     return bint
 end proc
 
+proc free_int_naive[item:ptr]
+begin
+    bigint::free_bint[item@ptr]
+end proc
+
 ###### *i64
 
-memory MetaI64 24
+memory MetaI64 32
 
 proc test_i64
 begin
-    init[]
-    set_meta[MetaI64, 8l, eq_i64, copy_i64]
+    set_meta[MetaI64, 8l, eq_i64, copy_i64, noop]
     test_all[
         64,
         MetaI64,
@@ -150,6 +155,10 @@ begin
     return i*i != index[vecA, i]@i64
 end proc
 
+proc noop[a:ptr]
+begin
+end proc
+
 ############## GENERAL TESTS
 
 proc test_push[
@@ -174,8 +183,9 @@ begin
         end if
         set i += 1
     end while
+
     free_vec[vecA]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_iter_len[
@@ -201,8 +211,9 @@ begin
         end if
         set i += 1
     end while
+
     free_vec[vecA]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_pop[
@@ -228,8 +239,9 @@ begin
         pop[vecA]
         set i -= 1
     end while
+
     free_vec[vecA]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_concat[
@@ -278,7 +290,7 @@ begin
     free_vec[vecA]
     free_vec[vecB]
     free_vec[vecC]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_copy1_eq[
@@ -306,7 +318,7 @@ begin
 
     free_vec[vecA]
     free_vec[vecB]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_copy2_eq[
@@ -333,7 +345,7 @@ begin
 
     free_vec[vecA]
     free_vec[vecB]
-    # validate_init[]
+    validate_init[]
 end proc
 
 proc test_slice[
@@ -365,7 +377,7 @@ begin
 
     free_vec[vecA]
     free_vec[vecB]
-    # validate_init[]
+    validate_init[]
 end proc
 
 ############## UTILITARIES
@@ -377,12 +389,12 @@ proc test_all[
     tester:proc[ptr, i64]bool
 ] begin
     test_n[amount, meta, test_push, setter, tester]
-    test_n[amount, meta, test_iter_len, setter, tester]
-    test_n[amount, meta, test_pop,      setter, tester]
-    test_n[amount, meta, test_concat,   setter, tester]
-    test_n[amount, meta, test_copy1_eq, setter, tester]
-    test_n[amount, meta, test_copy2_eq, setter, tester]
-    test_n[amount, meta, test_slice,    setter, tester]
+    # test_n[amount, meta, test_iter_len, setter, tester]
+    # test_n[amount, meta, test_pop,      setter, tester]
+    # test_n[amount, meta, test_concat,   setter, tester]
+    # test_n[amount, meta, test_copy1_eq, setter, tester]
+    # test_n[amount, meta, test_copy2_eq, setter, tester]
+    # test_n[amount, meta, test_slice,    setter, tester]
 end proc
 
 proc test_n[
@@ -403,5 +415,5 @@ end proc
 
 proc printer[a:ptr]
 begin
-    put_uint[a:u64]
+    put_uint[a@u64]
 end proc

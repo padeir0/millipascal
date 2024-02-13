@@ -16,7 +16,7 @@
 
 from constants import NULL, WORD
 from buffutil import set_buff, copy
-from ioutil import fatal, put_int, put_char, put_bool
+from ioutil import fatal, put_int, put_char, put_bool, oom
 from intutil import min, max, abs_i32
 from dfl_alloc
 import alloc_f, alloc_b, free, init, print_list, print_map,
@@ -41,7 +41,6 @@ proc main
 begin
 end proc
 
-memory ERR_OOM "OUT OF MEMORY\n"
 memory ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
 memory ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
 memory ERR_DIVISION_BY_ZERO "division by zero\n"
@@ -221,7 +220,7 @@ begin
     return ((bint+BINT_PTR_OFFSET)@ptr-ARRAY_NEG_OFFSET)@bool
 end proc
 
-const INIT_ALLOC 1
+const INIT_ALLOC 16
 
 proc new_bint[first:i32] ptr
 var obj:ptr, array:ptr, len:i32
@@ -234,7 +233,7 @@ begin
         put_char[' ']
         put_int[INIT_ALLOC*sizeof i32]
         put_char[' ']
-        fatal[ERR_OOM, ERR_OOM.size]
+        oom[]
     end if
 
     if first == 0l begin
@@ -281,7 +280,7 @@ begin
             put_char[' ']
             put_bint_header[bint]
             put_char[' ']
-            fatal[ERR_OOM, ERR_OOM.size]
+            oom[]
         end if
 
         copy_i32[new_array, array, len:i64]

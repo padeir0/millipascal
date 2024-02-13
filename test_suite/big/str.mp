@@ -1,11 +1,26 @@
 # utf-8 string representation
 # _NEEDS_ garbage collection, since the underlying array
 # _WILL_ be referenced by multiple string headers.
+from
+    ioutil
+import
+    put_char, put_ln, put_int, put_bool, debug, fatal,
+    oom
 
-from ioutil import put_char, put_ln, put_int, put_bool, debug, fatal
-from constants import NULL, WORD
-from dfl_alloc import alloc_f, alloc_b, free, init
-from utf8 import utf8_decode, utf8_encode
+from
+    constants
+import
+    NULL, WORD
+
+from
+    dfl_alloc
+import
+    alloc_f, alloc_b, free, init
+
+from
+    utf8
+import
+    utf8_decode, utf8_encode
 
 export
     new_str, free_str, _free_buff,
@@ -39,6 +54,9 @@ proc new_str[] ptr
 var array:ptr, header:ptr
 begin
     set header = alloc_b[STR_HEADER_SIZE, 0uss, 0us, STR_BITMAP]
+    if header == NULL begin
+        oom[]
+    end if
     set (header+STR_PTR_OFFSET)@ptr = NULL
     set (header+STR_START_OFFSET)@i32 = 0l
     set (header+STR_SIZE_OFFSET)@i32 = 0l
@@ -111,6 +129,9 @@ begin
 
     if sizeOut > 0l begin
         set arrayOut = alloc_f[sizeOut:i64]
+        if arrayOut == NULL begin
+            oom[]
+        end if
     end else begin
         set arrayOut = NULL
     end if

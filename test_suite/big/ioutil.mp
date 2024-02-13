@@ -5,7 +5,7 @@ export
     put_int, put_uint, put_u8, put_u16,
     put_bool, put_char, put_ln, put_rune,
     write_line,
-    fatal, debug
+    fatal, debug, oom
 
 proc main
 begin
@@ -26,6 +26,13 @@ proc fatal[p:ptr, size]
 begin
 	write_line[p, size]
 	exit 1ss
+end proc
+
+memory ERR_OOM "Out of Memory!\n"
+proc oom[]
+begin
+	write_line[ERR_OOM, ERR_OOM.size]
+	exit 123ss
 end proc
 
 memory PutRuneBuff 4
