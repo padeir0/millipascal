@@ -28,6 +28,7 @@ export
 
     BASE, EQ, MORE, LESS,
     put_res,
+    put_bint_header,
 
     comp, comp_i32,
     div,  div_i32,

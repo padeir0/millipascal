@@ -1,6 +1,22 @@
-from ioutil import put_char, put_int, put_uint, put_ln, debug, fatal
-from constants import NULL, WORD
-from dfl_alloc import alloc_f, alloc_b, free, print_list
+from
+    buffutil
+import
+    clear_bytes
+
+from
+    ioutil
+import
+    put_char, put_int, put_uint, put_ln, debug, fatal
+
+from
+    constants
+import
+    NULL, WORD
+
+from
+    dfl_alloc
+import
+    alloc_f, alloc_b, free, print_list
 
 export
     new_vec, free_vec,
@@ -8,7 +24,9 @@ export
     length,
     last, push, pop, index,
     concat, copy_vec, eq_vec, slice,
-    set_meta
+    set_meta,
+    get_eq, get_copy,
+    clear
 
 proc main
 begin
@@ -112,6 +130,22 @@ begin
     put_char[':']
     put_uint[meta:u64]
     put_char['}']
+end proc
+
+proc get_copy[vec:ptr] proc[ptr, ptr]
+begin
+    return (
+        (vec+VH_META_OFFSET)@ptr+ # meta
+        M_COPYPROC_OFFSET
+    )@proc[ptr,ptr]
+end proc
+
+proc get_eq[vec:ptr] proc[ptr, ptr] bool
+begin
+    return (
+        (vec+VH_META_OFFSET)@ptr+ # meta
+        M_EQPROC_OFFSET
+    )@proc[ptr,ptr]bool
 end proc
 
 proc put_vec[vec:ptr, printer:proc[ptr]]
@@ -342,6 +376,20 @@ begin
     set (vec+VH_LEN_OFFSET)@i32 += 1l
 end proc
 
+proc clear[vec:ptr]
+var array:ptr, meta:ptr, itemSize, i
+begin
+    set meta = (vec+VH_META_OFFSET)@ptr
+    set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32:i64
+    set i = 0
+    while i < length[vec] begin
+        clear_bytes[index[vec, i], itemSize]
+        set i += 1
+    end while
+end proc
+
+############ UTILITARIES
+
 proc copy_array[
     destArray:ptr,
     sourceArray:ptr,
@@ -361,3 +409,4 @@ begin
         set i += 1
     end while
 end proc
+

@@ -8,7 +8,8 @@ from dfl_alloc import alloc_f, alloc_b, free, init
 from utf8 import utf8_decode, utf8_encode
 
 export
-    new_str, free_str, set_str,
+    new_str, free_str, _free_buff,
+    set_str,
     put_str, put_str_debug,
     concat, eq_str, copy_str, dup_str,
     peek_rune, peek, pop_rune, pop,
@@ -26,31 +27,8 @@ const STR_PTR_OFFSET 0p   # ptr
 const STR_START_OFFSET 8p # i32
 const STR_SIZE_OFFSET 12p  # i32
 
-memory PHRASE0 "My name is Ozymandias"
-memory PHRASE1 "King of Kings"
-
 proc main
-var a:ptr, b:ptr, c:ptr, d:ptr
 begin
-    init[]
-    set a = new_str[]
-    set b = new_str[]
-
-    set_str[a, PHRASE0, PHRASE0.size]
-    set_str[b, PHRASE1, PHRASE1.size]
-
-    put_str_debug[a]
-    put_char[',']
-    put_str_debug[b]
-    put_ln[]
-
-    put_str[pop[a, 3]]
-    put_str[pop[a, 3]]
-    put_str[pop[a, 3]]
-    put_str[pop[a, 3]]
-    put_str[peek[a, 1]]
-    put_str[pop[a, 2]]
-    put_ln[]
 end proc
 
 # pointer in the first word
@@ -75,6 +53,11 @@ begin
     free[str]
 end proc
 
+proc _free_buff[str:ptr]
+begin
+    free[(str+STR_PTR_OFFSET)@ptr]
+end proc
+
 proc set_str[str:ptr, mem:ptr, mem_size]
 var array:ptr, header:ptr
 begin
@@ -82,8 +65,6 @@ begin
     set (str+STR_START_OFFSET)@i32 = 0l
     set (str+STR_SIZE_OFFSET)@i32 = mem_size:i32
 end proc
-
-memory NULL_STR "NULL"
 
 proc put_str[str:ptr]
 var array:ptr, start:i32, size:i32
@@ -94,6 +75,8 @@ begin
 
     write[(array+start:ptr), size:i64]
 end proc
+
+memory NULL_STR "NULL"
 
 proc put_str_debug[str:ptr]
 begin

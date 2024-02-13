@@ -1,19 +1,25 @@
-export put_int, put_uint, put_u8, put_u16,
-       put_bool, put_char, put_ln, write_line, fatal, debug
+from utf8
+import utf8_encode
+
+export
+    put_int, put_uint, put_u8, put_u16,
+    put_bool, put_char, put_ln, put_rune,
+    write_line,
+    fatal, debug
 
 proc main
 begin
 end proc
 
 memory DEBUG_MSG "debug: "
-memory _Debug 8 # inits as zero
+memory Debug 8 # inits as zero
 
 proc debug[]
 begin
 	write[DEBUG_MSG, DEBUG_MSG.size]
-	put_int[_Debug@i64]
+	put_int[Debug@i64]
 	put_char['\n']
-	set _Debug@i64 += 1
+	set Debug@i64 += 1
 end proc
 
 proc fatal[p:ptr, size]
@@ -22,12 +28,21 @@ begin
 	exit 1ss
 end proc
 
-memory pchar_buff 1
+memory PutRuneBuff 4
+
+proc put_rune[r:i32]
+var size
+begin
+	set size = utf8_encode[r, PutRuneBuff]
+	write[PutRuneBuff, size]
+end proc
+
+memory PutCharBuff 1
 
 proc put_char[n:i8]
 begin
-	set pchar_buff@i8 = n
-	write[pchar_buff, pchar_buff.size]
+	set PutCharBuff@i8 = n
+	write[PutCharBuff, PutCharBuff.size]
 end proc
 
 proc put_ln[]

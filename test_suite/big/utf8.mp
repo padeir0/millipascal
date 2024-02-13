@@ -1,51 +1,16 @@
 # naïve utf-8 implementation
 # does not protect against encoding/decoding invalid sequences
 
-from ioutil import fatal, put_char, put_ln, put_int, put_u8, put_u16
-from buffutil import clear_bytes
-
-export utf8_encode, utf8_decode
+export
+    utf8_encode, utf8_decode,
+    rune_size,
+    MAX_RUNE_SIZE
 
 proc main
 begin
-    test['A':i32, 'z':i32]
-    test[0x3050l, 0x3150l]
-    test[0x56E0l, 0x57E0l]
 end proc
 
-memory Test 4
-
-proc test[testRune:i32, upperRune:i32]
-var i:i32, p:ptr, rune:i32, e_size, d_size
-begin
-    set i = 0l
-    set p = 0p
-    while i < (upperRune-testRune) begin
-        clear_bytes[Test, Test.size]
-        set e_size = utf8_encode[testRune + i, Test]
-        write[Test, e_size]
-
-        set rune, d_size = utf8_decode[Test]
-
-        if e_size != d_size begin
-            exit 1ss
-        end if
-        if rune != testRune + i begin
-            put_u8[Test@u8]
-            put_char[' ']
-            put_u8[(Test+1p)@u8]
-            put_char[' ']
-            put_u8[(Test+2p)@u8]
-            put_char[' ']
-            put_u8[(Test+3p)@u8]
-            put_ln[]
-            exit 2ss
-        end if
-
-        set i += 1l
-    end while
-    put_char['\n']
-end proc
+const MAX_RUNE_SIZE 4
 
 const LOWEST_7_BITS 0b0111_1111uss
 const LOWEST_6_BITS 0b0011_1111uss
@@ -134,4 +99,28 @@ begin
         fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
     end if
     return ~1;
+end proc
+
+# returns the size of a rune in bytes
+# it that rune were to be encoded
+proc rune_size[rune:i32] i64
+begin
+    if RANGE_S_1 <= rune and rune <= RANGE_E_1 begin # ascii
+        return 1
+    end elseif RANGE_S_2 <= rune and rune <= RANGE_E_2 begin # 2 byte sequence
+        return 2
+    end elseif RANGE_S_3 <= rune and rune <= RANGE_E_3 begin # 3 byte sequence
+        return 3
+    end elseif RANGE_S_4 <= rune and rune <= RANGE_E_4 begin # 4 byte sequence
+        return 4
+    end else begin
+        fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
+    end if
+    return ~1;
+end proc
+
+proc fatal[p:ptr, size]
+begin
+	write[p, size]
+	exit 1ss
 end proc
