@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
-	pErr "github.com/padeir0/pir/errors"
 	"io/ioutil"
 	et "mpc/core/errorkind"
 	sv "mpc/core/severity"
+	pErr "mpc/pir/errors"
 	"strconv"
 )
 

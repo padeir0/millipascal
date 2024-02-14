@@ -4,7 +4,7 @@
 # even if i had complete coverage, far apart features can
 # interact in mysterious ways...
 # that said, we only check the important parts
-pir="github.com/padeir0/pir"
+pir="mpc/pir"
 piramd64="$pir/backends/linuxamd64"
 
 mpcpkg="mpc,mpc/lexer,mpc/parser,mpc/resolution,mpc/typechecker,mpc/linearization"

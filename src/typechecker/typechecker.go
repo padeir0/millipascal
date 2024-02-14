@@ -1,12 +1,12 @@
 package typechecker
 
 import (
-	T "github.com/padeir0/pir/types"
 	. "mpc/core"
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	msg "mpc/messages"
+	T "mpc/pir/types"
 
 	"fmt"
 )
@@ -582,8 +582,9 @@ func checkExpr(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 		lex.BITWISEXOR, lex.BITWISEOR, lex.SHIFTLEFT,
 		lex.SHIFTRIGHT:
 		return binaryOp(M, proc, n, number, outSame)
-	case lex.EQUALS, lex.DIFFERENT,
-		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ:
+	case lex.EQUALS, lex.DIFFERENT:
+		return binaryOp(M, proc, n, comparable, outBool)
+	case lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ:
 		return binaryOp(M, proc, n, basic, outBool)
 	case lex.AND, lex.OR:
 		return binaryOp(M, proc, n, _bool, outBool)
@@ -736,7 +737,7 @@ type class struct {
 }
 
 var basic = class{
-	Description: "i8, i16, i32, i64, bool or ptr",
+	Description: "i8 ~ i64, u8 ~ u64, ptr or bool",
 	Checker:     T.IsBasic,
 }
 
@@ -746,8 +747,13 @@ var _bool = class{
 }
 
 var number = class{
-	Description: "i8, i16, i32, i64 or ptr",
+	Description: "i8 ~ i64, u8 ~ u64 or ptr",
 	Checker:     T.IsNumber,
+}
+
+var comparable = class{
+	Description: "all types",
+	Checker:     T.IsBasicOrProc,
 }
 
 var ptr = class{

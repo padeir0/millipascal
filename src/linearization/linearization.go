@@ -3,12 +3,11 @@ package linearization
 import (
 	. "mpc/core"
 
-	//https://github.com/padeir0/pir
-	"github.com/padeir0/pir"
-	pirc "github.com/padeir0/pir/class"
-	IT "github.com/padeir0/pir/instrkind"
-	T "github.com/padeir0/pir/types"
-	RIU "github.com/padeir0/pir/util"
+	"mpc/pir"
+	pirc "mpc/pir/class"
+	IT "mpc/pir/instrkind"
+	T "mpc/pir/types"
+	RIU "mpc/pir/util"
 
 	ir "mpc/core/module"
 	lex "mpc/core/module/lexkind"

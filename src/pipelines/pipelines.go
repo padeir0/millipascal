@@ -5,12 +5,12 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/padeir0/pir"
-	amd64 "github.com/padeir0/pir/backends/linuxamd64/fasm"
-	mir "github.com/padeir0/pir/backends/linuxamd64/mir"
-	mirchecker "github.com/padeir0/pir/backends/linuxamd64/mir/checker"
-	resalloc "github.com/padeir0/pir/backends/linuxamd64/resalloc"
-	pirchecker "github.com/padeir0/pir/checker"
+	"mpc/pir"
+	amd64 "mpc/pir/backends/linuxamd64/fasm"
+	mir "mpc/pir/backends/linuxamd64/mir"
+	mirchecker "mpc/pir/backends/linuxamd64/mir/checker"
+	resalloc "mpc/pir/backends/linuxamd64/resalloc"
+	pirchecker "mpc/pir/checker"
 
 	. "mpc/core"
 	mod "mpc/core/module"

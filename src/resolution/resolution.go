@@ -1,7 +1,6 @@
 package resolution
 
 import (
-	T "github.com/padeir0/pir/types"
 	"io/ioutil"
 	. "mpc/core"
 	et "mpc/core/errorkind"
@@ -12,6 +11,7 @@ import (
 	"mpc/lexer"
 	msg "mpc/messages"
 	"mpc/parser"
+	T "mpc/pir/types"
 	"strings"
 )
 
