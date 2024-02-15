@@ -70,8 +70,8 @@ func ErrorExpectedProcedure(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedProcedure, n, "is not a procedure (type: "+n.T.String()+")")
 }
 
-func ErrorExpectedBasicType(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.ExpectedBasicType, n, "is not of a basic type (type: "+n.T.String()+")")
+func ErrorExpectedBasicOrProc(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.ExpectedBasicOrProcType, n, "is not of a basic or proc type (type: "+n.T.String()+")")
 }
 
 func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {

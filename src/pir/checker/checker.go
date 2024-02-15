@@ -190,8 +190,10 @@ func checkInstr(s *state, instr hir.Instr) *Error {
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
 		return checkArith(instr)
-	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
+	case IT.Eq, IT.Diff:
 		return checkComp(instr)
+	case IT.Less, IT.More, IT.LessEq, IT.MoreEq:
+		return checkOrder(instr)
 	case IT.Or, IT.And, IT.Xor:
 		return checkLogical(instr)
 	case IT.Not:
@@ -230,6 +232,20 @@ func checkArith(instr hir.Instr) *Error {
 }
 
 func checkComp(instr hir.Instr) *Error {
+	err := checkForm(instr, 2, true)
+	if err != nil {
+		return err
+	}
+	a := instr.Operands[0]
+	b := instr.Operands[1]
+	err = checkEqual(instr, instr.Type, a.Type, b.Type)
+	if err != nil {
+		return err
+	}
+	return checkBinary(instr, basicOrProc_oper, basicOrProc_oper, bool_res)
+}
+
+func checkOrder(instr hir.Instr) *Error {
 	err := checkForm(instr, 2, true)
 	if err != nil {
 		return err
@@ -311,7 +327,7 @@ func checkConvert(instr hir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, basic_oper, basic_res)
+	return checkUnary(instr, basicOrProc_oper, basicOrProc_res)
 }
 
 func checkCopy(instr hir.Instr) *Error {

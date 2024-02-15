@@ -40,7 +40,7 @@ const (
 	MismatchedTypeInAssign
 	InvalidClassforExpr
 	CannotUseVoid
-	ExpectedBasicType
+	ExpectedBasicOrProcType
 	CanOnlyUseNormalAssignment
 	ExpectedNumber
 	ExitMustBeI8
@@ -96,7 +96,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	MismatchedTypeInAssign:         "E031",
 	InvalidClassforExpr:            "E033",
 	CannotUseVoid:                  "E035",
-	ExpectedBasicType:              "E036",
+	ExpectedBasicOrProcType:        "E036",
 	CanOnlyUseNormalAssignment:     "E037",
 	ExpectedNumber:                 "E038",
 	ExitMustBeI8:                   "E039",

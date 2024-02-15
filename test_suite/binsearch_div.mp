@@ -6,8 +6,6 @@
 #     q*y <= x
 #     (q+1)*y > x
 
-from ioutil import put_int, put_char
-
 proc main
 var x, y, q,
 begin
@@ -17,10 +15,6 @@ begin
         while y < HIGHEST begin
             set q = Search[x, y]
             if q != x/y begin
-                put_int[x]
-                put_char['/']
-                put_int[y]
-                put_char['\n']
                 exit 1ss
             end if
             set y += 1

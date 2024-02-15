@@ -260,10 +260,13 @@ func getType(n *ir.Node) *T.Type {
 }
 
 func getProcType(n *ir.Node) *T.Type {
-	args := n.Leaves[0].Leaves
-	argTypes := make([]*T.Type, len(args))
-	for i, arg := range args {
-		argTypes[i] = getType(arg)
+	argTypes := make([]*T.Type, 0)
+	if n.Leaves[0] != nil {
+		args := n.Leaves[0].Leaves
+		argTypes = make([]*T.Type, len(args))
+		for i, arg := range args {
+			argTypes[i] = getType(arg)
+		}
 	}
 
 	retTypes := make([]*T.Type, 0)
@@ -608,8 +611,8 @@ func conversion(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
 		return err
 	}
 	n.T = getType(n.Leaves[0])
-	if !T.IsBasic(n.T) {
-		return msg.ErrorExpectedBasicType(M, n)
+	if !T.IsBasicOrProc(n.T) {
+		return msg.ErrorExpectedBasicOrProc(M, n)
 	}
 	n.Leaves[0].T = n.T
 	return nil

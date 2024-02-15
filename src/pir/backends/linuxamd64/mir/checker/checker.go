@@ -291,8 +291,10 @@ func checkInstr(s *state, instr mir.Instr) *Error {
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
 		return checkArith(s, instr)
-	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
+	case IT.Eq, IT.Diff:
 		return checkComp(s, instr)
+	case IT.Less, IT.More, IT.LessEq, IT.MoreEq:
+		return checkOrd(s, instr)
 	case IT.Or, IT.And, IT.Xor:
 		return checkLogical(s, instr)
 	case IT.ShiftLeft, IT.ShiftRight:
@@ -339,6 +341,25 @@ func checkArith(s *state, instr mir.Instr) *Error {
 }
 
 func checkComp(s *state, instr mir.Instr) *Error {
+	err := checkForm(instr, true, true, true)
+	if err != nil {
+		return err
+	}
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(instr.Dest.Operand)
+
+	err = checkEqual(instr, instr.Type, instr.A.Type, instr.B.Type)
+	if err != nil {
+		return err
+	}
+	return checkBinary(instr, basicOrProc_imme, basicOrProc_imme, bool_reg)
+}
+
+func checkOrd(s *state, instr mir.Instr) *Error {
 	err := checkForm(instr, true, true, true)
 	if err != nil {
 		return err
@@ -449,7 +470,7 @@ func checkConvert(s *state, instr mir.Instr) *Error {
 	if err != nil {
 		return err
 	}
-	return checkUnary(instr, basic_imme, basic_reg)
+	return checkUnary(instr, basicOrProc_imme, basicOrProc_reg)
 }
 
 func checkLoadPtr(s *state, instr mir.Instr) *Error {

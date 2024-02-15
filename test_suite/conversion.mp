@@ -8,9 +8,10 @@ begin
 	signed_negative[]
 
 	signed_to_ptr[]
+	procs[]
 end proc
 
-proc signed_positive[]
+proc signed_positive
 var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss
@@ -71,7 +72,7 @@ begin
 	end if
 end proc
 
-proc unsigned[]
+proc unsigned
 var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss
@@ -132,7 +133,7 @@ begin
 	end if
 end proc
 
-proc unsigned_to_signed[]
+proc unsigned_to_signed
 var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss
@@ -193,7 +194,7 @@ begin
 	end if
 end proc
 
-proc signed_to_unsigned[]
+proc signed_to_unsigned
 var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss
@@ -254,7 +255,7 @@ begin
 	end if
 end proc
 
-proc signed_negative[]
+proc signed_negative
 var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = ~3ss
@@ -315,7 +316,7 @@ begin
 	end if
 end proc
 
-proc signed_to_ptr[]
+proc signed_to_ptr
 var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss
@@ -337,7 +338,7 @@ begin
 	end if
 end proc
 
-proc unsigned_to_ptr[]
+proc unsigned_to_ptr
 var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss
@@ -357,4 +358,25 @@ begin
 	if d:ptr != 31p begin
 		exit 88ss
 	end if
+end proc
+
+proc procs
+var a:proc[i64]i64, b:ptr
+begin
+	set a = square
+
+	if a:ptr != square:ptr begin
+		exit 86ss
+	end if
+
+	set b = square:ptr
+
+	if (b:proc[i64]i64)[2] != 4 begin
+		exit 87ss
+	end if
+end proc
+
+proc square[a] i64
+begin
+	return a*a;
 end proc
