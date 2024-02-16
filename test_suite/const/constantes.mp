@@ -1,5 +1,5 @@
-const Cinco 5
-const Zero 0ss
+const Cinco = 5
+const Zero = 0ss
 
 proc main
 var a

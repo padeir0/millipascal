@@ -159,7 +159,7 @@ func _onlyConst(ctx *context, n *mod.Node) {
 
 func _onlyMem(ctx *context, n *mod.Node) {
 	for _, leaf := range n.Leaves {
-		if leaf.Lex == T.MEMORY {
+		if leaf.Lex == T.DATA {
 			_mem(ctx, leaf)
 			ctx.Newline()
 		}
@@ -187,7 +187,7 @@ func _symbols(ctx *context, n *mod.Node) {
 }
 
 func _mem(ctx *context, n *mod.Node) {
-	ctx.Place([]byte("memory "))
+	ctx.Place([]byte("data "))
 	id := n.Leaves[0]
 	ctx.Place([]byte(id.Text))
 	def := n.Leaves[1]

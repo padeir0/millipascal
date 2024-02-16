@@ -52,7 +52,7 @@ end proc
 
 ###### *int (naïve)
 
-memory MetaIntNaive 32
+data MetaIntNaive [32]
 
 proc test_int_naive
 begin
@@ -121,7 +121,7 @@ end proc
 
 ###### *i64
 
-memory MetaI64 32
+data MetaI64 [32]
 
 proc test_i64
 begin

@@ -31,7 +31,7 @@ func Check(P *mir.Program) *Error {
 
 type region []mir.OptOperand
 
-func newRegion(size uint64) region {
+func newRegion(size int64) region {
 	return make(region, size)
 }
 
@@ -43,16 +43,16 @@ func (r *region) String() string {
 	return strings.Join(output, ", ")
 }
 
-func (r *region) Store(i uint64, op mir.Operand) {
-	if i >= uint64(len(*r)) {
-		amount := 1 + i - uint64(len(*r))
+func (r *region) Store(i int64, op mir.Operand) {
+	if i >= int64(len(*r)) {
+		amount := 1 + i - int64(len(*r))
 		*r = append(*r, newRegion(amount)...)
 	}
 	(*r)[i] = mir.OptOperand_(op)
 }
 
-func (r *region) Load(i uint64) (mir.Operand, bool) {
-	if i >= uint64(len(*r)) {
+func (r *region) Load(i int64) (mir.Operand, bool) {
+	if i >= int64(len(*r)) {
 		return mir.Operand{}, false
 	}
 	op := (*r)[i]
@@ -92,12 +92,12 @@ func newState(M *mir.Program) *state {
 
 func (s *state) Init() {
 	for i, arg := range s.proc.Args {
-		argOp := newCallerOperand(arg, uint64(i))
-		s.CallerInterproc.Store(uint64(i), argOp)
+		argOp := newCallerOperand(arg, int64(i))
+		s.CallerInterproc.Store(int64(i), argOp)
 	}
 	for i, loc := range s.proc.Vars {
-		locOp := newCallerOperand(loc, uint64(i))
-		s.Locals.Store(uint64(i), locOp)
+		locOp := newCallerOperand(loc, int64(i))
+		s.Locals.Store(int64(i), locOp)
 	}
 }
 
@@ -137,21 +137,21 @@ func (s *state) SetReg(op mir.Operand) {
 	if op.Class != mirc.Register {
 		panic("is not setting a register: " + op.String())
 	}
-	s.Registers.Store(op.Num, op)
+	s.Registers.Store(op.ID, op)
 }
 
-func newCallerOperand(t *T.Type, i uint64) mir.Operand {
+func newCallerOperand(t *T.Type, i int64) mir.Operand {
 	return mir.Operand{
 		Class: mirc.CallerInterproc,
-		Num:   i,
+		ID:    i,
 		Type:  t,
 	}
 }
 
-func newLocalOperand(t *T.Type, i uint64) mir.Operand {
+func newLocalOperand(t *T.Type, i int64) mir.Operand {
 	return mir.Operand{
 		Class: mirc.Local,
-		Num:   i,
+		ID:    i,
 		Type:  t,
 	}
 }
@@ -194,7 +194,7 @@ func checkJump(s *state) *Error {
 
 func checkRet(s *state) *Error {
 	for i, ret := range s.proc.Rets {
-		op, ok := s.CallerInterproc.Load(uint64(i))
+		op, ok := s.CallerInterproc.Load(int64(i))
 		if !ok {
 			return eu.NewInternalSemanticError("return stack is empty, expected returns: " + s.proc.StrRets())
 		}
@@ -284,7 +284,11 @@ var ptr_reg = Checker{
 }
 
 func checkInstr(s *state, instr mir.Instr) *Error {
-	err := checkInvalidClass(instr)
+	err := checkLiterals(instr)
+	if err != nil {
+		return err
+	}
+	err = checkInvalidClass(instr)
 	if err != nil {
 		return err
 	}
@@ -593,7 +597,7 @@ func checkCall(s *state, instr mir.Instr) *Error {
 	t := instr.A.Type
 
 	for i, formal_arg := range t.Proc.Args {
-		real_arg, ok := s.CalleeInterproc.Load(uint64(i))
+		real_arg, ok := s.CalleeInterproc.Load(int64(i))
 		if !ok {
 			return errorCallLoadingGarbage(instr)
 		}
@@ -604,8 +608,8 @@ func checkCall(s *state, instr mir.Instr) *Error {
 	}
 
 	for i, formal_ret := range t.Proc.Rets {
-		op := mir.Operand{Class: mirc.CalleeInterproc, Num: uint64(i), Type: formal_ret}
-		s.CalleeInterproc.Store(uint64(i), op)
+		op := mir.Operand{Class: mirc.CalleeInterproc, ID: int64(i), Type: formal_ret}
+		s.CalleeInterproc.Store(int64(i), op)
 	}
 	return nil
 }
@@ -615,13 +619,13 @@ func checkLoadState(s *state, instr mir.Instr) *Error {
 	var ok bool
 	switch instr.A.Class {
 	case mirc.Spill:
-		source, ok = s.Spill.Load(instr.A.Num)
+		source, ok = s.Spill.Load(instr.A.ID)
 	case mirc.CalleeInterproc:
-		source, ok = s.CalleeInterproc.Load(instr.A.Num)
+		source, ok = s.CalleeInterproc.Load(instr.A.ID)
 	case mirc.CallerInterproc:
-		source, ok = s.CallerInterproc.Load(instr.A.Num)
+		source, ok = s.CallerInterproc.Load(instr.A.ID)
 	case mirc.Local:
-		source, ok = s.Locals.Load(instr.A.Num)
+		source, ok = s.Locals.Load(instr.A.ID)
 	default:
 		panic("oh no")
 	}
@@ -639,13 +643,13 @@ func checkLoadState(s *state, instr mir.Instr) *Error {
 func checkStoreState(s *state, instr mir.Instr) *Error {
 	switch instr.Dest.Class {
 	case mirc.Spill:
-		s.Spill.Store(instr.Dest.Num, instr.A.Operand)
+		s.Spill.Store(instr.Dest.ID, instr.A.Operand)
 	case mirc.CalleeInterproc:
-		s.CalleeInterproc.Store(instr.Dest.Num, instr.A.Operand)
+		s.CalleeInterproc.Store(instr.Dest.ID, instr.A.Operand)
 	case mirc.CallerInterproc:
-		s.CallerInterproc.Store(instr.Dest.Num, instr.A.Operand)
+		s.CallerInterproc.Store(instr.Dest.ID, instr.A.Operand)
 	case mirc.Local:
-		s.Locals.Store(instr.Dest.Num, instr.A.Operand)
+		s.Locals.Store(instr.Dest.ID, instr.A.Operand)
 	default:
 		panic("oh no")
 	}
@@ -669,11 +673,11 @@ func checkRegOperand(s *state, instr mir.Instr, op mir.OptOperand) *Error {
 		return nil
 	}
 	if op.Class == mirc.Register {
-		loaded, ok := s.Registers.Load(op.Num)
+		loaded, ok := s.Registers.Load(op.ID)
 		if !ok {
 			return errorUsingRegisterGarbage(instr, op.Operand)
 		}
-		if loaded.Num != op.Num || loaded.Class != op.Class || loaded.Type != op.Type {
+		if loaded.ID != op.ID || loaded.Class != op.Class || loaded.Type != op.Type {
 			return errorIncorrectValueInRegister(instr, loaded, op.Operand)
 		}
 	}
@@ -736,51 +740,83 @@ func checkForm(instr mir.Instr, hasA, hasB, hasDest bool) *Error {
 	return nil
 }
 
+func checkLiterals(instr mir.Instr) *Error {
+	err := checkLiteral(instr, instr.A)
+	if err != nil {
+		return err
+	}
+	err = checkLiteral(instr, instr.B)
+	if err != nil {
+		return err
+	}
+	err = checkLiteral(instr, instr.Dest)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkLiteral(instr mir.Instr, op mir.OptOperand) *Error {
+	if op.Valid {
+		o := op.Op()
+		if o.Class == mirc.Lit && o.Num == nil {
+			return malformedLiteral(instr, o)
+		}
+	}
+	return nil
+}
+
+func newMirError(msg string) *Error {
+	return eu.NewInternalSemanticError("mir: " + msg)
+}
+
 func malformedInstr(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("malformed instruction: " + instr.String())
+	return newMirError("malformed instruction: " + instr.String())
 }
 func badType(instr mir.Instr, wanted, has *T.Type) *Error {
 	msg := "bad type: " + instr.String() + "; "
 	msg += "wanted: " + wanted.String() + ", has: " + has.String()
-	return eu.NewInternalSemanticError(msg)
+	return newMirError(msg)
 }
 func malformedTypeOrClass(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
+	return newMirError("malformed type or class: " + instr.String())
 }
 func invalidClass(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("invalid class: " + instr.String())
+	return newMirError("invalid class: " + instr.String())
 }
 func errorLoadingGarbage(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("loading garbage: " + instr.String())
+	return newMirError("loading garbage: " + instr.String())
 }
 func errorCallLoadingGarbage(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("call loading garbage: " + instr.String())
+	return newMirError("call loading garbage: " + instr.String())
 }
 func errorUsingRegisterGarbage(instr mir.Instr, op mir.Operand) *Error {
-	return eu.NewInternalSemanticError("using register garbage: " + op.String() + " of " + instr.String())
+	return newMirError("using register garbage: " + op.String() + " of " + instr.String())
 }
 func errorIncorrectValueInRegister(instr mir.Instr, o, op mir.Operand) *Error {
-	return eu.NewInternalSemanticError("incorrect value in register (" + o.String() + "): " + op.String() + " of " + instr.String())
+	return newMirError("incorrect value in register (" + o.String() + "): " + op.String() + " of " + instr.String())
 }
 func errorLoadingIncorrectType(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("load of incorrect type: " + instr.String())
+	return newMirError("load of incorrect type: " + instr.String())
 }
 func procArgNotFound(instr mir.Instr, p *mir.Procedure) *Error {
-	return eu.NewInternalSemanticError("argument " + p.Label + " not found in: " + instr.String())
+	return newMirError("argument " + p.Label + " not found in: " + instr.String())
 }
 func procBadArg(instr mir.Instr, d *T.Type, op mir.Operand) *Error {
-	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
+	return newMirError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
 func procBadRet(instr mir.Instr, d T.Type, op mir.Operand) *Error {
-	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
+	return newMirError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
 }
-
 func nilInstr(s *state) *Error {
-	return eu.NewInternalSemanticError("nil instruction in: " + s.proc.Label + " " + s.bb.Label)
+	return newMirError("nil instruction in: " + s.proc.Label + " " + s.bb.Label)
 }
 func notAProc(instr mir.Instr) *Error {
-	return eu.NewInternalSemanticError("not a procedure: " + instr.String())
+	return newMirError("not a procedure: " + instr.String())
 }
 func symbolNotFound(i int64) *Error {
-	return eu.NewInternalSemanticError("Symbol not found in program: " + strconv.FormatInt(i, 10))
+	return newMirError("Symbol not found in program: " + strconv.FormatInt(i, 10))
+}
+func malformedLiteral(instr mir.Instr, o mir.Operand) *Error {
+	return newMirError("malformed literal in instruction: " + instr.String())
 }

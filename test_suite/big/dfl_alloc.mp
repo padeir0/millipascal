@@ -18,10 +18,10 @@ export Heap, ByteMap, Tail, Head, FrontLimit, BackLimit,
 #       ├── 4 bytes, offset -8: Tamanho do objeto em WORDs
 #       └── 4 bytes sobrando
 
-const F_HEADER_SIZE 8
+const F_HEADER_SIZE = 8
 
 # offset negativo
-const F_OBJ_SIZE_OFFSET 8p
+const F_OBJ_SIZE_OFFSET = 8p
 
 # cada objeto no backheap vai ter um header de 8 bytes
 #         v ptr
@@ -32,36 +32,36 @@ const F_OBJ_SIZE_OFFSET 8p
 #       ├── 2 bytes, offset -6: Lenght para bigint ou Tag pra tipos de união
 #       └── 4 bytes, offset -4: Bitmap de ponteiros
 
-const B_HEADER_SIZE 8
+const B_HEADER_SIZE = 8
 
 # offset negativo
-const B_OBJ_SIZE_OFFSET 8p
-const B_OBJ_META_OFFSET 7p
-const B_OBJ_STUFF_OFFSET 6p
-const B_OBJ_BITMAP_OFFSET 4p
+const B_OBJ_SIZE_OFFSET = 8p
+const B_OBJ_META_OFFSET = 7p
+const B_OBJ_STUFF_OFFSET = 6p
+const B_OBJ_BITMAP_OFFSET = 4p
 
-const NODE_SIZE 24
+const NODE_SIZE = 24
 
-const FL_SIZE_OFFSET 0p
-const FL_PREV_OFFSET 8p
-const FL_NEXT_OFFSET 16p
+const FL_SIZE_OFFSET = 0p
+const FL_PREV_OFFSET = 8p
+const FL_NEXT_OFFSET = 16p
 
-# memory Heap 2048 # 2KB
-# memory ByteMap 256 # Heap.size / 8
+# data Heap [2048] # 2KB
+# data ByteMap [256] # Heap.size / 8
 
-memory Heap 1048576 # 1MB (wow)
-memory ByteMap 131072 # Heap.size / 8
+data Heap [1048576] # 1MB (wow)
+data ByteMap [131072] # Heap.size / 8
 
-memory Head 8 # first node
-memory Tail 8 # last node
+data Head [8] # first node
+data Tail [8] # last node
 
-memory FrontLimit 8 # limite do frontheap
-memory BackLimit 8  # limit do backheap
+data FrontLimit [8] # limite do frontheap
+data BackLimit [8]  # limit do backheap
 
-memory UNREACHABLE "code should not reach here!\n"
-memory OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
-memory OUTOFLIMITS "pointer to be freed is out of back or front limit bounds\n"
-memory OBJ_TOO_BIG "object is too big, max of 255 words\n"
+data UNREACHABLE "code should not reach here!\n"
+data OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
+data OUTOFLIMITS "pointer to be freed is out of back or front limit bounds\n"
+data OBJ_TOO_BIG "object is too big, max of 255 words\n"
 
 proc main
 begin
@@ -508,9 +508,9 @@ begin
 	end while
 end proc
 
-memory msg_total_free "free: "
-memory msg_flimit ", FrontLimit: "
-memory msg_blimit ", BackLimit: "
+data msg_total_free "free: "
+data msg_flimit ", FrontLimit: "
+data msg_blimit ", BackLimit: "
 
 proc print_list[]
 var curr:ptr

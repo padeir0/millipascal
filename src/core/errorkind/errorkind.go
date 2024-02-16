@@ -19,6 +19,7 @@ const (
 	FileError
 	InvalidFileName
 	InvalidDependencyCycle
+	InvalidSymbolCycle
 
 	NameAlreadyDefined
 	ExportingUndefName
@@ -34,7 +35,7 @@ const (
 	ExpectedProcedure
 	InvalidNumberOfReturns
 	MismatchedReturnType
-	ExpectedMem
+	ExpectedData
 	MismatchedMultiRetAssignment
 	MismatchedTypeInMultiRetAssign
 	MismatchedTypeInAssign
@@ -44,7 +45,7 @@ const (
 	CanOnlyUseNormalAssignment
 	ExpectedNumber
 	ExitMustBeI8
-	PtrCantBeUsedAsMemSize
+	PtrCantBeUsedAsDataSize
 	InvalidProp
 	NotAllCodePathsReturnAValue
 	InvalidMain
@@ -53,6 +54,10 @@ const (
 	ModuleNotFound
 	NameNotExported
 	ExpectedBool
+	NonConstExpr
+	CannotUseStringInExpr
+	InvalidTypeForConst
+	ValueOutOfBounds
 )
 
 func (et ErrorKind) String() string {
@@ -90,7 +95,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	ExpectedProcedure:              "E022",
 	InvalidNumberOfReturns:         "E023",
 	MismatchedReturnType:           "E024",
-	ExpectedMem:                    "E025",
+	ExpectedData:                   "E025",
 	MismatchedMultiRetAssignment:   "E027",
 	MismatchedTypeInMultiRetAssign: "E028",
 	MismatchedTypeInAssign:         "E031",
@@ -100,7 +105,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	CanOnlyUseNormalAssignment:     "E037",
 	ExpectedNumber:                 "E038",
 	ExitMustBeI8:                   "E039",
-	PtrCantBeUsedAsMemSize:         "E040",
+	PtrCantBeUsedAsDataSize:        "E040",
 	InvalidProp:                    "E041",
 	NotAllCodePathsReturnAValue:    "E042",
 	InvalidMain:                    "E043",
@@ -109,4 +114,9 @@ var ErrorCodeMap = map[ErrorKind]string{
 	ModuleNotFound:                 "E046",
 	NameNotExported:                "E047",
 	ExpectedBool:                   "E048",
+	NonConstExpr:                   "E049",
+	CannotUseStringInExpr:          "E050",
+	InvalidSymbolCycle:             "E051",
+	InvalidTypeForConst:            "E052",
+	ValueOutOfBounds:               "E053",
 }

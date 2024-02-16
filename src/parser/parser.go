@@ -111,7 +111,7 @@ func _export(s *Lexer) (*mod.Node, *Error) {
 	return kw, nil
 }
 
-// Symbol := Procedure | Memory | Const.
+// Symbol := Procedure | Data | Const.
 func symbol(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "symbol")
 	var n *mod.Node
@@ -119,8 +119,8 @@ func symbol(s *Lexer) (*mod.Node, *Error) {
 	switch s.Word.Lex {
 	case T.PROC:
 		n, err = procDef(s)
-	case T.MEMORY:
-		n, err = memDef(s)
+	case T.DATA:
+		n, err = dataDef(s)
 	case T.CONST:
 		n, err = constDef(s)
 	default:
@@ -129,7 +129,7 @@ func symbol(s *Lexer) (*mod.Node, *Error) {
 	return n, err
 }
 
-// Const := 'const' id number.
+// Const := 'const' id '=' Expr.
 func constDef(s *Lexer) (*mod.Node, *Error) {
 	kw, err := Expect(s, T.CONST)
 	if err != nil {
@@ -139,17 +139,24 @@ func constDef(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	definition, err := number(s)
+
+	_, err = Expect(s, T.ASSIGNMENT)
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves([]*mod.Node{id, definition})
+
+	expr, err := expr(s)
+	if err != nil {
+		return nil, err
+	}
+
+	kw.SetLeaves([]*mod.Node{id, expr})
 	return kw, nil
 }
 
-// Memory := 'memory' id (number|string).
-func memDef(s *Lexer) (*mod.Node, *Error) {
-	kw, err := Expect(s, T.MEMORY)
+// Data := 'data' id (dExpr|string).
+func dataDef(s *Lexer) (*mod.Node, *Error) {
+	kw, err := Expect(s, T.DATA)
 	if err != nil {
 		return nil, err
 	}
@@ -157,12 +164,43 @@ func memDef(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	definition, err := numberOrString(s)
+
+	err = Check(s, T.LEFTBRACKET, T.STRING_LIT)
 	if err != nil {
 		return nil, err
 	}
+	var definition *mod.Node
+	switch s.Word.Lex {
+	case T.STRING_LIT:
+		definition, err = Expect(s, T.STRING_LIT)
+		if err != nil {
+			return nil, err
+		}
+	case T.LEFTBRACKET:
+		definition, err = dExpr(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	kw.SetLeaves([]*mod.Node{id, definition})
 	return kw, nil
+}
+
+func dExpr(s *Lexer) (*mod.Node, *Error) {
+	_, err := Expect(s, T.LEFTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	expr, err := expr(s)
+	if err != nil {
+		return nil, err
+	}
+	_, err = Expect(s, T.RIGHTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	return expr, nil
 }
 
 // Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.

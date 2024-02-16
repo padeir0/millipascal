@@ -8,6 +8,7 @@ import (
 	T "mpc/pir/types"
 
 	"fmt"
+	"math/big"
 	"strconv"
 )
 
@@ -279,8 +280,8 @@ var Registers = []*register{
 
 // read[ptr, int] int
 func genRead(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	amountRead := ptr
@@ -309,8 +310,8 @@ func genRead(P *mir.Program) *fasmProc {
 
 // write[ptr, int]
 func genWrite(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	return &fasmProc{
@@ -336,8 +337,8 @@ func genWrite(P *mir.Program) *fasmProc {
 
 // error[ptr, int]
 func genError(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, Num: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, Num: 1, Type: T.T_I64}
+	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
+	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
 	ptr := convertOperand(P, ptrArg, 0, 0, 0)
 	size := convertOperand(P, sizeArg, 0, 0, 0)
 	return &fasmProc{
@@ -361,11 +362,11 @@ func genError(P *mir.Program) *fasmProc {
 	}
 }
 
-func genMem(mem *mir.MemoryDecl) *fasmData {
+func genMem(mem *mir.DataDecl) *fasmData {
 	if mem.Data == "" {
 		return &fasmData{
 			label:    mem.Label,
-			content:  strconv.FormatUint(mem.Size, 10),
+			content:  mem.Size.Text(10),
 			declared: false,
 		}
 	}
@@ -970,45 +971,49 @@ func areOpEqual(a, b mir.OptOperand) bool {
 		panic("invalid operand")
 	}
 	return a.Class == b.Class &&
+		a.ID == b.ID &&
 		a.Num == b.Num
 }
 
 func convertOperandProc(P *mir.Program, proc *mir.Procedure, op mir.Operand) string {
-	return convertOperand(P, op, uint64(proc.NumOfVars), uint64(proc.NumOfSpills), uint64(proc.NumOfMaxCalleeArguments))
+	return convertOperand(P, op, int64(proc.NumOfVars), int64(proc.NumOfSpills), int64(proc.NumOfMaxCalleeArguments))
 }
 
 func convertOptOperandProc(P *mir.Program, proc *mir.Procedure, op mir.OptOperand) string {
 	if !op.Valid {
 		panic("invalid operand")
 	}
-	return convertOperand(P, op.Operand, uint64(proc.NumOfVars), uint64(proc.NumOfSpills), uint64(proc.NumOfMaxCalleeArguments))
+	return convertOperand(P, op.Operand, int64(proc.NumOfVars), int64(proc.NumOfSpills), int64(proc.NumOfMaxCalleeArguments))
 }
 
-func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments uint64) string {
+func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments int64) string {
 	switch op.Class {
 	case mirc.Register:
-		return genReg(op.Num, op.Type)
+		return genReg(op.ID, op.Type)
 	case mirc.CallerInterproc:
 		//        v must jump last rbp + return address
-		offset := 16 + op.Num*8
-		return genType(op.Type) + "[rbp + " + strconv.FormatUint(offset, 10) + "]"
+		offset := 16 + op.ID*8
+		return genType(op.Type) + "[rbp + " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Local:
 		//        v begins at 8 because rbp points to the last rbp
-		offset := 8 + op.Num*8
-		return genType(op.Type) + "[rbp - " + strconv.FormatUint(offset, 10) + "]"
+		offset := 8 + op.ID*8
+		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Spill:
-		offset := 8 + NumOfVars*8 + op.Num*8
-		return genType(op.Type) + "[rbp - " + strconv.FormatUint(offset, 10) + "]"
+		offset := 8 + NumOfVars*8 + op.ID*8
+		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.CalleeInterproc:
 		offset := 8 + NumOfVars*8 +
 			NumOfSpills*8 +
 			// v count                   v index
-			(NumOfMaxCalleeArguments-1-op.Num)*8
-		return genType(op.Type) + "[rbp - " + strconv.FormatUint(offset, 10) + "]"
+			(NumOfMaxCalleeArguments-1-op.ID)*8
+		return genType(op.Type) + "[rbp - " + strconv.FormatInt(offset, 10) + "]"
 	case mirc.Lit:
-		return strconv.FormatUint(op.Num, 10)
+		if op.Num == nil {
+			panic("bignum was nil")
+		}
+		return op.Num.Text(10)
 	case mirc.Static:
-		sy := P.Symbols[op.Num]
+		sy := P.Symbols[op.ID]
 		if sy.Proc != nil {
 			return sy.Proc.Label
 		}
@@ -1018,15 +1023,15 @@ func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumO
 }
 
 func getReg(op mir.Operand) *register {
-	num := op.Num
-	if num > uint64(len(Registers)) || num < 0 {
+	num := op.ID
+	if num > int64(len(Registers)) || num < 0 {
 		panic("oh no")
 	}
 	return Registers[num]
 }
 
-func genReg(num uint64, t *T.Type) string {
-	if num > uint64(len(Registers)) || num < 0 {
+func genReg(num int64, t *T.Type) string {
+	if num > int64(len(Registers)) || num < 0 {
 		panic("oh no")
 	}
 	r := Registers[num]
@@ -1159,6 +1164,9 @@ func genInstrName(instr mir.Instr) string {
 	panic("unimplemented")
 }
 
+var max = big.NewInt((1 << 31) - 1)
+var min = big.NewInt(-(1 << 31))
+
 /* in amd64, you can only load an imm64 to a register,
 so if the value is beyond the 32bit range, you need to
 use a register before moving things to memory.
@@ -1168,7 +1176,8 @@ but for now it suffices to resolve it here.
 */
 func resolveOperand(P *mir.Program, proc *mir.Procedure, op mir.Operand) ([]*amd64Instr, string) {
 	opstr := convertOperandProc(P, proc, op)
-	if op.Class == mirc.Lit && op.Num > (1<<31) {
+	if op.Class == mirc.Lit &&
+		(op.Num.Cmp(min) == -1 || op.Num.Cmp(max) == 1) {
 		out := _genReg(RCX, op.Type)
 		mv := mov(out, opstr)
 		return []*amd64Instr{mv}, out

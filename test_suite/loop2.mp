@@ -1,4 +1,4 @@
-memory hello "Hello, World!\n"
+data hello "Hello, World!\n"
 
 proc main
 var a:i8, p:ptr

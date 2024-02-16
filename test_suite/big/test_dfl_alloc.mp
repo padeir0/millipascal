@@ -15,8 +15,8 @@ import
     alloc_f, alloc_b, free, init,
 	print_list, print_map, get_total_free
 
-memory TestPtrs 1024
-const TOTAL_TEST_PTRS 128
+data TestPtrs [1024]
+const TOTAL_TEST_PTRS = 128
 
 proc main
 var i
@@ -82,7 +82,7 @@ begin
 	return alloc_b[size, 0uss, 0us, 0ul]
 end proc
 
-const debug 0
+const debug = 0
 
 proc test[n, alloc1:proc[i64]ptr, alloc2:proc[i64]ptr]
 var i, a:ptr

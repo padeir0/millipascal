@@ -1,4 +1,4 @@
-memory buff 3
+data buff [3]
 
 proc main
 begin

@@ -11,8 +11,8 @@ proc main
 begin
 end proc
 
-memory DEBUG_MSG "debug: "
-memory Debug 8 # inits as zero
+data DEBUG_MSG "debug: "
+data Debug [8] # inits as zero
 
 proc debug[]
 begin
@@ -28,14 +28,14 @@ begin
 	exit 1ss
 end proc
 
-memory ERR_OOM "Out of Memory!\n"
+data ERR_OOM "out of memory!\n"
 proc oom[]
 begin
 	write_line[ERR_OOM, ERR_OOM.size]
 	exit 123ss
 end proc
 
-memory PutRuneBuff 4
+data PutRuneBuff [4]
 
 proc put_rune[r:i32]
 var size
@@ -44,7 +44,7 @@ begin
 	write[PutRuneBuff, size]
 end proc
 
-memory PutCharBuff 1
+data PutCharBuff [1]
 
 proc put_char[n:i8]
 begin
@@ -100,8 +100,8 @@ end proc
 
 ####################### conversion functions
 
-memory BUFF_TOO_SMALL "Destination buffer is too small\n"
-memory ConvBuff 80
+data BUFF_TOO_SMALL "Destination buffer is too small\n"
+data ConvBuff [80]
 
 proc u64_to_dec[n:u64, buff:ptr, buffSize] ptr, i64
 var p:ptr
@@ -143,8 +143,8 @@ begin
 	return buff, buffSize
 end proc
 
-memory _T "true"
-memory _F "false"
+data _T "true"
+data _F "false"
 
 # do not modify the returned buffer
 proc bool_to_text[b:bool] ptr, i64

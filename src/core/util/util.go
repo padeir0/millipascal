@@ -26,6 +26,10 @@ func NewNodeInfo(n *ir.Node, m string) *NodeInfo {
 	}
 }
 
+func NewInternalError(M *ir.Module, n *ir.Node, message string) *Error {
+	return NewSemanticError(M, et.InternalCompilerError, n, message)
+}
+
 func NewInternalSemanticError(debug string) *Error {
 	return newInternalError(debug)
 }

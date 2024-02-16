@@ -23,12 +23,13 @@ char := "'"(ascii|escapes)"'".
 keywords
     var    proc   begin  end
     while  if     else   elseif
-    or     and    not    memory
+    or     and    not    data
     i8     i16    i32    i64
     u8     u16    u32    u64
     bool   ptr    true   false
     exit   import from   export
-	const  sizeof return set.
+	const  sizeof return set
+	attr.
 
 ponctuation:
 	,   :   (   )   [   ]
@@ -43,7 +44,7 @@ basicType:
 	u8  u16  u32  u64
 
 -- Parser:
-Module := {Coupling} {Symbol}.
+Module := {Coupling} {AttSymbol}.
 
 Coupling := Import | FromImport | Export.
 
@@ -52,22 +53,31 @@ FromImport := 'from' id 'import' IdList.
 Export := 'export' IdList.
 IdList := id {',' id} [','].
 
+AttSymbol := [Attributes] Symbol.
+Attributes:= 'attr' IdList.
+
 Symbol := Procedure
-	| Memory
+	| Data
 	| Const.
 
-Const := 'const' id number.
+Const := 'const' (SingleConst|MultipleConst).
+SingleConst := id '=' Expr.
+MultipleConst := 'begin' {SingleConst [';']} 'end' 'const'.
 
-Memory := 'memory' id (number|string).
+Data := 'data' (Single|MultipleData).
+SingleData :=  id (dExpr|string|Blob).
+MultipleData := 'begin' {SingleData [';']} 'end' 'data'.
+Blob := '{' [Annot] ExprList '}'.
+dExpr := '[' Expr ']'.
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
 Args := '[' [DeclList] ']'.
 Vars := 'var' DeclList.
-Rets := TypeList
+Rets := TypeList.
 TypeList := Type {',' Type} [','].
 
 DeclList := Decl {',' Decl} [','].
-Decl := id [Annot].
+Decl := id ['*'] [Annot].
 Annot := ':' Type.
 
 Type := basicType | ProcType.

@@ -1,5 +1,5 @@
-memory first "first"
-memory second "second"
+data first "first"
+data second "second"
 
 proc main
 begin

@@ -1,4 +1,4 @@
-memory buff 512
+data buff [512]
 
 proc main
 var a:i8

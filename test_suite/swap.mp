@@ -1,6 +1,6 @@
-memory a "A"
-memory b "B"
-memory nl "\n"
+data a "A"
+data b "B"
+data nl "\n"
 proc newline[]
 begin
 	write[nl, nl.size]

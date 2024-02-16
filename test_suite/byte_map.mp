@@ -1,4 +1,4 @@
-memory buff "am i uppercase yet?\n"
+data buff "am i uppercase yet?\n"
 
 proc main
 begin

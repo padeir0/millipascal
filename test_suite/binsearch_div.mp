@@ -23,13 +23,13 @@ begin
     end while
 end proc
 
-const EQ 0
-const HIGH 1
-const LOW 2
+const EQ = 0
+const HIGH = 1
+const LOW = 2
 
-const LOWEST 0
-const HIGHEST 2048
-const MAXITER 12 # binary search has O(log_2) so log_2 (2048) = 11
+const LOWEST = 0
+const HIGHEST = 2048
+const MAXITER = 12 # binary search has O(log_2) so log_2 (2048) = 11
 
 # finds x/y
 proc Search[x, y] i64
@@ -55,7 +55,7 @@ begin
     return guess
 end proc
 
-memory unreachable "unreachable!\n"
+data unreachable "unreachable!\n"
 
 proc Test[x, y, guess] i64
 begin
@@ -76,9 +76,9 @@ begin
 end proc
 
 
-memory H "high\n"
-memory L "low\n"
-memory E "eq\n"
+data H "high\n"
+data L "low\n"
+data E "eq\n"
 
 proc put_res[res]
 begin

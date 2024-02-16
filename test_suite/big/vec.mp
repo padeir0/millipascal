@@ -42,12 +42,12 @@ end proc
 # inside the array, that is, they're just calculated indexes
 # of the array.
 
-const META_SIZE 32
+const META_SIZE = 32
 
-const M_ITEMSIZE_OFFSET 0p  # i32
-const M_EQPROC_OFFSET 8p    # proc[ptr, ptr]bool
-const M_COPYPROC_OFFSET 16p # proc[ptr, ptr]
-const M_FREEPROC_OFFSET 24p # proc[ptr]
+const M_ITEMSIZE_OFFSET = 0p  # i32
+const M_EQPROC_OFFSET = 8p    # proc[ptr, ptr]bool
+const M_COPYPROC_OFFSET = 16p # proc[ptr, ptr]
+const M_FREEPROC_OFFSET = 24p # proc[ptr]
 
 proc set_meta[
     meta:ptr,
@@ -69,17 +69,17 @@ end proc
 #     - 4 bytes: capacity
 #     - 8 bytes: pointer to metadata table
 
-const VEC_HEADER_SIZE 24
+const VEC_HEADER_SIZE = 24
 
-const VH_PTR_OFFSET 0p   # ptr
-const VH_LEN_OFFSET 8p   # i32
-const VH_CAP_OFFSET 12p  # i32
-const VH_META_OFFSET 16p # ptr
+const VH_PTR_OFFSET = 0p   # ptr
+const VH_LEN_OFFSET = 8p   # i32
+const VH_CAP_OFFSET = 12p  # i32
+const VH_META_OFFSET = 16p # ptr
 
-memory ERR_INVALID_CAP "error: capacity is smaller than length\n"
+data ERR_INVALID_CAP "error: capacity is smaller than length\n"
 
 # pointer in the first and third word
-const VEC_PTR_BITMAP 0b10100000_00000000_00000000_00000000ul
+const VEC_PTR_BITMAP = 0b10100000_00000000_00000000_00000000ul
 
 proc new_vec[meta:ptr, length:i32, cap:i32] ptr
 var itemSize:i32, header:ptr, array:ptr
@@ -210,7 +210,7 @@ begin
     return index[vec, length[vec]-1]
 end proc
 
-memory ERR_OUT_OF_BOUNDS "out of bounds!\n"
+data ERR_OUT_OF_BOUNDS "out of bounds!\n"
 
 # Computes only the address of the item in the array,
 # any subsequent indirections and type specific shenanigans
@@ -234,7 +234,7 @@ begin
     return array+(itemSize:ptr*index:ptr)
 end proc
 
-memory ERR_INCOMPATIBLE_META "vectors have incompatible metadata\n"
+data ERR_INCOMPATIBLE_META "vectors have incompatible metadata\n"
 
 # allocates a new vector; copies A and B into it
 # returns the vector;
@@ -345,7 +345,7 @@ begin
     set (vecA+VH_LEN_OFFSET)@i32 = lenB:i32
 end proc
 
-memory ERR_SLICE_OUT_OF_BOUNDS "slicing goes out of bounds\n"
+data ERR_SLICE_OUT_OF_BOUNDS "slicing goes out of bounds\n"
 
 # Make a new header; alloc a new array;
 # copy the contents; return it;
@@ -372,7 +372,7 @@ begin
     return vecOut
 end proc
 
-memory ERR_POPPED_TOO_MUCH "pop in array with length 0\n"
+data ERR_POPPED_TOO_MUCH "pop in array with length 0\n"
 
 # just decrements the length by 1, freeing the underlying object, if any
 # everything else shall be type specific

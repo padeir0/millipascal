@@ -1,4 +1,4 @@
-memory hello "Hello"
+data hello "Hello"
 
 proc main
 begin

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 
+	constexpr "mpc/constexpr"
 	"mpc/pir"
 	amd64 "mpc/pir/backends/linuxamd64/fasm"
 	mir "mpc/pir/backends/linuxamd64/mir"
@@ -20,8 +21,6 @@ import (
 	"mpc/parser"
 	"mpc/resolution"
 	"mpc/typechecker"
-
-	"fmt"
 )
 
 // processes a single file and returns all tokens
@@ -57,6 +56,10 @@ func Mod(file string) (*mod.Module, *Error) {
 	if err != nil {
 		return nil, err
 	}
+	err = constexpr.EvalConstExprs(m)
+	if err != nil {
+		return nil, err
+	}
 	return m, nil
 }
 
@@ -69,6 +72,10 @@ func ModFmt(file string) (*mod.Module, *Error) {
 	}
 
 	err = typechecker.Check(m)
+	if err != nil {
+		return nil, err
+	}
+	err = constexpr.EvalConstExprs(m)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +115,6 @@ func Mir(file string) (*mir.Program, *Error) {
 	mirP := resalloc.Allocate(p, NumRegisters)
 	err = ProcessPirError(mirchecker.Check(mirP))
 	if err != nil {
-		fmt.Println(mirP)
 		return nil, err
 	}
 	return mirP, nil

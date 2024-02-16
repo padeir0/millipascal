@@ -41,13 +41,13 @@ proc main
 begin
 end proc
 
-memory ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
-memory ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
-memory ERR_DIVISION_BY_ZERO "division by zero\n"
-memory WTF "wtf\n"
+data ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
+data ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
+data ERR_DIVISION_BY_ZERO "division by zero\n"
+data WTF "wtf\n"
 
-const BASE 1_000_000_000l # 10^9, 9 digits for each i32
-const DIGITS_PER_INT 9
+const BASE = 1_000_000_000l # 10^9, 9 digits for each i32
+const DIGITS_PER_INT = 9
 
 # Vector Header (negative offset)
 #  ├── 4 bytes, offset -8: object size in words (for the allocator)
@@ -55,27 +55,27 @@ const DIGITS_PER_INT 9
 # we can do this because there's a 4 byte padding in the object header
 # that we're allowed to use for other stuff
 
-const ARRAY_NEG_OFFSET 1p
+const ARRAY_NEG_OFFSET = 1p
 
 # BigInt Header (positive offset)
 #  ├── 4 bytes, offset 0: capacity
 #  ├── 4 bytes, offset 4: length
 #  └── 8 bytes, offset 8: pointer to array (on front heap)
 
-const BINT_HEADERSIZE 16
+const BINT_HEADERSIZE = 16
 
-const BINT_CAP_OFFSET 0p
-const BINT_LEN_OFFSET 4p
-const BINT_PTR_OFFSET 8p
+const BINT_CAP_OFFSET = 0p
+const BINT_LEN_OFFSET = 4p
+const BINT_PTR_OFFSET = 8p
 
 # pointer in second word
-const BINT_BITMAP 0b01000000_00000000_00000000_00000000ul
+const BINT_BITMAP = 0b01000000_00000000_00000000_00000000ul
 
 ######################################## $UTILITARIES
 
-memory ERR_STR_OVERFLOW "overflow of string buffer\n"
+data ERR_STR_OVERFLOW "overflow of string buffer\n"
 
-memory StrBuff 1_000
+data StrBuff [1_000]
 
 proc put_bint[bint:ptr]
 var size
@@ -220,7 +220,7 @@ begin
     return ((bint+BINT_PTR_OFFSET)@ptr-ARRAY_NEG_OFFSET)@bool
 end proc
 
-const INIT_ALLOC 16
+const INIT_ALLOC = 1
 
 proc new_bint[first:i32] ptr
 var obj:ptr, array:ptr, len:i32
@@ -373,7 +373,7 @@ end proc
 
 ######################################## $ABSOLUTE ARITHMETIC
 
-const MAXITER 33
+const MAXITER = 33
 
 # abs_div computes the solution to A = Q*B + Rem
 # (where A, B are given and Q, Rem are output pointers)
@@ -818,9 +818,9 @@ begin
     set (array-ARRAY_NEG_OFFSET)@bool = false
 end proc
 
-const EQ 0
-const MORE 1
-const LESS 2
+const EQ = 0
+const MORE = 1
+const LESS = 2
 
 # iA and iB need not to be different objects
 proc abs_comp[iA:ptr, iB:ptr] i64

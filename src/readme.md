@@ -1,4 +1,4 @@
-# Compiler structure 
+# Compiler structure (OUTDATED) 
 
 The following is a folder tree together with the lines of code
 in each directory, each package is a single file,

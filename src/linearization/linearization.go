@@ -9,10 +9,13 @@ import (
 	T "mpc/pir/types"
 	RIU "mpc/pir/util"
 
-	ir "mpc/core/module"
-	lex "mpc/core/module/lexkind"
+	mod "mpc/core/module"
+	lk "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
 	msg "mpc/messages"
+
+	"fmt"
+	"math/big"
 	"strconv"
 )
 
@@ -21,14 +24,14 @@ type context struct {
 	symbolMap map[string]pir.SymbolID
 
 	PirProc *pir.Procedure
-	ModProc *ir.Proc
+	ModProc *mod.Proc
 
 	CurrBlock *pir.BasicBlock
 
-	TempCounter uint64
+	TempCounter int64
 }
 
-func newContext(M *ir.Module) *context {
+func newContext(M *mod.Module) *context {
 	return &context{
 		Program:     pir.NewProgram(),
 		symbolMap:   map[string]pir.SymbolID{},
@@ -51,7 +54,7 @@ func (c *context) AllocTemp(t *T.Type) pir.Operand {
 	op := pir.Operand{
 		Class: pirc.Temp,
 		Type:  t,
-		Num:   c.TempCounter,
+		ID:    c.TempCounter,
 	}
 	c.TempCounter++
 	return op
@@ -62,13 +65,19 @@ func (c *context) GetSymbolID(modName string, name string) pir.SymbolID {
 }
 
 func (c *context) GetSymbol(modName string, name string) *pir.Symbol {
-	i := c.symbolMap[modName+"_"+name]
+	i, ok := c.symbolMap[modName+"_"+name]
+	if !ok {
+		fmt.Println(modName + "_" + name)
+		fmt.Println(c.symbolMap)
+		panic("name not found in symbol map")
+	}
 	return c.Program.Symbols[i]
 }
 
-func Generate(M *ir.Module) (*pir.Program, *Error) {
+func Generate(M *mod.Module) (*pir.Program, *Error) {
 	c := newContext(M)
 
+	M.ResetVisited()
 	declAll(c, M)
 	M.ResetVisited()
 
@@ -89,7 +98,7 @@ func Generate(M *ir.Module) (*pir.Program, *Error) {
 	return c.Program, nil
 }
 
-func declAll(c *context, M *ir.Module) {
+func declAll(c *context, M *mod.Module) {
 	if M.Visited {
 		return
 	}
@@ -103,8 +112,8 @@ func declAll(c *context, M *ir.Module) {
 				p := newPirProc(M.Name, sy.Proc)
 				i := c.Program.AddProc(p)
 				c.symbolMap[p.Label] = pir.SymbolID(i)
-			} else if sy.T == ST.Mem {
-				m := newPirMem(M.Name, sy.Mem)
+			} else if sy.T == ST.Data {
+				m := newPirMem(M.Name, sy.Data)
 				i := c.Program.AddMem(m)
 				c.symbolMap[m.Label] = pir.SymbolID(i)
 			} else if sy.T == ST.Builtin {
@@ -116,7 +125,7 @@ func declAll(c *context, M *ir.Module) {
 	}
 }
 
-func genAll(c *context, M *ir.Module) *Error {
+func genAll(c *context, M *mod.Module) *Error {
 	if M.Visited {
 		return nil
 	}
@@ -140,7 +149,7 @@ func genAll(c *context, M *ir.Module) *Error {
 	return nil
 }
 
-func genProc(c *context, M *ir.Module, proc *ir.Proc) *Error {
+func genProc(c *context, M *mod.Module, proc *mod.Proc) *Error {
 	c.ModProc = proc
 	c.PirProc = c.GetSymbol(M.Name, proc.Name).Proc
 
@@ -167,19 +176,19 @@ func setReturn(b *pir.BasicBlock) {
 	b.Return([]pir.Operand{})
 }
 
-func genBlock(M *ir.Module, c *context, body *ir.Node) {
+func genBlock(M *mod.Module, c *context, body *mod.Node) {
 	for _, code := range body.Leaves {
 		switch code.Lex {
-		case lex.IF:
+		case lk.IF:
 			genIf(M, c, code)
-		case lex.WHILE:
+		case lk.WHILE:
 			genWhile(M, c, code)
-		case lex.SET:
+		case lk.SET:
 			genSet(M, c, code)
-		case lex.RETURN:
+		case lk.RETURN:
 			genReturn(M, c, code)
 			return
-		case lex.EXIT:
+		case lk.EXIT:
 			genExit(M, c, code)
 			return
 		default:
@@ -188,7 +197,7 @@ func genBlock(M *ir.Module, c *context, body *ir.Node) {
 	}
 }
 
-func genIf(M *ir.Module, c *context, if_ *ir.Node) {
+func genIf(M *mod.Module, c *context, if_ *mod.Node) {
 	exp := if_.Leaves[0]
 	block := if_.Leaves[1]
 	elseifchain := if_.Leaves[2]
@@ -225,7 +234,7 @@ func genIf(M *ir.Module, c *context, if_ *ir.Node) {
 	c.CurrBlock = outbl
 }
 
-func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outblID pir.BlockID) {
+func genElseIfChain(M *mod.Module, c *context, elseifchain *mod.Node, outblID pir.BlockID) {
 	for _, elseif := range elseifchain.Leaves {
 		exp := elseif.Leaves[0]
 		block := elseif.Leaves[1]
@@ -244,7 +253,7 @@ func genElseIfChain(M *ir.Module, c *context, elseifchain *ir.Node, outblID pir.
 	}
 }
 
-func genWhile(M *ir.Module, c *context, while *ir.Node) {
+func genWhile(M *mod.Module, c *context, while *mod.Node) {
 	loop_startID, loop_start := c.NewBlock()
 	loop_bodyID, loop_body := c.NewBlock()
 	loop_endID, loop_end := c.NewBlock()
@@ -264,7 +273,7 @@ func genWhile(M *ir.Module, c *context, while *ir.Node) {
 	c.CurrBlock = loop_end
 }
 
-func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
+func genReturn(M *mod.Module, c *context, return_ *mod.Node) {
 	if c.CurrBlock.IsTerminal() {
 		return
 	}
@@ -276,13 +285,13 @@ func genReturn(M *ir.Module, c *context, return_ *ir.Node) {
 	c.CurrBlock.Return(operands)
 }
 
-func genExit(M *ir.Module, c *context, exit_ *ir.Node) {
+func genExit(M *mod.Module, c *context, exit_ *mod.Node) {
 	ret := exit_.Leaves[0]
 	op := genExpr(M, c, ret)
 	c.CurrBlock.Exit(op)
 }
 
-func genSet(M *ir.Module, c *context, set *ir.Node) {
+func genSet(M *mod.Module, c *context, set *mod.Node) {
 	assignees := set.Leaves[0]
 	op := set.Leaves[1]
 	expr := set.Leaves[2]
@@ -296,8 +305,8 @@ func genSet(M *ir.Module, c *context, set *ir.Node) {
 	return
 }
 
-func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
-	if call.Lex != lex.CALL {
+func genMultiProcAssign(M *mod.Module, c *context, assignees, call *mod.Node) {
+	if call.Lex != lk.CALL {
 		panic("must be CALL:\n" + call.String())
 	}
 	// TODO: OPT: pass assignees to genCall so that no copying needs to happen
@@ -306,21 +315,14 @@ func genMultiProcAssign(M *ir.Module, c *context, assignees, call *ir.Node) {
 	genLoadAssignRets(M, c, assignees, rets)
 }
 
-func genIntOp(num uint64) *pir.Operand {
-	return &pir.Operand{
-		Class: pirc.Lit,
-		Num:   num,
-	}
-}
-
-func genLoadAssignRets(M *ir.Module, c *context, assignees *ir.Node, ops []pir.Operand) {
+func genLoadAssignRets(M *mod.Module, c *context, assignees *mod.Node, ops []pir.Operand) {
 	for i, ass := range assignees.Leaves {
 		op := ops[i]
-		if ass.Lex == lex.IDENTIFIER {
+		if ass.Lex == lk.IDENTIFIER {
 			genCallAssign(M, c, ass, op)
 			continue
 		}
-		if ass.Lex == lex.AT {
+		if ass.Lex == lk.AT {
 			genCallAssignMem(M, c, ass, op)
 			continue
 		}
@@ -338,7 +340,7 @@ func genCallInstr(c *context, proc pir.Operand, args, rets []pir.Operand) {
 	c.CurrBlock.AddInstr(iCall)
 }
 
-func genArgs(M *ir.Module, c *context, args *ir.Node) []pir.Operand {
+func genArgs(M *mod.Module, c *context, args *mod.Node) []pir.Operand {
 	output := []pir.Operand{}
 	for _, arg := range args.Leaves {
 		res := genExpr(M, c, arg)
@@ -347,7 +349,7 @@ func genArgs(M *ir.Module, c *context, args *ir.Node) []pir.Operand {
 	return output
 }
 
-func genRets(M *ir.Module, c *context, proc pir.Operand) []pir.Operand {
+func genRets(M *mod.Module, c *context, proc pir.Operand) []pir.Operand {
 	output := []pir.Operand{}
 	for _, ret := range proc.Type.Proc.Rets {
 		op := c.AllocTemp(ret)
@@ -356,21 +358,21 @@ func genRets(M *ir.Module, c *context, proc pir.Operand) []pir.Operand {
 	return output
 }
 
-func genCallAssign(M *ir.Module, c *context, ass *ir.Node, op pir.Operand) {
+func genCallAssign(M *mod.Module, c *context, ass *mod.Node, op pir.Operand) {
 	dest := genExprID(M, c, ass)
 	// TODO: OPT: try to avoid this COPY instruction
 	loadRet := RIU.Copy(op, dest)
 	c.CurrBlock.AddInstr(loadRet)
 }
 
-func genCallAssignMem(M *ir.Module, c *context, ass *ir.Node, op pir.Operand) {
+func genCallAssignMem(M *mod.Module, c *context, ass *mod.Node, op pir.Operand) {
 	ptrOp := genExpr(M, c, ass.Leaves[1])
 	loadPtr := RIU.StorePtr(op, ptrOp)
 	c.CurrBlock.AddInstr(loadPtr)
 }
 
-func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.LexKind) {
-	if assignee.Lex == lex.IDENTIFIER {
+func genSingleAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op lk.LexKind) {
+	if assignee.Lex == lk.IDENTIFIER {
 		genNormalAssign(M, c, assignee, expr, op)
 		return
 	}
@@ -378,10 +380,10 @@ func genSingleAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.L
 	return
 }
 
-func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.LexKind) {
+func genNormalAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op lk.LexKind) {
 	dest := genExprID(M, c, assignee)
 	exp := genExpr(M, c, expr)
-	if op == lex.ASSIGNMENT {
+	if op == lk.ASSIGNMENT {
 		// TODO: OPT: Try to avoid this COPY instruction
 		cp := RIU.Copy(exp, dest)
 		c.CurrBlock.AddInstr(cp)
@@ -397,28 +399,28 @@ func genNormalAssign(M *ir.Module, c *context, assignee, expr *ir.Node, op lex.L
 	c.CurrBlock.AddInstr(instr)
 }
 
-func mapOpToInstr(l lex.LexKind) IT.InstrKind {
+func mapOpToInstr(l lk.LexKind) IT.InstrKind {
 	switch l {
-	case lex.PLUS_ASSIGN:
+	case lk.PLUS_ASSIGN:
 		return IT.Add
-	case lex.MINUS_ASSIGN:
+	case lk.MINUS_ASSIGN:
 		return IT.Sub
-	case lex.MULTIPLICATION_ASSIGN:
+	case lk.MULTIPLICATION_ASSIGN:
 		return IT.Mult
-	case lex.DIVISION_ASSIGN:
+	case lk.DIVISION_ASSIGN:
 		return IT.Div
-	case lex.REMAINDER_ASSIGN:
+	case lk.REMAINDER_ASSIGN:
 		return IT.Rem
 	}
 	panic(l)
 }
 
-func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.LexKind) {
+func genDerefAssign(M *mod.Module, c *context, left, right *mod.Node, op lk.LexKind) {
 	leftExpr := left.Leaves[1]
 	leftType := left.Leaves[0]
 	rightOp := genExpr(M, c, right)
 	leftOp := genExpr(M, c, leftExpr)
-	if op == lex.ASSIGNMENT {
+	if op == lk.ASSIGNMENT {
 		store := RIU.StorePtr(rightOp, leftOp)
 		c.CurrBlock.AddInstr(store)
 		return
@@ -442,50 +444,50 @@ func genDerefAssign(M *ir.Module, c *context, left, right *ir.Node, op lex.LexKi
 	c.CurrBlock.AddInstr(store) // store temp2 -> left
 }
 
-func genExpr(M *ir.Module, c *context, exp *ir.Node) pir.Operand {
+func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
 	if T.IsInvalid(exp.T) {
 		panic("invalid type at: " + exp.Text)
 	}
 	switch exp.Lex {
-	case lex.IDENTIFIER:
+	case lk.IDENTIFIER:
 		return genExprID(M, c, exp)
-	case lex.SIZEOF:
+	case lk.SIZEOF:
 		return genSizeOfNum(exp)
-	case lex.DOUBLECOLON:
+	case lk.DOUBLECOLON:
 		return genExternalID(c, M, exp)
-	case lex.FALSE, lex.TRUE:
+	case lk.FALSE, lk.TRUE:
 		return genBoolLit(M, c, exp)
-	case lex.PTR_LIT, lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
-		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT, lex.CHAR_LIT:
+	case lk.PTR_LIT, lk.I64_LIT, lk.I32_LIT, lk.I16_LIT, lk.I8_LIT,
+		lk.U64_LIT, lk.U32_LIT, lk.U16_LIT, lk.U8_LIT, lk.CHAR_LIT:
 		return genNumLit(M, c, exp)
-	case lex.PLUS, lex.MINUS:
+	case lk.PLUS, lk.MINUS:
 		return genBinaryOp(M, c, exp)
-	case lex.MULTIPLICATION, lex.DIVISION, lex.REMAINDER,
-		lex.EQUALS, lex.DIFFERENT,
-		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
-		lex.AND, lex.OR, lex.SHIFTLEFT, lex.SHIFTRIGHT,
-		lex.BITWISEAND, lex.BITWISEOR, lex.BITWISEXOR:
+	case lk.MULTIPLICATION, lk.DIVISION, lk.REMAINDER,
+		lk.EQUALS, lk.DIFFERENT,
+		lk.MORE, lk.MOREEQ, lk.LESS, lk.LESSEQ,
+		lk.AND, lk.OR, lk.SHIFTLEFT, lk.SHIFTRIGHT,
+		lk.BITWISEAND, lk.BITWISEOR, lk.BITWISEXOR:
 		return genBinaryOp(M, c, exp)
-	case lex.COLON:
+	case lk.COLON:
 		return genConversion(M, c, exp)
-	case lex.CALL:
+	case lk.CALL:
 		out := genCall(M, c, exp)
 		if len(out) == 1 {
 			return out[0]
 		}
 		return pir.Operand{}
-	case lex.AT:
+	case lk.AT:
 		return genDeref(M, c, exp)
-	case lex.NOT, lex.NEG, lex.BITWISENOT:
+	case lk.NOT, lk.NEG, lk.BITWISENOT:
 		return genUnaryOp(M, c, exp)
-	case lex.DOT:
+	case lk.DOT:
 		return genDot(M, c, exp)
 	}
 	panic("invalid or unimplemented expression type: " + exp.Text)
 }
 
 // assume a single return
-func genCall(M *ir.Module, c *context, call *ir.Node) []pir.Operand {
+func genCall(M *mod.Module, c *context, call *mod.Node) []pir.Operand {
 	proc := call.Leaves[1]
 	args := call.Leaves[0]
 
@@ -498,7 +500,7 @@ func genCall(M *ir.Module, c *context, call *ir.Node) []pir.Operand {
 	return retOps
 }
 
-func genDeref(M *ir.Module, c *context, memAccess *ir.Node) pir.Operand {
+func genDeref(M *mod.Module, c *context, memAccess *mod.Node) pir.Operand {
 	t := memAccess.Leaves[0].T
 	exp := memAccess.Leaves[1]
 
@@ -511,7 +513,7 @@ func genDeref(M *ir.Module, c *context, memAccess *ir.Node) pir.Operand {
 	return dest
 }
 
-func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) pir.Operand {
+func genExternalID(c *context, M *mod.Module, dcolon *mod.Node) pir.Operand {
 	mod := dcolon.Leaves[0].Text
 	id := dcolon.Leaves[1].Text
 	otherM := M.Dependencies[mod].M
@@ -519,13 +521,13 @@ func genExternalID(c *context, M *ir.Module, dcolon *ir.Node) pir.Operand {
 	return globalToOperand(c, M, sy)
 }
 
-func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
+func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 	decl, ok := c.ModProc.Vars[id.Text]
 	if ok {
 		return pir.Operand{
 			Class: pirc.Local,
 			Type:  id.T,
-			Num:   uint64(decl.Position),
+			ID:    int64(decl.Position),
 		}
 	}
 	posSy, ok := c.ModProc.ArgMap[id.Text]
@@ -533,7 +535,7 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
 		return pir.Operand{
 			Class: pirc.Arg,
 			Type:  id.T,
-			Num:   uint64(posSy.Position),
+			ID:    int64(posSy.Position),
 		}
 	}
 	global, ok := M.Globals[id.Text]
@@ -543,51 +545,53 @@ func genExprID(M *ir.Module, c *context, id *ir.Node) pir.Operand {
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(c *context, M *ir.Module, global *ir.Symbol) pir.Operand {
+func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand {
 	if global.External {
 		global = M.GetSymbol(global.Name)
 	}
-	i := uint64(c.symbolMap[global.ModuleName+"_"+global.Name])
+	i := int64(c.symbolMap[global.ModuleName+"_"+global.Name])
 	switch global.T {
 	case ST.Builtin:
 		return pir.Operand{
 			Class: pirc.Global,
 			Type:  global.Type,
-			Num:   i,
+			ID:    i,
 		}
 	case ST.Proc:
 		return pir.Operand{
 			Class: pirc.Global,
 			Type:  global.N.T,
-			Num:   i,
+			ID:    i,
 		}
-	case ST.Mem:
+	case ST.Data:
 		return pir.Operand{
 			Class: pirc.Global,
 			Type:  T.T_Ptr,
-			Num:   i,
+			ID:    i,
 		}
 	case ST.Const:
 		return pir.Operand{
 			Class: pirc.Lit,
 			Type:  global.Type,
+			ID:    -1,
 			Num:   global.Const.Value,
 		}
 	}
 	panic("wht jus heppn?")
 }
 
-func genSizeOfNum(sizeof *ir.Node) pir.Operand {
+func genSizeOfNum(sizeof *mod.Node) pir.Operand {
 	t := sizeof.Leaves[0]
-	size := t.T.Size()
+	size := big.NewInt(int64(t.T.Size()))
 	return pir.Operand{
 		Class: pirc.Lit,
 		Type:  sizeof.T,
-		Num:   uint64(size),
+		ID:    -1,
+		Num:   size,
 	}
 }
 
-func genConversion(M *ir.Module, c *context, colon *ir.Node) pir.Operand {
+func genConversion(M *mod.Module, c *context, colon *mod.Node) pir.Operand {
 	a := genExpr(M, c, colon.Leaves[1])
 	dest := c.AllocTemp(colon.T)
 	instr := RIU.Convert(a, dest)
@@ -595,27 +599,29 @@ func genConversion(M *ir.Module, c *context, colon *ir.Node) pir.Operand {
 	return dest
 }
 
-func genNumLit(M *ir.Module, c *context, lit *ir.Node) pir.Operand {
+func genNumLit(M *mod.Module, c *context, lit *mod.Node) pir.Operand {
 	return pir.Operand{
 		Class: pirc.Lit,
 		Type:  lit.T,
+		ID:    -1,
 		Num:   lit.Value,
 	}
 }
 
-func genBoolLit(M *ir.Module, c *context, lit *ir.Node) pir.Operand {
-	value := 0
-	if lit.Lex == lex.TRUE {
-		value = 1
+func genBoolLit(M *mod.Module, c *context, lit *mod.Node) pir.Operand {
+	value := big.NewInt(0)
+	if lit.Lex == lk.TRUE {
+		value.SetInt64(1)
 	}
 	return pir.Operand{
 		Class: pirc.Lit,
 		Type:  lit.T,
-		Num:   uint64(value),
+		ID:    -1,
+		Num:   value,
 	}
 }
 
-func genBinaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
+func genBinaryOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	it := lexToBinaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	b := genExpr(M, c, op.Leaves[1])
@@ -630,49 +636,49 @@ func genBinaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
 	return dest
 }
 
-func lexToBinaryOp(op lex.LexKind) IT.InstrKind {
+func lexToBinaryOp(op lk.LexKind) IT.InstrKind {
 	switch op {
-	case lex.MINUS:
+	case lk.MINUS:
 		return IT.Sub
-	case lex.PLUS:
+	case lk.PLUS:
 		return IT.Add
-	case lex.MULTIPLICATION:
+	case lk.MULTIPLICATION:
 		return IT.Mult
-	case lex.DIVISION:
+	case lk.DIVISION:
 		return IT.Div
-	case lex.REMAINDER:
+	case lk.REMAINDER:
 		return IT.Rem
-	case lex.EQUALS:
+	case lk.EQUALS:
 		return IT.Eq
-	case lex.DIFFERENT:
+	case lk.DIFFERENT:
 		return IT.Diff
-	case lex.MORE:
+	case lk.MORE:
 		return IT.More
-	case lex.MOREEQ:
+	case lk.MOREEQ:
 		return IT.MoreEq
-	case lex.LESS:
+	case lk.LESS:
 		return IT.Less
-	case lex.LESSEQ:
+	case lk.LESSEQ:
 		return IT.LessEq
-	case lex.AND:
+	case lk.AND:
 		return IT.And
-	case lex.OR:
+	case lk.OR:
 		return IT.Or
-	case lex.SHIFTLEFT:
+	case lk.SHIFTLEFT:
 		return IT.ShiftLeft
-	case lex.SHIFTRIGHT:
+	case lk.SHIFTRIGHT:
 		return IT.ShiftRight
-	case lex.BITWISEAND:
+	case lk.BITWISEAND:
 		return IT.And
-	case lex.BITWISEOR:
+	case lk.BITWISEOR:
 		return IT.Or
-	case lex.BITWISEXOR:
+	case lk.BITWISEXOR:
 		return IT.Xor
 	}
-	panic("lexToBinaryOp: unexpected binOp: " + lex.FmtTypes(op))
+	panic("lexToBinaryOp: unexpected binOp: " + lk.FmtTypes(op))
 }
 
-func genUnaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
+func genUnaryOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	it := lexToUnaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	dest := c.AllocTemp(op.T)
@@ -686,29 +692,42 @@ func genUnaryOp(M *ir.Module, c *context, op *ir.Node) pir.Operand {
 	return dest
 }
 
-func lexToUnaryOp(op lex.LexKind) IT.InstrKind {
+func lexToUnaryOp(op lk.LexKind) IT.InstrKind {
 	switch op {
-	case lex.NEG:
+	case lk.NEG:
 		return IT.Neg
-	case lex.NOT:
+	case lk.NOT:
 		return IT.Not
-	case lex.BITWISENOT:
+	case lk.BITWISENOT:
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected unaryOp")
 }
 
-func genDot(M *ir.Module, c *context, dot *ir.Node) pir.Operand {
-	mem := dot.Leaves[1]
-	s := M.GetSymbol(mem.Text)
+func genDot(M *mod.Module, c *context, dot *mod.Node) pir.Operand {
+	left := dot.Leaves[1]
+	prop := dot.Leaves[0]
+	if prop.Text != "size" {
+		panic("bad property 2")
+	}
+	var s *mod.Symbol
+	switch left.Lex {
+	case lk.IDENTIFIER:
+		s = M.GetSymbol(left.Text)
+	case lk.DOUBLECOLON:
+		module := left.Leaves[0].Text
+		id := left.Leaves[1].Text
+		s = M.GetExternalSymbol(module, id)
+	}
 	return pir.Operand{
 		Class: pirc.Lit,
 		Type:  T.T_I64,
-		Num:   uint64(s.Mem.Size),
+		ID:    -1,
+		Num:   s.Data.Size,
 	}
 }
 
-func newBuiltin(sy *ir.Symbol) *pir.Procedure {
+func newBuiltin(sy *mod.Symbol) *pir.Procedure {
 	rets := sy.Type.Proc.Rets
 	args := sy.Type.Proc.Args
 	return &pir.Procedure{
@@ -719,7 +738,7 @@ func newBuiltin(sy *ir.Symbol) *pir.Procedure {
 	}
 }
 
-func newPirProc(modName string, P *ir.Proc) *pir.Procedure {
+func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
 	args := []*T.Type{}
 	for _, arg := range P.Args {
 		args = append(args, arg.Type)
@@ -736,8 +755,8 @@ func newPirProc(modName string, P *ir.Proc) *pir.Procedure {
 	}
 }
 
-func newPirMem(modName string, M *ir.Mem) *pir.MemoryDecl {
-	return &pir.MemoryDecl{
+func newPirMem(modName string, M *mod.Data) *pir.DataDecl {
+	return &pir.DataDecl{
 		Label: modName + "_" + M.Name,
 		Size:  M.Size,
 		Data:  M.Contents,

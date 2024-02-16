@@ -6,14 +6,14 @@ func (s SymbolKind) String() string {
 	switch s {
 	case Proc:
 		return "proc"
-	case Mem:
-		return "mem"
+	case Data:
+		return "data"
 	case Var:
-		return "Var"
+		return "var"
 	case Arg:
-		return "Arg"
+		return "arg"
 	case Module:
-		return "Module"
+		return "module"
 	}
 	return "??"
 }
@@ -23,7 +23,7 @@ const (
 
 	Proc
 	Builtin
-	Mem
+	Data
 	Const
 	Var
 	Arg

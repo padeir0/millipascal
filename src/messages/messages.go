@@ -1,9 +1,11 @@
 package messages
 
 import (
+	"math/big"
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
+	sv "mpc/core/severity"
 	. "mpc/core/util"
 	T "mpc/pir/types"
 	"strconv"
@@ -83,8 +85,8 @@ func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *
 	return NewSemanticError(M, et.MismatchedReturnType, retN, "mismatched type in return, has type: "+retN.T.String()+"expected type: "+ret.String())
 }
 
-func ErrorExpectedMem(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.ExpectedMem, n, "is not a memory region")
+func ErrorExpectedData(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.ExpectedData, n, "is not a data region")
 }
 
 func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Symbol, n *ir.Node, left *ir.Node) *Error {
@@ -126,8 +128,8 @@ func ExitMustBeI8(M *ir.Module, exp *ir.Node) *Error {
 	return NewSemanticError(M, et.ExitMustBeI8, exp, "exit must be type i8 (type: "+exp.T.String()+")")
 }
 
-func ErrorPtrCantBeUsedAsMemSize(M *ir.Module, init *ir.Node) *Error {
-	return NewSemanticError(M, et.PtrCantBeUsedAsMemSize, init, "can't use pointer type as size of memory")
+func ErrorPtrCantBeUsedAsDataSize(M *ir.Module, init *ir.Node) *Error {
+	return NewSemanticError(M, et.PtrCantBeUsedAsDataSize, init, "can't use pointer type as size of data")
 }
 
 func ErrorInvalidProp(M *ir.Module, n *ir.Node) *Error {
@@ -153,8 +155,9 @@ func AmbiguousFilesInFolder(M *ir.Module, n *ir.Node, found []string, modID stri
 		return NewSemanticError(M, et.AmbiguousModuleName, n, msg)
 	}
 	return &Error{
-		Code:    et.AmbiguousModuleName,
-		Message: msg,
+		Code:     et.AmbiguousModuleName,
+		Severity: sv.Error,
+		Message:  msg,
 	}
 }
 
@@ -170,13 +173,40 @@ func ModuleNotFound(M *ir.Module, n *ir.Node, baseFolder string, modID string) *
 }
 
 func ErrorInvalidDependencyCycle(M *ir.Module, prev []*ir.Dependency, dep *ir.Dependency) *Error {
-	msg := dep.M.Name + ": forms a invalid cycle"
+	msg := "'" + dep.M.Name + "' forms a invalid cycle: ("
 	for _, item := range prev {
-		msg += item.M.Name + ": is imported by ^\n"
+		msg += item.M.Name + ", "
 	}
+	msg += dep.M.Name + ")"
 	return NewSemanticError(M, et.InvalidDependencyCycle, dep.Source, msg)
+}
+
+func ErrorInvalidSymbolCycle(M *ir.Module, prev []*ir.Symbol, sy *ir.Symbol) *Error {
+	msg := "'" + sy.Name + "' forms a invalid cycle ("
+	for _, item := range prev {
+		msg += item.Name + ", "
+	}
+	msg += sy.Name + ")"
+	return NewSemanticError(M, et.InvalidSymbolCycle, sy.N, msg)
 }
 
 func ExpectedBool(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedBool, n, "expected expression of bool type, instead got: "+n.T.String())
+}
+
+func NonConstExpr(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.NonConstExpr, n, "expression is not compile-time constant")
+}
+
+func CannotUseStringInExpr(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.CannotUseStringInExpr, n, "string literals can't be used inside expressions")
+}
+
+func InvalidTypeForConst(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidTypeForConst, n, "invalid type for constant, must be of a basic type")
+}
+
+func ValueOutOfBounds(M *ir.Module, n *ir.Node, res *big.Int) *Error {
+	msg := "value '" + res.Text(10) + "' is too big for constant type"
+	return NewSemanticError(M, et.ValueOutOfBounds, n, msg)
 }

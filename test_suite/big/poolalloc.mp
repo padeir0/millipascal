@@ -11,23 +11,23 @@ import
 export
 	Init, Alloc, Free
 
-const NULL 0p
-const MIN_CHUNK_SIZE 8
+const NULL = 0p
+const MIN_CHUNK_SIZE = 8
 
-memory Pool 1024 # 8KB
-memory Head 8
-memory Tail 8
-memory ChunkSize 8
+data Pool [1024] # 8KB
+data Head [8]
+data Tail [8]
+data ChunkSize [8]
 
-const FULL  1ss
-const EMPTY 0ss
-memory ByteMap 128 # Pool.size/MIN_CHUNK_SIZE
+const FULL = 1ss
+const EMPTY = 0ss
+data ByteMap [128] # Pool.size/MIN_CHUNK_SIZE
 
-memory ERRCHUNK "Chunk too small (minimum 8 bytes)\n"
-memory ERRBOUNDS "Pointer to be freed is out of bounds\n"
-memory ERRALIGN "Pointer to be freed is out of alignment\n"
+data ERRCHUNK "Chunk too small (minimum 8 bytes)\n"
+data ERRBOUNDS "Pointer to be freed is out of bounds\n"
+data ERRALIGN "Pointer to be freed is out of alignment\n"
 
-memory test 512
+data test [512]
 
 proc main
 var a:ptr, i, out:ptr

@@ -6,6 +6,8 @@ import (
 	FT "mpc/pir/flowkind"
 	IT "mpc/pir/instrkind"
 	T "mpc/pir/types"
+
+	"math/big"
 	"strconv"
 	"strings"
 )
@@ -31,7 +33,7 @@ func (this *Program) AddProc(p *Procedure) int {
 	return index
 }
 
-func (this *Program) AddMem(m *MemoryDecl) int {
+func (this *Program) AddMem(m *DataDecl) int {
 	index := len(this.Symbols)
 	this.Symbols = append(this.Symbols, &Symbol{Mem: m})
 	return index
@@ -54,7 +56,7 @@ func NewProgram() *Program {
 
 type Symbol struct {
 	Proc    *Procedure
-	Mem     *MemoryDecl
+	Mem     *DataDecl
 	Builtin bool
 }
 
@@ -68,17 +70,17 @@ func (this *Symbol) String() string {
 	return this.Mem.String()
 }
 
-type MemoryDecl struct {
+type DataDecl struct {
 	Label string
 	Data  string
-	Size  uint64
+	Size  *big.Int
 }
 
-func (this *MemoryDecl) String() string {
+func (this *DataDecl) String() string {
 	if this.Data != "" {
 		return this.Label + ": " + this.Data
 	}
-	return this.Label + ": " + strconv.FormatUint(this.Size, 10)
+	return this.Label + ": " + this.Size.Text(10)
 }
 
 type Procedure struct {
@@ -263,14 +265,15 @@ func (this *Flow) StrRets() string {
 type Operand struct {
 	Class hirc.Class
 	Type  *T.Type
-	Num   uint64
+	ID    int64
+	Num   *big.Int
 }
 
 func (this *Operand) String() string {
 	if this == nil {
 		return "nil"
 	}
-	value := strconv.FormatUint(this.Num, 10)
+	value := strconv.FormatInt(this.ID, 10)
 	switch this.Class {
 	case hirc.Temp:
 		return "'" + value + ":" + this.Type.String()
@@ -281,7 +284,7 @@ func (this *Operand) String() string {
 	case hirc.Global:
 		return "global#" + value + ":" + this.Type.String()
 	case hirc.Lit:
-		return value
+		return this.Num.Text(10)
 	}
 	return "?"
 }

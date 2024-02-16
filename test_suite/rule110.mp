@@ -1,6 +1,6 @@
-memory buff1 102
-memory buff2 102
-memory here "here\n"
+data buff1 [102]
+data buff2 [102]
+data here "here\n"
 
 proc main
 var gen, b1:ptr, b2:ptr, b3:ptr
@@ -116,7 +116,7 @@ begin
 	write[here, here.size]
 end proc
 
-memory pchar_buff 1
+data pchar_buff [1]
 
 proc putchar[n:i8]
 begin
@@ -131,7 +131,7 @@ begin
 	write[p, size]
 end proc
 
-memory itoa_buff 32
+data itoa_buff [32]
 
 proc itoa[n] ptr, i64
 var p:ptr, signal:i8

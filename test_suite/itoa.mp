@@ -1,9 +1,9 @@
-memory result0 "32"
-memory result1 "-32"
-memory result2 "1"
-memory result3 "0"
-memory result4 "1000"
-memory result5 "-1000"
+data result0 "32"
+data result1 "-32"
+data result2 "1"
+data result3 "0"
+data result4 "1000"
+data result5 "-1000"
 
 proc main
 var p:ptr, size
@@ -60,7 +60,7 @@ begin
 	return true
 end proc
 
-memory itoa_buff 32
+data itoa_buff [32]
 
 # do not modify the returned buffer
 proc itoa[n] ptr, i64

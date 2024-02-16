@@ -35,19 +35,19 @@ export
 # - 4 bytes i32 index to start of string
 # - 4 bytes i32 byte length of string
 
-const STR_HEADER_SIZE 16
+const STR_HEADER_SIZE = 16
 
 # positive offset
-const STR_PTR_OFFSET 0p   # ptr
-const STR_START_OFFSET 8p # i32
-const STR_SIZE_OFFSET 12p  # i32
+const STR_PTR_OFFSET = 0p   # ptr
+const STR_START_OFFSET = 8p # i32
+const STR_SIZE_OFFSET = 12p  # i32
 
 proc main
 begin
 end proc
 
 # pointer in the first word
-const STR_BITMAP 0b10000000_00000000_00000000_00000000ul
+const STR_BITMAP = 0b10000000_00000000_00000000_00000000ul
 
 # creates an empty string
 proc new_str[] ptr
@@ -94,7 +94,7 @@ begin
     write[(array+start:ptr), size:i64]
 end proc
 
-memory NULL_STR "NULL"
+data NULL_STR "NULL"
 
 proc put_str_debug[str:ptr]
 begin

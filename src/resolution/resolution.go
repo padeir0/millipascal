@@ -311,6 +311,8 @@ func resolve(M *ir.Module) *Error {
 		}
 	}
 
+	addBuiltins(M)
+
 	err := createImportedSymbols(M)
 	if err != nil {
 		return err
@@ -321,12 +323,33 @@ func resolve(M *ir.Module) *Error {
 		return err
 	}
 
+	err = resolveGlobalDepGraph(M)
+	if err != nil {
+		return err
+	}
+
+	err = checkGlobalCycles(M)
+	if err != nil {
+		return err
+	}
+
 	err = checkExports(M)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func addBuiltins(M *ir.Module) {
+	w := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{}}}
+	r := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{T.T_I64}}}
+	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: w, Proc: nil}
+	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: w, Proc: nil}
+	read := &ir.Symbol{Name: "read", T: ST.Builtin, Type: r, Proc: nil}
+	M.Globals["write"] = write
+	M.Globals["read"] = read
+	M.Globals["error"] = error
 }
 
 func createGlobals(M *ir.Module) *Error {
@@ -462,7 +485,7 @@ func getSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 	switch n.Lex {
 	case lex.PROC:
 		return getProcSymbol(M, n)
-	case lex.MEMORY:
+	case lex.DATA:
 		return getMemSymbol(M, n)
 	case lex.CONST:
 		return getConstSymbol(M, n)
@@ -488,25 +511,24 @@ func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 
 func getMemSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 	name := getSymbolName(n)
-	mem := &ir.Mem{
+	mem := &ir.Data{
 		Name: name,
 		Init: n.Leaves[1],
 	}
 	return &ir.Symbol{
-		T:          ST.Mem,
+		T:          ST.Data,
 		Type:       T.T_Ptr,
 		Name:       name,
 		ModuleName: M.Name,
-		Mem:        mem,
+		Data:       mem,
 		N:          n,
 	}
 }
 
 func getConstSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 	name := getSymbolName(n)
-	value := n.Leaves[1]
 	c := &ir.Const{
-		Value: value.Value,
+		Value: nil,
 	}
 	return &ir.Symbol{
 		T:          ST.Const,
@@ -519,4 +541,132 @@ func getConstSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 
 func getSymbolName(n *ir.Node) string {
 	return n.Leaves[0].Text
+}
+
+func resolveGlobalDepGraph(M *ir.Module) *Error {
+	for _, sy := range M.Globals {
+		if sy.T == ST.Const {
+			err := resDepExpr(M, sy, sy.N.Leaves[1])
+			if err != nil {
+				return err
+			}
+		}
+		if sy.T == ST.Data &&
+			sy.N.Leaves[1].Lex != lex.STRING_LIT {
+			err := resDepExpr(M, sy, sy.N.Leaves[1])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func resDepExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+	switch n.Lex {
+	case lex.STRING_LIT:
+		return msg.CannotUseStringInExpr(M, n)
+	case lex.CALL, lex.AT:
+		return msg.NonConstExpr(M, n)
+	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
+		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT,
+		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.CHAR_LIT:
+		return nil // nothing to resolve here
+	case lex.SIZEOF:
+		return nil
+	case lex.DOUBLECOLON:
+		return resExternalID(M, n, true)
+	case lex.DOT:
+		return resDotExpr(M, sy, n.Leaves[1])
+	case lex.IDENTIFIER:
+		return resDepID(M, sy, n, true)
+	case lex.NEG, lex.BITWISENOT, lex.NOT:
+		return resDepExpr(M, sy, n.Leaves[0])
+	case lex.PLUS, lex.MINUS, lex.MULTIPLICATION,
+		lex.DIVISION, lex.REMAINDER, lex.BITWISEAND,
+		lex.BITWISEXOR, lex.BITWISEOR, lex.SHIFTLEFT,
+		lex.SHIFTRIGHT, lex.EQUALS, lex.DIFFERENT,
+		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
+		lex.AND, lex.OR:
+		err := resDepExpr(M, sy, n.Leaves[0])
+		if err != nil {
+			return err
+		}
+		return resDepExpr(M, sy, n.Leaves[1])
+	case lex.COLON:
+		return resDepExpr(M, sy, n.Leaves[1])
+	}
+	return nil
+}
+
+func resDotExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+	switch n.Lex {
+	case lex.IDENTIFIER:
+		return resDepID(M, sy, n, false)
+	case lex.DOUBLECOLON:
+		return resExternalID(M, n, false)
+	default:
+		panic("this should not happen")
+	}
+}
+
+func resExternalID(M *ir.Module, n *ir.Node, disallow bool) *Error {
+	module := n.Leaves[0].Text
+	name := n.Leaves[1].Text
+	sy := M.GetExternalSymbol(module, name)
+	if sy.T != ST.Const && disallow {
+		return msg.NonConstExpr(M, n)
+	}
+	return nil
+}
+
+func resDepID(M *ir.Module, sy *ir.Symbol, n *ir.Node, disallow bool) *Error {
+	other := M.GetSymbol(n.Text)
+	if other == nil {
+		return msg.ErrorNameNotDefined(M, n)
+	}
+	if other.T != ST.Const && disallow {
+		// we can't allow procedures and data declarations arbitrarely,
+		// since we don't know the addresses yet.
+		return msg.NonConstExpr(M, n)
+	}
+	if !other.External {
+		sy.Link(other)
+	}
+	return nil
+}
+
+func checkGlobalCycles(M *ir.Module) *Error {
+	for _, sy := range M.Globals {
+		prev := []*ir.Symbol{}
+		err := checkSymbolCycle(M, sy, prev)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkSymbolCycle(M *ir.Module, d *ir.Symbol, prev []*ir.Symbol) *Error {
+	if syHasVisited(prev, d) {
+		return msg.ErrorInvalidSymbolCycle(M, prev, d)
+	}
+	prev = append(prev, d)
+	top := len(prev)
+	for _, ref := range d.Refs {
+		err := checkSymbolCycle(M, ref, prev[0:top])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func syHasVisited(visited []*ir.Symbol, b *ir.Symbol) bool {
+	for _, v := range visited {
+		if b.Name == v.Name {
+			return true
+		}
+	}
+	return false
 }

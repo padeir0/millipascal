@@ -187,6 +187,10 @@ var ptr_res = Checker{
 }
 
 func checkInstr(s *state, instr hir.Instr) *Error {
+	err := checkLiterals(instr)
+	if err != nil {
+		return err
+	}
 	switch instr.T {
 	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
 		return checkArith(instr)
@@ -463,40 +467,56 @@ func checkForm(instr hir.Instr, numOperands int, hasDest bool) *Error {
 	return nil
 }
 
+func checkLiterals(instr hir.Instr) *Error {
+	for _, op := range instr.Operands {
+		if op.Class == hirc.Lit && op.Num == nil {
+			return malformedLiteral(instr, op)
+		}
+	}
+	return nil
+}
+
+func newPirError(msg string) *Error {
+	return eu.NewInternalSemanticError("pir: " + msg)
+}
+
 func malformedInstr(instr hir.Instr) *Error {
-	return eu.NewInternalSemanticError("malformed instruction: " + instr.String())
+	return newPirError("malformed instruction: " + instr.String())
 }
 func malformedEqualTypes(instr hir.Instr) *Error {
-	return eu.NewInternalSemanticError("unequal types: " + instr.String())
+	return newPirError("unequal types: " + instr.String())
 }
 func malformedTypeOrClass(instr hir.Instr) *Error {
-	return eu.NewInternalSemanticError("malformed type or class: " + instr.String())
+	return newPirError("malformed type or class: " + instr.String())
 }
 func procArgNotFound(instr hir.Instr, p *hir.Procedure) *Error {
-	return eu.NewInternalSemanticError("argument " + p.Label + " not found in: " + instr.String())
+	return newPirError("argument " + p.Label + " not found in: " + instr.String())
 }
 func procInvalidNumOfArgs(instr hir.Instr, p *T.ProcType) *Error {
 	n := strconv.Itoa(len(p.Args))
 	beepBop := strconv.Itoa(len(instr.Operands) - 1)
-	return eu.NewInternalSemanticError("expected " + n + " arguments, instead found: " + beepBop)
+	return newPirError("expected " + n + " arguments, instead found: " + beepBop)
 }
 func procInvalidNumOfRets(instr hir.Instr, p *T.ProcType) *Error {
 	n := strconv.Itoa(len(p.Rets))
 	beepBop := strconv.Itoa(len(instr.Destination))
-	return eu.NewInternalSemanticError("expected " + n + " returns, instead found: " + beepBop)
+	return newPirError("expected " + n + " returns, instead found: " + beepBop)
 }
 func procBadArg(instr hir.Instr, d *T.Type, op hir.Operand) *Error {
-	return eu.NewInternalSemanticError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
+	return newPirError("argument " + op.String() + " doesn't match formal parameter (" + d.String() + ") in: " + instr.String())
 }
 func procBadRet(instr hir.Instr, d *T.Type, op hir.Operand) *Error {
-	return eu.NewInternalSemanticError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
+	return newPirError("return " + op.String() + " doesn't match formal return " + d.String() + " in: " + instr.String())
 }
 func invalidMirInstr(i hir.Instr) *Error {
-	return eu.NewInternalSemanticError("invalid MIR Instr: " + i.String())
+	return newPirError("invalid MIR Instr: " + i.String())
 }
 func invalidFlow(f hir.Flow) *Error {
-	return eu.NewInternalSemanticError("invalid flow: " + f.String())
+	return newPirError("invalid flow: " + f.String())
 }
 func expectedProc(instr hir.Instr, o hir.Operand) *Error {
-	return eu.NewInternalSemanticError("expected procedure in: " + instr.String() + ", instead found: " + o.String())
+	return newPirError("expected procedure in: " + instr.String() + ", instead found: " + o.String())
+}
+func malformedLiteral(instr hir.Instr, o hir.Operand) *Error {
+	return newPirError("malformed literal in instruction: " + instr.String())
 }

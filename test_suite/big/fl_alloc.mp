@@ -12,32 +12,32 @@ export Init, Alloc, Free
 #       ├── 2 bytes, offset -6: Tag pra tipos de união
 #       └── 4 bytes, offset -4: Bitmap de ponteiros
 
-const HEADER_SIZE 8
+const HEADER_SIZE = 8
 
 # offset negativo
-const OBJ_SIZE_OFFSET 8p
-const OBJ_TAG_OFFSET 6p
-const OBJ_BITMAP_OFFSET 4p
+const OBJ_SIZE_OFFSET = 8p
+const OBJ_TAG_OFFSET = 6p
+const OBJ_BITMAP_OFFSET = 4p
 
 # Além disso, cada nó da free-list terá 8 bytes,
 # Com os primeiros 8 bytes representando o tamanho da àrea a
 # ser alocada (em bytes)
 # e os 8 bytes sequentes sendo um ponteiro pro próximo nó
 
-const NODE_SIZE 16
+const NODE_SIZE = 16
 
-const FL_SIZE_OFFSET 0p
-const FL_NEXT_OFFSET 8p
+const FL_SIZE_OFFSET = 0p
+const FL_NEXT_OFFSET = 8p
 
-memory Heap 65536 # 64KB
-memory ByteMap 8192   # Heap.size / 8, cada byte representa uma WORD na Heap
-memory Head 8
+data Heap [65536] # 64KB
+data ByteMap [8192]   # Heap.size / 8, cada byte representa uma WORD na Heap
+data Head [8]
 
-memory UNREACHABLE "Code should not reach here!\n"
-memory OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
+data UNREACHABLE "Code should not reach here!\n"
+data OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
 
-memory test 2048
-const TOTAL_TEST_PTRS 256
+data test [2048]
+const TOTAL_TEST_PTRS = 256
 
 proc main
 var i
@@ -330,7 +330,7 @@ begin
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end proc
 
-memory msg_total_free "free: "
+data msg_total_free "free: "
 
 proc PrintList[]
 var curr:ptr, total_free

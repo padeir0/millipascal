@@ -10,16 +10,16 @@ proc main
 begin
 end proc
 
-const MAX_RUNE_SIZE 4
+const MAX_RUNE_SIZE = 4
 
-const LOWEST_7_BITS 0b0111_1111uss
-const LOWEST_6_BITS 0b0011_1111uss
-const LOWEST_5_BITS 0b0001_1111uss
-const LOWEST_4_BITS 0b0000_1111uss
-const LOWEST_3_BITS 0b0000_0111uss
+const LOWEST_7_BITS = 0b0111_1111uss
+const LOWEST_6_BITS = 0b0011_1111uss
+const LOWEST_5_BITS = 0b0001_1111uss
+const LOWEST_4_BITS = 0b0000_1111uss
+const LOWEST_3_BITS = 0b0000_0111uss
 
-const TOP_BIT 0b1000_0000uss
-const TOP_2_BITS 0b1100_0000uss
+const TOP_BIT = 0b1000_0000uss
+const TOP_2_BITS = 0b1100_0000uss
 
 proc utf8_decode[p:ptr] i32, i64
 begin
@@ -54,19 +54,19 @@ begin
     return ~1l, 0
 end proc
 
-const RANGE_S_1 0x0000_0000l
-const RANGE_E_1 0x0000_007Fl
+const RANGE_S_1 = 0x0000_0000l
+const RANGE_E_1 = 0x0000_007Fl
 
-const RANGE_S_2 0x0000_0080l
-const RANGE_E_2 0x0000_07FFl
+const RANGE_S_2 = 0x0000_0080l
+const RANGE_E_2 = 0x0000_07FFl
 
-const RANGE_S_3 0x0000_0800l
-const RANGE_E_3 0x0000_FFFFl
+const RANGE_S_3 = 0x0000_0800l
+const RANGE_E_3 = 0x0000_FFFFl
 
-const RANGE_S_4 0x0001_0800l
-const RANGE_E_4 0x0010_FFFFl
+const RANGE_S_4 = 0x0001_0800l
+const RANGE_E_4 = 0x0010_FFFFl
 
-memory ERR_OUT_OF_RANGE "rune out of range\n"
+data ERR_OUT_OF_RANGE "rune out of range\n"
 
 # 0x0080
 proc utf8_encode[rune:i32, p:ptr] i64

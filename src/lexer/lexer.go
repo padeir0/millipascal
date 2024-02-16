@@ -9,6 +9,7 @@ import (
 	sv "mpc/core/severity"
 
 	"fmt"
+	"math/big"
 	"strings"
 	"unicode/utf8"
 )
@@ -130,7 +131,7 @@ func (this *Lexer) Range() *Range {
 	}
 }
 
-func genNumNode(l *Lexer, tp T.LexKind, value uint64) *ir.Node {
+func genNumNode(l *Lexer, tp T.LexKind, value *big.Int) *ir.Node {
 	text := l.Selected()
 	n := &ir.Node{
 		Lex:   tp,
@@ -439,7 +440,7 @@ func any(st *Lexer) (*ir.Node, *Error) {
 // sorry
 func number(st *Lexer) *ir.Node {
 	r := peekRune(st)
-	var value uint64
+	var value *big.Int
 	if r == '0' {
 		nextRune(st)
 		r = peekRune(st)
@@ -520,9 +521,9 @@ func identifier(st *Lexer) *ir.Node {
 	case "var":
 		tp = T.VAR
 	case "true":
-		tp = T.TRUE
+		return genNumNode(st, T.TRUE, big.NewInt(1))
 	case "false":
-		tp = T.FALSE
+		return genNumNode(st, T.FALSE, big.NewInt(0))
 	case "and":
 		tp = T.AND
 	case "or":
@@ -541,8 +542,8 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.ELSEIF
 	case "proc":
 		tp = T.PROC
-	case "memory":
-		tp = T.MEMORY
+	case "data":
+		tp = T.DATA
 	case "begin":
 		tp = T.BEGIN
 	case "end":
@@ -658,16 +659,20 @@ func IsValidIdentifier(s string) bool {
 	return tks[0].Lex == T.IDENTIFIER
 }
 
-func parseNormal(text string) uint64 {
-	var output uint64 = 0
+var big10 = big.NewInt(10)
+
+func parseNormal(text string) *big.Int {
+	output := big.NewInt(0)
+	scratch := big.NewInt(0)
 	for i := range text {
 		if text[i] == '_' {
 			continue
 		}
-		output *= 10
+		output.Mul(output, big10)
 		char := text[i]
 		if char >= '0' || char <= '9' {
-			output += uint64(char - '0')
+			scratch.SetInt64(int64(char - '0'))
+			output.Add(output, scratch)
 		} else {
 			panic(text)
 		}
@@ -675,21 +680,27 @@ func parseNormal(text string) uint64 {
 	return output
 }
 
-func parseHex(oldText string) uint64 {
+var big16 = big.NewInt(16)
+
+func parseHex(oldText string) *big.Int {
 	text := oldText[2:]
-	var output uint64 = 0
+	output := big.NewInt(0)
+	scratch := big.NewInt(0)
 	for i := range text {
 		if text[i] == '_' {
 			continue
 		}
-		output *= 16
+		output.Mul(output, big16)
 		char := text[i]
 		if char >= '0' && char <= '9' {
-			output += uint64(char - '0')
+			scratch.SetInt64(int64(char - '0'))
+			output.Add(output, scratch)
 		} else if char >= 'a' && char <= 'f' {
-			output += uint64(char-'a') + 10
+			scratch.SetInt64(int64(char-'a') + 10)
+			output.Add(output, scratch)
 		} else if char >= 'A' && char <= 'F' {
-			output += uint64(char-'A') + 10
+			scratch.SetInt64(int64(char-'A') + 10)
+			output.Add(output, scratch)
 		} else {
 			panic(text)
 		}
@@ -697,17 +708,21 @@ func parseHex(oldText string) uint64 {
 	return output
 }
 
-func parseBin(oldText string) uint64 {
+var big2 = big.NewInt(2)
+
+func parseBin(oldText string) *big.Int {
 	text := oldText[2:]
-	var output uint64 = 0 // we can do that because integers are always positive
+	output := big.NewInt(0)
+	scratch := big.NewInt(0)
 	for i := range text {
 		if text[i] == '_' {
 			continue
 		}
-		output *= 2
+		output.Mul(output, big2)
 		char := text[i]
 		if char == '0' || char == '1' {
-			output += uint64(char - '0')
+			scratch.SetInt64(int64(char - '0'))
+			output.Add(output, scratch)
 		} else {
 			panic(text)
 		}
@@ -715,7 +730,7 @@ func parseBin(oldText string) uint64 {
 	return output
 }
 
-func parseCharLit(text string) uint64 {
+func parseCharLit(text string) *big.Int {
 	value := uint64(text[0])
 	if len(text) > 1 {
 		switch text {
@@ -736,7 +751,8 @@ func parseCharLit(text string) uint64 {
 			panic("too many chars in char :C")
 		}
 	}
-	return value
+	output := big.NewInt(0)
+	return output.SetInt64(int64(value))
 }
 
 func InvalidSymbol(st *Lexer, r rune) *Error {

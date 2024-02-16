@@ -1,5 +1,3 @@
-memory buff 3
-
 proc main
 var a
 begin

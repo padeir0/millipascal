@@ -1,4 +1,4 @@
-memory hello "Hello\n"
+data hello "Hello\n"
 
 proc main
 var p:ptr, res:bool

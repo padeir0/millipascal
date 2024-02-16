@@ -29,8 +29,8 @@ begin
     test_dup[]
 end proc
 
-memory PHRASE0 "My name is Ozymandias"
-memory PHRASE1 "My name is Ozzy"
+data PHRASE0 "My name is Ozymandias"
+data PHRASE1 "My name is Ozzy"
 
 proc test_simple
 var a:ptr, b:ptr, c:ptr,
@@ -68,7 +68,7 @@ begin
     validate_init[]
 end proc
 
-memory Buff 64
+data Buff [64]
 
 proc test_pop_rune[runeStart:i32, runeEnd:i32]
 var a:ptr, size, r:i32, i:i32

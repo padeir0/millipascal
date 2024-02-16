@@ -8,6 +8,8 @@ import (
 
 	"fmt"
 	"strings"
+
+	"math/big"
 )
 
 type Node struct {
@@ -17,7 +19,7 @@ type Node struct {
 
 	T *T.Type
 
-	Value uint64 // for int literals
+	Value *big.Int // for int literals
 
 	Range *Range
 }
@@ -113,6 +115,12 @@ func (M *Module) ResetVisited() {
 	}
 }
 
+func (M *Module) ResetVisitedSymbols() {
+	for _, sy := range M.Globals {
+		sy.ResetVisited()
+	}
+}
+
 func (M *Module) GetSymbol(name string) *Symbol {
 	sy, ok := M.Globals[name]
 	if !ok {
@@ -132,6 +140,18 @@ func (M *Module) GetSymbol(name string) *Symbol {
 	return sy
 }
 
+func (M *Module) GetExternalSymbol(module string, name string) *Symbol {
+	dep, ok := M.Dependencies[module]
+	if !ok {
+		panic("use of unknown dependency")
+	}
+	sy, ok := dep.M.Exported[name]
+	if !ok {
+		panic("use of non-exported name")
+	}
+	return sy
+}
+
 type Symbol struct {
 	T        ST.SymbolKind
 	Name     string
@@ -140,9 +160,22 @@ type Symbol struct {
 
 	Type       *T.Type
 	Proc       *Proc
-	Mem        *Mem
+	Data       *Data
 	Const      *Const
 	ModuleName string
+
+	Refs    map[string]*Symbol
+	Visited bool
+}
+
+func (this *Symbol) ResetVisited() {
+	if !this.Visited {
+		return
+	}
+	this.Visited = false
+	for _, ref := range this.Refs {
+		ref.ResetVisited()
+	}
 }
 
 func (v *Symbol) String() string {
@@ -153,8 +186,8 @@ func (v *Symbol) String() string {
 		return "var " + v.Name + ":" + v.Type.String()
 	case ST.Arg:
 		return "arg " + v.Name + ":" + v.Type.String()
-	case ST.Mem:
-		return "mem " + v.Name
+	case ST.Data:
+		return "data " + v.Name
 	case ST.Module:
 		return "module " + v.Name
 	case ST.Builtin:
@@ -164,6 +197,17 @@ func (v *Symbol) String() string {
 	default:
 		return "invalid"
 	}
+}
+
+func (this *Symbol) Link(s *Symbol) {
+	if this.Refs == nil {
+		this.Refs = map[string]*Symbol{}
+	}
+	_, ok := this.Refs[s.Name]
+	if ok {
+		return
+	}
+	this.Refs[s.Name] = s
 }
 
 type PositionalSymbol struct {
@@ -210,14 +254,14 @@ func (p *Proc) DoesReturnSomething() bool {
 	return len(p.Rets) > 0
 }
 
-type Mem struct {
+type Data struct {
 	Name     string
-	Size     uint64
+	Size     *big.Int
 	Contents string
 	Type     T.Type
 	Init     *Node
 }
 
 type Const struct {
-	Value uint64
+	Value *big.Int
 }

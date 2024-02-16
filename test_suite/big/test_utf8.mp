@@ -17,7 +17,7 @@ begin
     test[0x56E0l, 0x57E0l]
 end proc
 
-memory Test 4
+data Test [4]
 
 proc test[testRune:i32, upperRune:i32]
 var i:i32, p:ptr, rune:i32, e_size, d_size

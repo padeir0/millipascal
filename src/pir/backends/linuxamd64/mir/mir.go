@@ -1,6 +1,7 @@
 package mir
 
 import (
+	"math/big"
 	mirc "mpc/pir/backends/linuxamd64/mir/class"
 	FT "mpc/pir/backends/linuxamd64/mir/flowkind"
 	IT "mpc/pir/backends/linuxamd64/mir/instrkind"
@@ -31,7 +32,7 @@ func (this *Program) AddProc(p *Procedure) int {
 	return index
 }
 
-func (this *Program) AddMem(m *MemoryDecl) int {
+func (this *Program) AddMem(m *DataDecl) int {
 	index := len(this.Symbols)
 	this.Symbols = append(this.Symbols, &Symbol{Mem: m})
 	return index
@@ -50,7 +51,7 @@ func (this *Program) String() string {
 
 type Symbol struct {
 	Proc    *Procedure
-	Mem     *MemoryDecl
+	Mem     *DataDecl
 	Builtin bool
 }
 
@@ -64,17 +65,17 @@ func (this *Symbol) String() string {
 	return this.Mem.String()
 }
 
-type MemoryDecl struct {
+type DataDecl struct {
 	Label string
 	Data  string
-	Size  uint64
+	Size  *big.Int
 }
 
-func (this *MemoryDecl) String() string {
+func (this *DataDecl) String() string {
 	if this.Data != "" {
 		return this.Label + ": " + this.Data
 	}
-	return this.Label + ": " + strconv.FormatUint(this.Size, 10)
+	return this.Label + ": " + this.Size.Text(10)
 }
 
 type Procedure struct {
@@ -257,17 +258,18 @@ func (this *OptOperand) Op() Operand {
 type Operand struct {
 	Class mirc.Class
 	Type  *T.Type
-	Num   uint64
+	ID    int64
+	Num   *big.Int
 }
 
 func (o *Operand) String() string {
 	if o == nil {
 		return "nil"
 	}
-	value := strconv.FormatUint(o.Num, 10)
+	value := strconv.FormatInt(o.ID, 10)
 	switch o.Class {
 	case mirc.Lit:
-		return value
+		return o.Num.Text(10)
 	case mirc.Local:
 		return "local#" + value + ":" + o.Type.String()
 	case mirc.Spill:

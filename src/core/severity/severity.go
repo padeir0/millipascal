@@ -15,7 +15,7 @@ func (this Severity) String() string {
 	case InternalError:
 		return "internal error"
 	}
-	panic("invalid severity")
+	return "??"
 }
 
 const (

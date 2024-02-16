@@ -71,7 +71,7 @@ const (
 	WHILE
 	RETURN
 	PROC
-	MEMORY
+	DATA
 	BEGIN
 	END
 	SET
@@ -175,7 +175,7 @@ var tktostr = map[LexKind]string{
 	RETURN: "RETURN",
 	ELSEIF: "ELSEIF",
 	PROC:   "PROC",
-	MEMORY: "MEMORY",
+	DATA:   "DATA",
 	BEGIN:  "BEGIN",
 	END:    "END",
 	SET:    "SET",
@@ -291,7 +291,7 @@ var Tktosrc = map[LexKind]string{
 	RETURN: "return",
 	ELSEIF: "elseif",
 	PROC:   "proc",
-	MEMORY: "memory",
+	DATA:   "data",
 	BEGIN:  "begin",
 	END:    "end",
 	SET:    "set",

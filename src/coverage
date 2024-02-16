@@ -7,7 +7,7 @@
 pir="mpc/pir"
 piramd64="$pir/backends/linuxamd64"
 
-mpcpkg="mpc,mpc/lexer,mpc/parser,mpc/resolution,mpc/typechecker,mpc/linearization"
+mpcpkg="mpc,mpc/lexer,mpc/parser,mpc/resolution,mpc/typechecker,mpc/constexpr,mpc/linearization"
 pirpkg="$pir,$pir/checker,$piramd64/resalloc,$piramd64/fasm,$piramd64/mir/checker"
 
 go build -cover -coverpkg="$mpcpkg,$pirpkg" -o mpc .
