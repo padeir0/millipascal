@@ -17,7 +17,8 @@ import
     last, push, pop, index,
     concat, copy_vec, eq_vec, slice,
     set_meta,
-    get_eq, get_copy
+    get_eq, get_copy,
+    META_SIZE
 
 from
     dfl_alloc
@@ -52,7 +53,7 @@ end proc
 
 ###### *int (naïve)
 
-data MetaIntNaive [32]
+data MetaIntNaive [META_SIZE]
 
 proc test_int_naive
 begin
@@ -121,7 +122,7 @@ end proc
 
 ###### *i64
 
-data MetaI64 [32]
+data MetaI64 [META_SIZE]
 
 proc test_i64
 begin

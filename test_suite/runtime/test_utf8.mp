@@ -1,6 +1,6 @@
 from utf8
 import
-    utf8_encode, utf8_decode
+    utf8_encode, utf8_decode, MAX_RUNE_SIZE
 
 from buffutil
 import
@@ -17,7 +17,7 @@ begin
     test[0x56E0l, 0x57E0l]
 end proc
 
-data Test [4]
+data Test [MAX_RUNE_SIZE]
 
 proc test[testRune:i32, upperRune:i32]
 var i:i32, p:ptr, rune:i32, e_size, d_size

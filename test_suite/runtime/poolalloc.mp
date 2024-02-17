@@ -9,64 +9,65 @@ import
 	clear_bytes, clear_words
 
 export
-	Init, Alloc, Free
+	init, alloc, free
 
 const NULL = 0p
 const MIN_CHUNK_SIZE = 8
 
-data Pool [1024] # 8KB
-data Head [8]
-data Tail [8]
-data ChunkSize [8]
+data Pool [1<<10] # 1KB
+data Head [sizeof ptr]
+data Tail [sizeof ptr]
+data ChunkSize [sizeof i64]
 
 const FULL = 1ss
 const EMPTY = 0ss
-data ByteMap [128] # Pool.size/MIN_CHUNK_SIZE
+data ByteMap [Pool.size/MIN_CHUNK_SIZE]
 
-data ERRCHUNK "Chunk too small (minimum 8 bytes)\n"
-data ERRBOUNDS "Pointer to be freed is out of bounds\n"
-data ERRALIGN "Pointer to be freed is out of alignment\n"
+data ERR_CHUNK "Chunk too small (minimum 8 bytes)\n"
+data ERR_BOUNDS "Pointer to be freed is out of bounds\n"
+data ERR_ALIGN "Pointer to be freed is out of alignment\n"
 
-data test [512]
+const NUM_POINTERS = 64
+data Test [NUM_POINTERS * sizeof ptr]
 
 proc main
 var a:ptr, i, out:ptr
 begin
-	Init[16];
+	init[16];
 	set i = 0
-	while i < 64
+	while i < NUM_POINTERS
 	begin
-		set out = Alloc[]
-		set (test + (i*8):ptr)@ptr = out
+		set out = alloc[]
+		set (Test + (i*sizeof ptr):ptr)@ptr = out
 		set i += 1
 	end while
 
 	set i = 0
-	while i < 64
+	while i < NUM_POINTERS
 	begin
 		if i % 2 == 0
 		begin
-			Free[(test + (i*8):ptr)@ptr]
+			free[(Test + (i*sizeof ptr):ptr)@ptr]
 		end if
 		set i += 1
 	end while
 
-	set i = 63
+	set i = NUM_POINTERS-1
 	while 0 <= i
 	begin
 		if i % 2 != 0
 		begin
-			Free[(test + (i*8):ptr)@ptr]
+			free[(Test + (i*sizeof ptr):ptr)@ptr]
 		end if
 		set i -= 1
 	end while
 end proc
 
-proc Init[chunksize]
+proc init[chunksize]
 begin
 	if chunksize < MIN_CHUNK_SIZE
 	begin
-		fatal[ERRCHUNK, ERRCHUNK.size]
+		fatal[ERR_CHUNK, ERR_CHUNK.size]
 	end if
 
 	set ChunkSize@i64 = chunksize
@@ -77,7 +78,7 @@ begin
 	clear_bytes[ByteMap, ByteMap.size]
 end proc
 
-proc Alloc[] ptr
+proc alloc[] ptr
 var curr:ptr, position:ptr
 begin
 	if Head@ptr == NULL
@@ -94,17 +95,17 @@ begin
 	return curr
 end proc
 
-proc Free[p:ptr]
+proc free[p:ptr]
 var position:ptr
 begin
 	if p < Pool or p > (Pool + Pool.size:ptr)
 	begin
-		fatal[ERRBOUNDS, ERRBOUNDS.size]
+		fatal[ERR_BOUNDS, ERR_BOUNDS.size]
 	end if
 
 	if (p-Pool):i64 % ChunkSize@i64 != 0
 	begin
-		fatal[ERRALIGN, ERRALIGN.size]
+		fatal[ERR_ALIGN, ERR_ALIGN.size]
 	end if
 
 	set p@ptr = NULL
@@ -121,7 +122,7 @@ begin
 	set Tail@ptr = p
 end proc
 
-proc PrintMap[]
+proc print_map[]
 var i
 begin
 	set i = 0

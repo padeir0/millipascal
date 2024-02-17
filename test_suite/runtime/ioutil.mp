@@ -1,5 +1,5 @@
 from utf8
-import utf8_encode
+import utf8_encode, MAX_RUNE_SIZE
 
 export
     put_int, put_uint, put_u8, put_u16,
@@ -12,7 +12,7 @@ begin
 end proc
 
 data DEBUG_MSG "debug: "
-data Debug [8] # inits as zero
+data Debug [sizeof i64] # inits as zero
 
 proc debug[]
 begin
@@ -35,7 +35,7 @@ begin
 	exit 123ss
 end proc
 
-data PutRuneBuff [4]
+data PutRuneBuff [MAX_RUNE_SIZE]
 
 proc put_rune[r:i32]
 var size
@@ -44,7 +44,7 @@ begin
 	write[PutRuneBuff, size]
 end proc
 
-data PutCharBuff [1]
+data PutCharBuff [sizeof i8]
 
 proc put_char[n:i8]
 begin

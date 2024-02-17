@@ -26,7 +26,8 @@ export
     concat, copy_vec, eq_vec, slice,
     set_meta,
     get_eq, get_copy,
-    clear
+    clear,
+    META_SIZE
 
 proc main
 begin

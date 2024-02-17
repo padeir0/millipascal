@@ -117,13 +117,13 @@ but not by much.
 
 The language also has a very simple module system, each file is a module
 and all modules must live in the same folder. The name of the module is the
-name of the file. Check the `test_suite/big` folder.
+name of the file. Check the `test_suite/runtime` folder.
 
 # Style
 
 Although the language is deceptively simple, it's good to keep a 
 consistent style. If something is not listed here, just try to follow
-the style of `./test_suite/big/bigint.mp`.
+the style of `./test_suite/runtime/bigint.mp`.
 
 ## Identifiers
 

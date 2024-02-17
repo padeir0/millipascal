@@ -2,7 +2,7 @@ from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, fatal, debug, oom
 from constants import WORD, NULL, FULL, EMPTY
 
-export Init, Alloc, Free
+export init, alloc, free
 
 # cada objeto vai ter um header:
 #         v ptr
@@ -29,25 +29,25 @@ const NODE_SIZE = 16
 const FL_SIZE_OFFSET = 0p
 const FL_NEXT_OFFSET = 8p
 
-data Heap [65536] # 64KB
-data ByteMap [8192]   # Heap.size / 8, cada byte representa uma WORD na Heap
-data Head [8]
+data Heap [1<<16] # 64KB
+data ByteMap [Heap.size/8] # cada byte representa uma WORD na Heap
+data Head [sizeof ptr]
 
 data UNREACHABLE "Code should not reach here!\n"
 data OUTOFBOUNDS "Pointer to be freed is out of bounds\n"
 
-data test [2048]
 const TOTAL_TEST_PTRS = 256
+data Test [TOTAL_TEST_PTRS * sizeof ptr]
 
 proc main
 var i
 begin
-	Init[]
+	init[]
 
 	set i = 0
 
-	while i < 128 begin
-		clear_words[test, test.size]
+	while i < 4 begin
+		clear_words[Test, Test.size]
 		_alloc[]
 		set i += 1
 	end while
@@ -57,43 +57,37 @@ proc _alloc
 var i, a:ptr
 begin
 	set i = 0
-	# PrintMap[]
-	# PrintList[]
 	while i < TOTAL_TEST_PTRS begin
 		set a = NULL
 		if i % 5 == 0 begin
-			set a = Alloc[16, 0us, 0ul]
+			set a = alloc[16, 0us, 0ul]
 		end elseif i % 5 == 1 begin
-			set a = Alloc[24, 0us, 0ul]
+			set a = alloc[24, 0us, 0ul]
 		end elseif i % 5 == 2 begin
-			set a = Alloc[48, 0us, 0ul]
+			set a = alloc[48, 0us, 0ul]
 		end elseif i % 5 == 3 begin
-			set a = Alloc[25, 0us, 0ul]
+			set a = alloc[25, 0us, 0ul]
 		end elseif i % 5 == 4 begin
-			set a = Alloc[33, 0us, 0ul]
+			set a = alloc[33, 0us, 0ul]
 		end if
 
 		if i % 4 == 0 begin
-			freeN[1]
+			free_n[1]
 		end elseif i % 4 == 3 begin
-			freeN[2]
+			free_n[2]
 		end if
 
 		if a != NULL begin
-			set (test + (i*8):ptr)@ptr = a
+			set (Test + (i*sizeof ptr):ptr)@ptr = a
 		end else begin
 			oom[]
 		end if
-		#PrintMap[]
-		#PrintList[]
 		set i += 1
 	end while
-	freeN[TOTAL_TEST_PTRS]
-	# PrintMap[]
-	# PrintList[]
+	free_n[TOTAL_TEST_PTRS]
 end proc
 
-proc freeN[n]
+proc free_n[n]
 var i, a:ptr
 begin
 	set i = 0
@@ -101,17 +95,17 @@ begin
 		if n <= 0 begin
 			return
 		end if
-		set a = (test + (i*8):ptr)@ptr
+		set a = (Test + (i*8):ptr)@ptr
 		if a != NULL begin
-			Free[a]
-			set (test + (i*8):ptr)@ptr = NULL
+			free[a]
+			set (Test + (i*8):ptr)@ptr = NULL
 			set n -= 1
 		end if
 		set i += 1
 	end while
 end proc
 
-proc Alloc[size, tag:u16, bitmap:u32] ptr
+proc alloc[size, tag:u16, bitmap:u32] ptr
 var out:ptr, alloc_size
 begin
 	set size += HEADER_SIZE
@@ -125,7 +119,7 @@ begin
 		set size = NODE_SIZE
 	end if
 
-	set out, alloc_size = getNode[size]
+	set out, alloc_size = get_node[size]
 	if out == NULL begin
 		return NULL
 	end if
@@ -135,7 +129,7 @@ begin
 	set (out-OBJ_TAG_OFFSET)@u16 = tag
 	set (out-OBJ_BITMAP_OFFSET)@u32 = bitmap
 
-	setMap[out-HEADER_SIZE:ptr, alloc_size, FULL]
+	set_map[out-HEADER_SIZE:ptr, alloc_size, FULL]
 
 	return out
 end proc
@@ -143,7 +137,7 @@ end proc
 # precisamos retornar, junto com o ponteiro pro nó alocado,
 # o tamanho do nó, já que pode ser que ele seja maior que o
 # tamanho pedido
-proc getNode[size] ptr, i64
+proc get_node[size] ptr, i64
 var curr:ptr, curr_size, curr_next:ptr,
     prev:ptr, prev_size, prev_next:ptr
 begin
@@ -212,7 +206,7 @@ begin
 	return pop[prev, curr, newnode]
 end proc
 
-proc Free[obj:ptr]
+proc free[obj:ptr]
 var obj_size, new:ptr, prev:ptr, curr:ptr
 begin
 	set new = obj - HEADER_SIZE:ptr
@@ -222,7 +216,7 @@ begin
 
 	set obj_size = ((obj-OBJ_SIZE_OFFSET)@u16):i64 << 3
 
-	setMap[new, obj_size, EMPTY]
+	set_map[new, obj_size, EMPTY]
 
 	set (new+FL_SIZE_OFFSET)@i64 = obj_size
 	set (new+FL_NEXT_OFFSET)@ptr = NULL
@@ -320,7 +314,7 @@ begin
 	set (new+FL_NEXT_OFFSET)@ptr = curr
 end proc
 
-proc Init
+proc init
 begin
 	clear_words[Heap, Heap.size]
 	clear_bytes[ByteMap, ByteMap.size]
@@ -330,13 +324,13 @@ begin
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end proc
 
-data msg_total_free "free: "
+data MSG_TOTAL_FREE "free: "
 
-proc PrintList[]
-var curr:ptr, total_free
+proc print_list[]
+var curr:ptr, totalFree
 begin
 	set curr = Head@ptr
-	set total_free = 0
+	set totalFree = 0
 	while curr != NULL begin
 		put_char['{']
 		put_int[curr:i64]; put_char[',']
@@ -344,16 +338,16 @@ begin
 		put_int[(curr+FL_NEXT_OFFSET)@i64]
 		put_char['}']
 		put_char[' ']
-		set total_free += (curr+FL_SIZE_OFFSET)@i64
+		set totalFree += (curr+FL_SIZE_OFFSET)@i64
 		set curr = (curr+FL_NEXT_OFFSET)@ptr
 	end while
 	put_char[' ']
-	write[msg_total_free, msg_total_free.size]
-	put_int[total_free]
+	write[MSG_TOTAL_FREE, MSG_TOTAL_FREE.size]
+	put_int[totalFree]
 	put_char['\n']
 end proc
 
-proc PrintMap[]
+proc print_map[]
 var i
 begin
 	set i = 0
@@ -371,7 +365,7 @@ begin
 	put_char['\n']
 end proc
 
-proc setMap[obj:ptr, size, b:i8]
+proc set_map[obj:ptr, size, b:i8]
 var start:ptr, i:ptr, size_words:ptr
 begin
 	set size_words = (size>>3):ptr

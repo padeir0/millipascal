@@ -15,8 +15,8 @@ import
     alloc_f, alloc_b, free, init,
 	print_list, print_map, get_total_free
 
-data TestPtrs [1024]
 const TOTAL_TEST_PTRS = 128
+data TestPtrs [TOTAL_TEST_PTRS * sizeof ptr]
 
 proc main
 var i

@@ -46,17 +46,13 @@ const FL_SIZE_OFFSET = 0p
 const FL_PREV_OFFSET = 8p
 const FL_NEXT_OFFSET = 16p
 
-# data Heap [2048] # 2KB
-# data ByteMap [256] # Heap.size / 8
+data Heap [1<<20] # 1MB (wow)
+data ByteMap [Heap.size/8]
 
-data Heap [1048576] # 1MB (wow)
-data ByteMap [131072] # Heap.size / 8
-
-data Head [8] # first node
-data Tail [8] # last node
-
-data FrontLimit [8] # limite do frontheap
-data BackLimit [8]  # limit do backheap
+data Head [sizeof ptr] # first node
+data Tail [sizeof ptr] # last node
+data FrontLimit [sizeof ptr] # limite do frontheap
+data BackLimit [sizeof ptr]  # limit do backheap
 
 data UNREACHABLE "code should not reach here!\n"
 data OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
@@ -508,9 +504,9 @@ begin
 	end while
 end proc
 
-data msg_total_free "free: "
-data msg_flimit ", FrontLimit: "
-data msg_blimit ", BackLimit: "
+data MSG_TOTAL_FREE "free: "
+data MSG_FLIMIT ", FrontLimit: "
+data MSG_BLIMIT ", BackLimit: "
 
 proc print_list[]
 var curr:ptr
@@ -529,13 +525,13 @@ begin
 	end while
 	put_char[' ']
 
-	write[msg_total_free, msg_total_free.size]
+	write[MSG_TOTAL_FREE, MSG_TOTAL_FREE.size]
 	put_int[get_total_free[]]
 
-	write[msg_flimit, msg_flimit.size]
+	write[MSG_FLIMIT, MSG_FLIMIT.size]
 	put_int[FrontLimit@i64]
 
-	write[msg_blimit, msg_blimit.size]
+	write[MSG_BLIMIT, MSG_BLIMIT.size]
 	put_int[BackLimit@i64]
 
 	put_ln[]
