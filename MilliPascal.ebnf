@@ -64,7 +64,7 @@ Const := 'const' (SingleConst|MultipleConst).
 SingleConst := id '=' Expr.
 MultipleConst := 'begin' {SingleConst [';']} 'end' 'const'.
 
-Data := 'data' (Single|MultipleData).
+Data := 'data' (SingleData|MultipleData).
 SingleData :=  id (dExpr|string|Blob).
 MultipleData := 'begin' {SingleData [';']} 'end' 'data'.
 Blob := '{' [Annot] ExprList '}'.

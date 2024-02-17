@@ -105,6 +105,7 @@ const (
 	CALL
 	EXPRLIST
 	ELSEIFCHAIN
+	SINGLE
 
 	EOF
 )
@@ -208,6 +209,7 @@ var tktostr = map[LexKind]string{
 	CALL:        "CALL",
 	EXPRLIST:    "EXPRLIST",
 	ELSEIFCHAIN: "ELSEIFCHAIN",
+	SINGLE:      "SINGLE",
 
 	EOF: "EOF",
 }
@@ -322,6 +324,7 @@ var Tktosrc = map[LexKind]string{
 	CALL:        "procedure call",
 	EXPRLIST:    "expression list",
 	ELSEIFCHAIN: "else if chain",
+	SINGLE:      "single",
 
 	EOF: "EOF",
 }

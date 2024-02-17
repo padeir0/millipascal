@@ -20,7 +20,7 @@ from ioutil import fatal, put_int, put_char, put_bool, oom
 from intutil import min, max, abs_i32
 from dfl_alloc
 import alloc_f, alloc_b, free, init, print_list, print_map,
-       validate_init
+       validate_init,
 
 export
     new_bint, set_zero, set_bint,
@@ -35,7 +35,7 @@ export
     mult, mult_i32,
     add,  add_i32,
     sub,  sub_i32,
-    neg
+    neg,
 
 proc main
 begin
@@ -78,7 +78,7 @@ data ERR_STR_OVERFLOW "overflow of string buffer\n"
 data StrBuff [1_000]
 
 proc put_bint[bint:ptr]
-var size
+var size,
 begin
     set size = write_bint[bint, StrBuff, StrBuff.size]
     write[StrBuff, size]
@@ -88,7 +88,7 @@ end proc
 proc write_bint[bint:ptr, buff:ptr, buffSize] i64
 var len, i, array:ptr, currDigit:ptr,
     block:ptr, first:bool, neg:bool,
-    size
+    size,
 begin
     set len = (bint+BINT_LEN_OFFSET)@i32:i64
     set array = (bint+BINT_PTR_OFFSET)@ptr
@@ -123,7 +123,7 @@ begin
 end proc
 
 proc put_i32[n:i32, digits:ptr, first:bool]
-var p:ptr, i
+var p:ptr, i,
 begin
 	if n == 0l
 	begin

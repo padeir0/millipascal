@@ -19,6 +19,26 @@ type Program struct {
 	Symbols []*Symbol
 }
 
+func (this *Program) FindLargest() (int, int, int) {
+	maxSpill := 0
+	maxVar := 0
+	maxInterproc := 0
+	for _, sy := range this.Symbols {
+		if sy.Proc != nil {
+			if maxSpill < sy.Proc.NumOfSpills {
+				maxSpill = sy.Proc.NumOfSpills
+			}
+			if maxVar < sy.Proc.NumOfVars {
+				maxVar = sy.Proc.NumOfVars
+			}
+			if maxInterproc < sy.Proc.NumOfMaxCalleeArguments {
+				maxInterproc = sy.Proc.NumOfMaxCalleeArguments
+			}
+		}
+	}
+	return maxSpill, maxVar, maxInterproc
+}
+
 func (this *Program) FindSymbol(i SymbolID) *Symbol {
 	if i < 0 || int64(i) >= int64(len(this.Symbols)) {
 		return nil

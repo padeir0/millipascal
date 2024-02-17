@@ -32,32 +32,40 @@ const F_OBJ_SIZE_OFFSET = 8p
 #       ├── 2 bytes, offset -6: Lenght para bigint ou Tag pra tipos de união
 #       └── 4 bytes, offset -4: Bitmap de ponteiros
 
-const B_HEADER_SIZE = 8
-
 # offset negativo
-const B_OBJ_SIZE_OFFSET = 8p
-const B_OBJ_META_OFFSET = 7p
-const B_OBJ_STUFF_OFFSET = 6p
-const B_OBJ_BITMAP_OFFSET = 4p
+const begin
+	B_HEADER_SIZE = 8
 
-const NODE_SIZE = 24
+	B_OBJ_SIZE_OFFSET = 8p
+	B_OBJ_META_OFFSET = 7p
+	B_OBJ_STUFF_OFFSET = 6p
+	B_OBJ_BITMAP_OFFSET = 4p
+end const
 
-const FL_SIZE_OFFSET = 0p
-const FL_PREV_OFFSET = 8p
-const FL_NEXT_OFFSET = 16p
+const begin
+	NODE_SIZE = 24
 
-data Heap [1<<20] # 1MB (wow)
-data ByteMap [Heap.size/8]
+	FL_SIZE_OFFSET = 0p
+	FL_PREV_OFFSET = 8p
+	FL_NEXT_OFFSET = 16p
+end const
 
-data Head [sizeof ptr] # first node
-data Tail [sizeof ptr] # last node
-data FrontLimit [sizeof ptr] # limite do frontheap
-data BackLimit [sizeof ptr]  # limit do backheap
+data begin
+	Heap [1<<20] # 1MB (wow)
+	ByteMap [Heap.size/8]
 
-data UNREACHABLE "code should not reach here!\n"
-data OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
-data OUTOFLIMITS "pointer to be freed is out of back or front limit bounds\n"
-data OBJ_TOO_BIG "object is too big, max of 255 words\n"
+	Head [sizeof ptr] # first node
+	Tail [sizeof ptr] # last node
+	FrontLimit [sizeof ptr] # limite do frontheap
+	BackLimit [sizeof ptr]  # limit do backheap
+end data
+
+data begin
+	UNREACHABLE "code should not reach here!\n"
+	OUTOFBOUNDS "pointer to be freed is out of heap bounds\n"
+	OUTOFLIMITS "pointer to be freed is out of back or front limit bounds\n"
+	OBJ_TOO_BIG "object is too big, max of 255 words\n"
+end data
 
 proc main
 begin

@@ -2,6 +2,8 @@ package resolution
 
 import (
 	"io/ioutil"
+	"strings"
+
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
@@ -12,7 +14,6 @@ import (
 	msg "mpc/messages"
 	"mpc/parser"
 	T "mpc/pir/types"
-	"strings"
 )
 
 // _fmt set to true will format every file from AST before parsing again
@@ -472,7 +473,20 @@ func checkExports(M *ir.Module) *Error {
 }
 
 func declareSymbol(M *ir.Module, n *ir.Node) *Error {
-	sy := getSymbol(M, n)
+	switch n.Lex {
+	case lex.PROC:
+		return declProcSymbol(M, n)
+	case lex.DATA:
+		return declMemSymbol(M, n)
+	case lex.CONST:
+		return declConstSymbol(M, n)
+	default:
+		panic("impossible")
+	}
+}
+
+func declProcSymbol(M *ir.Module, n *ir.Node) *Error {
+	sy := getProcSymbol(M, n)
 	_, ok := M.Globals[sy.Name]
 	if ok {
 		return msg.ErrorNameAlreadyDefined(M, n)
@@ -481,20 +495,44 @@ func declareSymbol(M *ir.Module, n *ir.Node) *Error {
 	return nil
 }
 
-func getSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
-	switch n.Lex {
-	case lex.PROC:
-		return getProcSymbol(M, n)
-	case lex.DATA:
-		return getMemSymbol(M, n)
-	case lex.CONST:
-		return getConstSymbol(M, n)
+func declMemSymbol(M *ir.Module, n *ir.Node) *Error {
+	leaf := n.Leaves[0]
+	switch leaf.Lex {
+	case lex.BEGIN:
+		for _, single := range leaf.Leaves {
+			err := setMemSymbol(M, single)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case lex.SINGLE:
+		return setMemSymbol(M, leaf)
+	default:
+		panic("impossible")
 	}
-	panic("getSymbolType: what")
+}
+
+func declConstSymbol(M *ir.Module, n *ir.Node) *Error {
+	leaf := n.Leaves[0]
+	switch leaf.Lex {
+	case lex.BEGIN:
+		for _, single := range leaf.Leaves {
+			err := setConstSymbol(M, single)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case lex.SINGLE:
+		return setConstSymbol(M, leaf)
+	default:
+		panic("impossible")
+	}
 }
 
 func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
-	name := getSymbolName(n)
+	name := n.Leaves[0].Text
 	return &ir.Symbol{
 		T:          ST.Proc,
 		Name:       name,
@@ -509,13 +547,13 @@ func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 	}
 }
 
-func getMemSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
-	name := getSymbolName(n)
+func setMemSymbol(M *ir.Module, n *ir.Node) *Error {
+	name := n.Leaves[0].Text
 	mem := &ir.Data{
 		Name: name,
 		Init: n.Leaves[1],
 	}
-	return &ir.Symbol{
+	sy := &ir.Symbol{
 		T:          ST.Data,
 		Type:       T.T_Ptr,
 		Name:       name,
@@ -523,24 +561,31 @@ func getMemSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
 		Data:       mem,
 		N:          n,
 	}
+	_, ok := M.Globals[sy.Name]
+	if ok {
+		return msg.ErrorNameAlreadyDefined(M, n)
+	}
+	M.Globals[sy.Name] = sy
+	return nil
 }
 
-func getConstSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
-	name := getSymbolName(n)
-	c := &ir.Const{
-		Value: nil,
-	}
-	return &ir.Symbol{
+func setConstSymbol(M *ir.Module, n *ir.Node) *Error {
+	name := n.Leaves[0].Text
+	sy := &ir.Symbol{
 		T:          ST.Const,
 		Name:       name,
 		ModuleName: M.Name,
 		N:          n,
-		Const:      c,
+		Const: &ir.Const{
+			Value: nil,
+		},
 	}
-}
-
-func getSymbolName(n *ir.Node) string {
-	return n.Leaves[0].Text
+	_, ok := M.Globals[sy.Name]
+	if ok {
+		return msg.ErrorNameAlreadyDefined(M, n)
+	}
+	M.Globals[sy.Name] = sy
+	return nil
 }
 
 func resolveGlobalDepGraph(M *ir.Module) *Error {

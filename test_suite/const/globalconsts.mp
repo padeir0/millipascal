@@ -1,4 +1,8 @@
-export i8max, i8min, i16max, i16min, i32max, i32min, i64max, i64min
+export
+    i8max, i8min,
+    i16max, i16min,
+    i32max, i32min,
+    i64max, i64min,
 
 const i8max = (1<<64):i8
 const i8min = (~(1<<64)):i8
