@@ -1,7 +1,6 @@
 package constexpr
 
 import (
-	"fmt"
 	"math/big"
 	. "mpc/core"
 	mod "mpc/core/module"
@@ -138,21 +137,42 @@ func evalConst(m *mod.Module, sy *mod.Symbol) *Error {
 
 func evalData(m *mod.Module, sy *mod.Symbol) *Error {
 	arg := sy.N.Leaves[1]
-	if arg.Lex == lk.STRING_LIT {
+	switch arg.Lex {
+	case lk.STRING_LIT:
+		size := stringSize(arg.Text)
+		sy.Data.Size = big.NewInt(int64(size))
+		sy.Data.Contents = arg.Text
+		return nil
+	case lk.BLOB:
+		return evalBlob(m, sy, arg)
+	default:
+		v, err := compute(m, arg)
+		if err != nil {
+			return err
+		}
+		sy.Data.Size = v
 		return nil
 	}
-	v, err := compute(m, arg)
-	if err != nil {
-		return err
+}
+
+func evalBlob(m *mod.Module, sy *mod.Symbol, n *mod.Node) *Error {
+	annot := n.Leaves[0].Leaves[0]
+	blob := n.Leaves[1]
+
+	nums := make([]*big.Int, len(blob.Leaves))
+	for i, leaf := range blob.Leaves {
+		num, err := compute(m, leaf)
+		if err != nil {
+			return err
+		}
+		nums[i] = num
 	}
-	sy.Data.Size = v
+	sy.Data.Nums = nums
+	sy.Data.Size = big.NewInt(int64(annot.T.Size() * len(nums)))
 	return nil
 }
 
 func compute(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
-	if n.T == nil {
-		fmt.Println(n)
-	}
 	min, max := getMinMax(n.T)
 	res, err := computeExpr(m, n)
 	if err != nil {
@@ -363,6 +383,18 @@ func getExternalSymbol(M *mod.Module, n *mod.Node) *big.Int {
 		return sy.Const.Value
 	}
 	panic("should not reach here")
+}
+
+func stringSize(oldtext string) int {
+	text := oldtext[1 : len(oldtext)-1]
+	size := 0
+	for i := 0; i < len(text); i++ {
+		if text[i] == '\\' {
+			i++
+		}
+		size += 1
+	}
+	return size
 }
 
 func badConstExpr(M *mod.Module, n *mod.Node) *Error {

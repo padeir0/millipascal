@@ -596,12 +596,30 @@ func resolveGlobalDepGraph(M *ir.Module) *Error {
 				return err
 			}
 		}
-		if sy.T == ST.Data &&
-			sy.N.Leaves[1].Lex != lex.STRING_LIT {
-			err := resDepExpr(M, sy, sy.N.Leaves[1])
+		if sy.T == ST.Data {
+			contents := sy.N.Leaves[1]
+			var err *Error
+			switch contents.Lex {
+			case lex.STRING_LIT:
+			case lex.BLOB:
+				err = resBlobExpr(M, sy, contents)
+			default:
+				err = resDepExpr(M, sy, sy.N.Leaves[1])
+			}
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func resBlobExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+	blobContents := n.Leaves[1]
+	for _, leaf := range blobContents.Leaves {
+		err := resDepExpr(M, sy, leaf)
+		if err != nil {
+			return err
 		}
 	}
 	return nil

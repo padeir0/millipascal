@@ -1,6 +1,7 @@
 package pipelines
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -97,6 +98,7 @@ func Pir(file string) (*pir.Program, *Error) {
 
 	err = ProcessPirError(pirchecker.Check(p))
 	if err != nil {
+		fmt.Println(p)
 		return nil, err
 	}
 

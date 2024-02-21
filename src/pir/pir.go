@@ -71,14 +71,24 @@ func (this *Symbol) String() string {
 }
 
 type DataDecl struct {
-	Label string
-	Data  string
-	Size  *big.Int
+	Label    string
+	Size     *big.Int
+	DataSize int
+
+	Data    string
+	Nums    []*big.Int
+	Symbols []SymbolID
 }
 
 func (this *DataDecl) String() string {
 	if this.Data != "" {
 		return this.Label + ": " + this.Data
+	}
+	if this.Nums != nil {
+		return this.Label + ": " + fmt.Sprintf("%v", this.Nums)
+	}
+	if this.Symbols != nil {
+		return this.Label + ": " + fmt.Sprintf("%v", this.Symbols)
 	}
 	return this.Label + ": " + this.Size.Text(10)
 }

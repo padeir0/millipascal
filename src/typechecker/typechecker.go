@@ -9,7 +9,6 @@ import (
 	T "mpc/pir/types"
 
 	"fmt"
-	"math/big"
 )
 
 func Check(M *mod.Module) *Error {
@@ -124,11 +123,26 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 	dt := sy.Data
 	switch dt.Init.Lex {
 	case lk.STRING_LIT:
-		size := stringSize(dt.Init.Text)
-		dt.Size = big.NewInt(int64(size))
-		dt.Contents = dt.Init.Text
+		dt.DataType = T.T_I8
+	case lk.BLOB:
+		blob := sy.N.Leaves[1]
+		annot := blob.Leaves[0]
+		contents := blob.Leaves[1]
+		var err *Error
+		if annot != nil {
+			annotT := annot.Leaves[0]
+			annotT.T = getType(annot.Leaves[0])
+			dt.DataType = annotT.T
+			err = checkBlob(M, sy, contents, annotT.T)
+		} else {
+			err = checkBlob(M, sy, contents, T.T_I64)
+		}
+		if err != nil {
+			return err
+		}
 	default:
 		expr := sy.N.Leaves[1]
+		dt.DataType = T.T_I8
 		err := checkExpr(M, nil, expr)
 		if err != nil {
 			return err
@@ -137,16 +151,17 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
-func stringSize(oldtext string) int {
-	text := oldtext[1 : len(oldtext)-1]
-	size := 0
-	for i := 0; i < len(text); i++ {
-		if text[i] == '\\' {
-			i++
+func checkBlob(M *mod.Module, sy *mod.Symbol, contents *mod.Node, t *T.Type) *Error {
+	for _, leaf := range contents.Leaves {
+		err := checkExpr(M, nil, leaf)
+		if err != nil {
+			return err
 		}
-		size += 1
+		if !leaf.T.Equals(t) {
+			return msg.DoesntMatchBlobAnnot(M, leaf, t)
+		}
 	}
-	return size
+	return nil
 }
 
 func checkProc(M *mod.Module, proc *mod.Proc) *Error {

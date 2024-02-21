@@ -210,3 +210,8 @@ func ValueOutOfBounds(M *ir.Module, n *ir.Node, res *big.Int) *Error {
 	msg := "value '" + res.Text(10) + "' is too big for constant type"
 	return NewSemanticError(M, et.ValueOutOfBounds, n, msg)
 }
+
+func DoesntMatchBlobAnnot(M *ir.Module, assignee *ir.Node, t *T.Type) *Error {
+	msg := "doesn't match blob annotation, has: " + assignee.T.String() + ", expected: " + t.String()
+	return NewSemanticError(M, et.DoesntMatchBlobAnnot, assignee, msg)
+}

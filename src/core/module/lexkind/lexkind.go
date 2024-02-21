@@ -39,12 +39,14 @@ const (
 	MOREEQ
 	MORE
 	DIFFERENT
+
 	LEFTPAREN
 	RIGHTPAREN
 	LEFTBRACE
 	RIGHTBRACE
 	LEFTBRACKET
 	RIGHTBRACKET
+
 	COLON
 	DOUBLECOLON
 	ASSIGNMENT
@@ -106,6 +108,7 @@ const (
 	EXPRLIST
 	ELSEIFCHAIN
 	SINGLE
+	BLOB
 
 	EOF
 )
@@ -210,6 +213,7 @@ var tktostr = map[LexKind]string{
 	EXPRLIST:    "EXPRLIST",
 	ELSEIFCHAIN: "ELSEIFCHAIN",
 	SINGLE:      "SINGLE",
+	BLOB:        "BLOB",
 
 	EOF: "EOF",
 }
@@ -325,6 +329,7 @@ var Tktosrc = map[LexKind]string{
 	EXPRLIST:    "expression list",
 	ELSEIFCHAIN: "else if chain",
 	SINGLE:      "single",
+	BLOB:        "blob",
 
 	EOF: "EOF",
 }

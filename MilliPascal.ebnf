@@ -65,10 +65,10 @@ SingleConst := id '=' Expr.
 MultipleConst := 'begin' {SingleConst [';']} 'end' 'const'.
 
 Data := 'data' (SingleData|MultipleData).
-SingleData :=  id (dExpr|string|Blob).
 MultipleData := 'begin' {SingleData [';']} 'end' 'data'.
+SingleData :=  id (DExpr|string|Blob).
 Blob := '{' [Annot] ExprList '}'.
-dExpr := '[' Expr ']'.
+DExpr := '[' Expr ']'.
 
 Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
 Args := '[' [DeclList] ']'.

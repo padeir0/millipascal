@@ -360,6 +360,9 @@ func Allocate(P *pir.Program, numRegs int) *mir.Program {
 		Entry:   mir.SymbolID(P.Entry),
 		Symbols: make([]*mir.Symbol, len(P.Symbols)),
 	}
+	// if pir.SymbolID != mir.SymbolID then
+	// a few procedures will crash. Must keep the index
+	// consistent.
 	for i, sy := range P.Symbols {
 		if sy.Builtin {
 			output.Symbols[i] = allocBuiltin(sy)
@@ -1208,8 +1211,19 @@ func hirToMirBlock(b *pir.BasicBlock) *mir.BasicBlock {
 
 func hirToMirMem(mem *pir.DataDecl) *mir.DataDecl {
 	return &mir.DataDecl{
-		Label: mem.Label,
-		Data:  mem.Data,
-		Size:  mem.Size,
+		Label:    mem.Label,
+		Data:     mem.Data,
+		DataSize: mem.DataSize,
+		Size:     mem.Size,
+		Nums:     mem.Nums,
+		Symbols:  mapIDs(mem.Symbols),
 	}
+}
+
+func mapIDs(ids []pir.SymbolID) []mir.SymbolID {
+	out := make([]mir.SymbolID, len(ids))
+	for i, id := range ids {
+		out[i] = mir.SymbolID(id) // same index
+	}
+	return out
 }

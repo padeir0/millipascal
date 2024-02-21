@@ -121,16 +121,19 @@ func (this *fasmProgram) String() string {
 type fasmData struct {
 	label    string
 	content  string
+	dataSize string
 	declared bool
 }
 
 func (this *fasmData) Str(b *builder) {
 	b.Place(this.label)
 	if this.declared {
-		b.Place(" db ")
+		b.Place(" d")
 	} else {
-		b.Place(" rb ")
+		b.Place(" r")
 	}
+	b.Place(this.dataSize)
+	b.Place(" ")
 	b.Place(this.content)
 	b.Place("\n")
 }
@@ -363,17 +366,42 @@ func genError(P *mir.Program) *fasmProc {
 }
 
 func genMem(mem *mir.DataDecl) *fasmData {
-	if mem.Data == "" {
+	if mem.Data != "" {
 		return &fasmData{
 			label:    mem.Label,
-			content:  mem.Size.Text(10),
-			declared: false,
+			content:  convertString(mem.Data),
+			dataSize: "b",
+			declared: true,
+		}
+	}
+	if mem.Nums != nil {
+		return &fasmData{
+			label:    mem.Label,
+			content:  convertNums(mem.Nums),
+			dataSize: genDataSize(mem.DataSize),
+			declared: true,
 		}
 	}
 	return &fasmData{
 		label:    mem.Label,
-		content:  convertString(mem.Data),
-		declared: true,
+		content:  mem.Size.Text(10),
+		dataSize: "b",
+		declared: false,
+	}
+}
+
+func genDataSize(size int) string {
+	switch size {
+	case 1:
+		return "b" // [b]yte
+	case 2:
+		return "w" // [w]ord
+	case 4:
+		return "d" // [d]ouble word
+	case 8:
+		return "q" // [q]uad word
+	default:
+		panic("unknown size")
 	}
 }
 
@@ -405,6 +433,24 @@ func convertString(original string) string {
 	}
 	output += "'"
 	return output
+}
+
+var zero = big.NewInt(0)
+
+func convertNums(nums []*big.Int) string {
+	b := builder{}
+	scratch := big.NewInt(0)
+	for i, num := range nums {
+		if num.Cmp(zero) == -1 {
+			b.Place("-")
+		}
+		b.Place("0x")
+		b.Place(scratch.Abs(num).Text(16))
+		if i < len(nums)-1 {
+			b.Place(",")
+		}
+	}
+	return b.String()
 }
 
 func genEntry(P *mir.Program) []*amd64Instr {

@@ -58,6 +58,7 @@ const (
 	CannotUseStringInExpr
 	InvalidTypeForConst
 	ValueOutOfBounds
+	DoesntMatchBlobAnnot
 )
 
 func (et ErrorKind) String() string {
@@ -119,4 +120,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidSymbolCycle:             "E051",
 	InvalidTypeForConst:            "E052",
 	ValueOutOfBounds:               "E053",
+	DoesntMatchBlobAnnot:           "E054",
 }

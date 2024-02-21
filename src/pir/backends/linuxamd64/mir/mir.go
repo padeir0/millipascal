@@ -86,9 +86,12 @@ func (this *Symbol) String() string {
 }
 
 type DataDecl struct {
-	Label string
-	Data  string
-	Size  *big.Int
+	Label    string
+	Data     string
+	Size     *big.Int
+	Nums     []*big.Int
+	Symbols  []SymbolID
+	DataSize int
 }
 
 func (this *DataDecl) String() string {

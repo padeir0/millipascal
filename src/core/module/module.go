@@ -257,11 +257,24 @@ func (p *Proc) DoesReturnSomething() bool {
 type Data struct {
 	Name     string
 	Size     *big.Int
-	Contents string
-	Type     T.Type
 	Init     *Node
+	DataType *T.Type
+
+	Contents string
+
+	// allocate two slices with the same size,
+	// each index represents a single item from
+	// the source blob:
+	//     if nums is nil, look at symbols
+	//     if symbol is also nil, panic
+	// this could have been written in Anu as:
+	//     Blob *(&Symbol|int)
+	Symbols []*Symbol
+	Nums    []*big.Int
 }
 
+// a constant can either be a integer or a symbol
 type Const struct {
-	Value *big.Int
+	Value  *big.Int
+	Symbol *Symbol
 }

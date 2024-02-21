@@ -113,7 +113,7 @@ func declAll(c *context, M *mod.Module) {
 				i := c.Program.AddProc(p)
 				c.symbolMap[p.Label] = pir.SymbolID(i)
 			} else if sy.T == ST.Data {
-				m := newPirMem(M.Name, sy.Data)
+				m := newPirMem(c, M.Name, sy.Data)
 				i := c.Program.AddMem(m)
 				c.symbolMap[m.Label] = pir.SymbolID(i)
 			} else if sy.T == ST.Builtin {
@@ -755,10 +755,24 @@ func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
 	}
 }
 
-func newPirMem(modName string, M *mod.Data) *pir.DataDecl {
+func newPirMem(c *context, modName string, dt *mod.Data) *pir.DataDecl {
 	return &pir.DataDecl{
-		Label: modName + "_" + M.Name,
-		Size:  M.Size,
-		Data:  M.Contents,
+		Label:    modName + "_" + dt.Name,
+		Size:     dt.Size,
+		Data:     dt.Contents,
+		DataSize: dt.DataType.Size(),
+		Nums:     dt.Nums,
+		Symbols:  mapSymbols(c, dt.Symbols),
 	}
+}
+
+func mapSymbols(c *context, symbols []*mod.Symbol) []pir.SymbolID {
+	out := make([]pir.SymbolID, len(symbols))
+	for i, sy := range symbols {
+		mod := sy.ModuleName
+		name := sy.Name
+		id := c.GetSymbolID(mod, name)
+		out[i] = id
+	}
+	return out
 }

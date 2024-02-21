@@ -265,14 +265,17 @@ func singleDataSemicolon(s *Lexer) (*mod.Node, *Error) {
 	return sg, optSemicolon(s)
 }
 
-// SingleData := id (dExpr|string).
+// SingleData := id (DExpr|string|Blob).
 func singleData(s *Lexer) (*mod.Node, *Error) {
-	id, err := expect(s, lex.IDENTIFIER)
+	if s.Word.Lex != lex.IDENTIFIER {
+		return nil, nil
+	}
+	id, err := consume(s)
 	if err != nil {
 		return nil, err
 	}
 
-	err = check(s, lex.LEFTBRACKET, lex.STRING_LIT)
+	err = check(s, lex.LEFTBRACKET, lex.STRING_LIT, lex.LEFTBRACE)
 	if err != nil {
 		return nil, err
 	}
@@ -288,6 +291,11 @@ func singleData(s *Lexer) (*mod.Node, *Error) {
 		if err != nil {
 			return nil, err
 		}
+	case lex.LEFTBRACE:
+		definition, err = blob(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sg := &mod.Node{
@@ -297,6 +305,35 @@ func singleData(s *Lexer) (*mod.Node, *Error) {
 	return sg, nil
 }
 
+// Blob := '{' [Annot] ExprList '}'.
+func blob(s *Lexer) (*mod.Node, *Error) {
+	_, err := expect(s, lex.LEFTBRACE)
+	if err != nil {
+		return nil, err
+	}
+	var ann *mod.Node
+	if s.Word.Lex == lex.COLON {
+		ann, err = annot(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	n, err := exprList(s)
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lex.RIGHTBRACE)
+	if err != nil {
+		return nil, err
+	}
+	sg := &mod.Node{
+		Lex:    lex.BLOB,
+		Leaves: []*mod.Node{ann, n},
+	}
+	return sg, nil
+}
+
+// DExpr := '[' Expr ']'.
 func dExpr(s *Lexer) (*mod.Node, *Error) {
 	_, err := expect(s, lex.LEFTBRACKET)
 	if err != nil {
