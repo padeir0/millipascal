@@ -6,5 +6,5 @@ proc main
 begin
     if a != b or b != c begin
         exit 1ss
-    end if
-end proc
+    end
+end

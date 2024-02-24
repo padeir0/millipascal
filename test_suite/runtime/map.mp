@@ -1,16 +1,43 @@
-# Cada objeto de metadados tem 32 bytes, separados da seguinte forma:
-#   - 4 bytes: tamanho da chave
-#   - 4 bytes: tamanho do valor
-#   - 8 bytes: ponteiro para procedimento de hash
-#   - 8 bytes: ponteiro para procedimento de comparação
-#   - 8 bytes: ponteiro para procedimento de cópia
+# each metadata object has 40 bytes, separated in the following layout:
+#   - 4 bytes: size of each key (in bytes)
+#   - 4 bytes: size of each value (in bytes)
+#   - 8 bytes: pointer to hash procedure (proc[ptr] i64)
+#   - 8 bytes: pointer to equality procedure (proc[a:ptr,b:ptr]bool)
+#   - 8 bytes: pointer to copy procedure (proc[dest:ptr, source:ptr])
+#   - 8 bytes: pointer to free item procedure (proc[item:ptr])
+# all pointers in the above procedures are pointers to
+# inside the array, that is, they're just calculated indexes
+# of the array.
 
-const M_KEYSIZE_OFFSET = 0
-const M_VALSIZE_OFFSET = 4
-const M_HASHPROC_OFFSET = 8
-const M_COMPPROC_OFFSET = 16
-const M_COPYPROC_OFFSET = 24
+const begin
+    METADATA_SIZE = 40
+
+    M_KEYSIZE_OFFSET = 0p
+    M_VALSIZE_OFFSET = 4p
+    M_HASHPROC_OFFSET = 8p
+    M_EQPROC_OFFSET = 16p
+    M_COPYPROC_OFFSET = 24p
+    M_FREEPROC_OFFSET = 32p
+end 
+
+proc set_meta[
+    meta:ptr,
+    keySize:i32,
+    valSize:i32,
+    hashProc:proc[ptr]i64,
+    eqProc:proc[ptr,ptr]bool,
+    copyProc:proc[ptr,ptr],
+    freeProc:proc[ptr]
+]
+begin
+    set (meta+M_KEYSIZE_OFFSET)@i32 = keySize
+    set (meta+M_VALSIZE_OFFSET)@i32 = valSize
+    set (meta+M_HASHPROC_OFFSET)@proc[ptr]i64 = hashProc
+    set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr]bool = eqProc
+    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr] = copyProc
+    set (meta+M_FREEPROC_OFFSET)@proc[ptr] = freeProc
+end
 
 proc main
 begin
-end proc
+end

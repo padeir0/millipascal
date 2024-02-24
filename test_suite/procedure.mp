@@ -5,8 +5,8 @@ begin
 	if a != 1 or b != 2 or c != 3
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc P
 	[arg1, arg2, arg3]
@@ -17,4 +17,4 @@ begin
 	set b = arg2
 	set c = arg3
 	return a, b, c
-end proc
+end

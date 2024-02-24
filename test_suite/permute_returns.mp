@@ -13,16 +13,16 @@ begin
     begin
         set a,b,c,d,e = permute[a,b,c,d,e]
         set i += 1
-    end while
+    end
 
     # se permutarmos um número divisivel por 6, voltamos ao original
     if a != 1 or b != 2 or c != 3 or d != 4 or e != 5 begin
         exit 1ss
-    end if
+    end
 
-end proc
+end
 
 proc permute[a,b,c,d,e] i64,i64,i64,i64,i64
 begin
     return b, a, d, e, c
-end proc
+end

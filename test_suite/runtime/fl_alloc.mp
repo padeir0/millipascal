@@ -50,8 +50,8 @@ begin
 		clear_words[Test, Test.size]
 		_alloc[]
 		set i += 1
-	end while
-end proc
+	end
+end
 
 proc _alloc
 var i, a:ptr
@@ -69,23 +69,23 @@ begin
 			set a = alloc[25, 0us, 0ul]
 		end elseif i % 5 == 4 begin
 			set a = alloc[33, 0us, 0ul]
-		end if
+		end
 
 		if i % 4 == 0 begin
 			free_n[1]
 		end elseif i % 4 == 3 begin
 			free_n[2]
-		end if
+		end
 
 		if a != NULL begin
 			set (Test + (i*sizeof ptr):ptr)@ptr = a
 		end else begin
 			oom[]
-		end if
+		end
 		set i += 1
-	end while
+	end
 	free_n[TOTAL_TEST_PTRS]
-end proc
+end
 
 proc free_n[n]
 var i, a:ptr
@@ -94,16 +94,16 @@ begin
 	while i < TOTAL_TEST_PTRS begin
 		if n <= 0 begin
 			return
-		end if
+		end
 		set a = (Test + (i*8):ptr)@ptr
 		if a != NULL begin
 			free[a]
 			set (Test + (i*8):ptr)@ptr = NULL
 			set n -= 1
-		end if
+		end
 		set i += 1
-	end while
-end proc
+	end
+end
 
 proc alloc[size, tag:u16, bitmap:u32] ptr
 var out:ptr, alloc_size
@@ -112,17 +112,17 @@ begin
 	# alinhamento
 	if size%8 != 0 begin
 		set size = size + (8-size%8)
-	end if
+	end
 	# os objetos precisam de ter espaço pra colocar
 	# um nó quando forem dealocados
 	if size < NODE_SIZE begin
 		set size = NODE_SIZE
-	end if
+	end
 
 	set out, alloc_size = get_node[size]
 	if out == NULL begin
 		return NULL
-	end if
+	end
 	
 	# seta o header do objeto
 	set (out-OBJ_SIZE_OFFSET)@u16 = (alloc_size>>3):u16
@@ -132,7 +132,7 @@ begin
 	set_map[out-HEADER_SIZE:ptr, alloc_size, FULL]
 
 	return out
-end proc
+end
 
 # precisamos retornar, junto com o ponteiro pro nó alocado,
 # o tamanho do nó, já que pode ser que ele seja maior que o
@@ -143,7 +143,7 @@ var curr:ptr, curr_size, curr_next:ptr,
 begin
 	if Head@ptr == NULL begin
 		return NULL, 0
-	end if
+	end
 
 	set curr = Head@ptr
 	set curr_size = 0
@@ -159,25 +159,25 @@ begin
 
 		if curr_size == size begin
 			return pop[prev, curr, curr_next], curr_size
-		end if
+		end
 		if curr_size > size begin
 			# se alocarmos um objeto e o espaço que sobrar
 			# não ser suficiente pra um nó,
 			# alocamos o espaço inteiro sem quebrar
 			if curr_size - size < NODE_SIZE begin
 				return pop[prev, curr, curr_next], curr_size
-			end if
+			end
 			return split[prev, curr, curr_next, curr_size, size], size
-		end if
+		end
 
 		set prev = curr
 		set prev_size = curr_size
 		set prev_next = curr_next
 		set curr = curr_next
-	end while
+	end
 
 	return NULL, 0
-end proc
+end
 
 proc pop[prev:ptr, curr:ptr, curr_next:ptr] ptr
 begin
@@ -185,9 +185,9 @@ begin
 		set (prev+FL_NEXT_OFFSET)@ptr = curr_next
 	end else begin
         set Head@ptr = curr_next
-	end if
+	end
 	return curr + HEADER_SIZE:ptr
-end proc
+end
 
 proc split[prev:ptr, curr:ptr, curr_next:ptr,
            curr_size, requested_size] ptr
@@ -204,7 +204,7 @@ begin
 	set (curr + FL_NEXT_OFFSET)@ptr = newnode
 
 	return pop[prev, curr, newnode]
-end proc
+end
 
 proc free[obj:ptr]
 var obj_size, new:ptr, prev:ptr, curr:ptr
@@ -212,7 +212,7 @@ begin
 	set new = obj - HEADER_SIZE:ptr
 	if new < Heap or new > Heap + Heap.size:ptr begin
 		fatal[OUTOFBOUNDS, OUTOFBOUNDS.size]
-	end if
+	end
 
 	set obj_size = ((obj-OBJ_SIZE_OFFSET)@u16):i64 << 3
 
@@ -224,14 +224,14 @@ begin
 	if Head@ptr == NULL begin
 		set Head@ptr = new
 		return
-	end if
+	end
 
 	if new < Head@ptr begin
 		# nesse caso, new é o primeiro nó da lista
 		# e vai virar o novo Head
 		prepend[new]
 		return
-	end if
+	end
 
 	set prev = NULL
 	set curr = Head@ptr
@@ -243,15 +243,15 @@ begin
 				# nesse caso, new é algum nó do meio
 				join[prev, new, curr]
 				return
-			end if
-		end if
+			end
+		end
 		set prev = curr
 		set curr = (curr+FL_NEXT_OFFSET)@ptr
-	end while
+	end
 
 	# nesse caso, new é o ultimo nó
 	append[prev, new]
-end proc
+end
 
 proc append[prev:ptr, new:ptr]
 var size
@@ -261,10 +261,10 @@ begin
 		# COALESCING, append
 		set (prev+FL_SIZE_OFFSET)@i64 = size + (new+FL_SIZE_OFFSET)@i64
 		return
-	end if
+	end
 	set (prev+FL_NEXT_OFFSET)@ptr = new
 	set (new+FL_NEXT_OFFSET)@ptr = NULL
-end proc
+end
 
 proc prepend[new:ptr]
 var size
@@ -276,11 +276,11 @@ begin
 		set (new+FL_NEXT_OFFSET)@ptr = (Head@ptr + FL_NEXT_OFFSET)@ptr
 		set Head@ptr = new
 		return
-	end if
+	end
 
 	set (new+FL_NEXT_OFFSET)@ptr = Head@ptr
 	set Head@ptr = new
-end proc
+end
 
 proc join[prev:ptr, new:ptr, curr:ptr]
 var size
@@ -297,9 +297,9 @@ begin
 		end else begin
 			# aqui, somente prev e new são adjacentes
 			set (prev+FL_SIZE_OFFSET)@i64 = size
-		end if
+		end
 		return
-	end if
+	end
 
 	set size = (new+FL_SIZE_OFFSET)@i64
 	if new + size:ptr == curr begin
@@ -308,11 +308,11 @@ begin
 		set (new+FL_SIZE_OFFSET)@i64 = size + (curr+FL_SIZE_OFFSET)@i64
 		set (new+FL_NEXT_OFFSET)@ptr = (curr+FL_NEXT_OFFSET)@ptr
 		return
-	end if
+	end
 
 	set (prev+FL_NEXT_OFFSET)@ptr = new
 	set (new+FL_NEXT_OFFSET)@ptr = curr
-end proc
+end
 
 proc init
 begin
@@ -322,7 +322,7 @@ begin
 	set Head@ptr = Heap
 	set (Heap+FL_SIZE_OFFSET)@i64 = Heap.size
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
-end proc
+end
 
 data MSG_TOTAL_FREE "free: "
 
@@ -340,12 +340,12 @@ begin
 		put_char[' ']
 		set totalFree += (curr+FL_SIZE_OFFSET)@i64
 		set curr = (curr+FL_NEXT_OFFSET)@ptr
-	end while
+	end
 	put_char[' ']
 	write[MSG_TOTAL_FREE, MSG_TOTAL_FREE.size]
 	put_int[totalFree]
 	put_char['\n']
-end proc
+end
 
 proc print_map[]
 var i
@@ -355,15 +355,15 @@ begin
 	while i < Heap.size/WORD begin
 		if (ByteMap+i:ptr)@i8 == EMPTY begin
 			put_char[' ']
-		end if
+		end
 		if (ByteMap+i:ptr)@i8 == FULL begin
 			put_char['X']
-		end if
+		end
 		set i += 1
-	end while
+	end
 	put_char[']']
 	put_char['\n']
-end proc
+end
 
 proc set_map[obj:ptr, size, b:i8]
 var start:ptr, i:ptr, size_words:ptr
@@ -374,5 +374,5 @@ begin
 	while i < size_words begin
 		set (start+i)@i8 = b
 		set i += 1p
-	end while
-end proc
+	end
+end

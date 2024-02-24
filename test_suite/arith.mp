@@ -6,5 +6,5 @@ begin
 	set a = b - a
 	if a != 1 begin
 		exit 1ss
-	end if
-end proc
+	end
+end

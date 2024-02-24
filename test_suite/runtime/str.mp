@@ -44,7 +44,7 @@ const STR_SIZE_OFFSET = 12p  # i32
 
 proc main
 begin
-end proc
+end
 
 # pointer in the first word
 const STR_BITMAP = 0b10000000_00000000_00000000_00000000ul
@@ -56,25 +56,25 @@ begin
     set header = alloc_b[STR_HEADER_SIZE, 0uss, 0us, STR_BITMAP]
     if header == NULL begin
         oom[]
-    end if
+    end
     set (header+STR_PTR_OFFSET)@ptr = NULL
     set (header+STR_START_OFFSET)@i32 = 0l
     set (header+STR_SIZE_OFFSET)@i32 = 0l
 
     return header
-end proc
+end
 
 # we do not free the underlying array,
 # since it may be shared. let the gc handle this.
 proc free_str[str:ptr]
 begin
     free[str]
-end proc
+end
 
 proc _free_buff[str:ptr]
 begin
     free[(str+STR_PTR_OFFSET)@ptr]
-end proc
+end
 
 proc set_str[str:ptr, mem:ptr, mem_size]
 var array:ptr, header:ptr
@@ -82,7 +82,7 @@ begin
     set (str+STR_PTR_OFFSET)@ptr = mem
     set (str+STR_START_OFFSET)@i32 = 0l
     set (str+STR_SIZE_OFFSET)@i32 = mem_size:i32
-end proc
+end
 
 proc put_str[str:ptr]
 var array:ptr, start:i32, size:i32
@@ -92,7 +92,7 @@ begin
     set size = (str+STR_SIZE_OFFSET)@i32
 
     write[(array+start:ptr), size:i64]
-end proc
+end
 
 data NULL_STR "NULL"
 
@@ -101,11 +101,11 @@ begin
     if str == NULL begin
         write[NULL_STR, NULL_STR.size]
         return
-    end if
+    end
     put_char['"']
     put_str[str]
     put_char['"']
-end proc
+end
 
 # allocates a new str; copies A and B into it
 # returns the str;
@@ -131,24 +131,24 @@ begin
         set arrayOut = alloc_f[sizeOut:i64]
         if arrayOut == NULL begin
             oom[]
-        end if
+        end
     end else begin
         set arrayOut = NULL
-    end if
+    end
     
     if arrayA != NULL begin # empty string is NULL
         copy[arrayOut, (arrayA+startA:ptr), sizeA:i64]
-    end if
+    end
     if arrayB != NULL begin
         copy[arrayOut+sizeA:ptr, (arrayB+startB:ptr), sizeB:i64]
-    end if
+    end
 
     set (outStr+STR_PTR_OFFSET)@ptr = arrayOut
     set (outStr+STR_START_OFFSET)@i32 = 0l
     set (outStr+STR_SIZE_OFFSET)@i32 = sizeOut
 
     return outStr
-end proc
+end
 
 proc eq_str[strA:ptr, strB:ptr] bool
 var sizeA:i32, sizeB:i32,
@@ -167,32 +167,32 @@ begin
 
     if sizeA != sizeB begin
         return false
-    end if
+    end
 
     # empty strigns fall here too
     if arrayA == arrayB and
        sizeA == sizeB and
        startA == startB begin
         return true
-    end if
+    end
 
     set i = 0l
     while i < sizeA begin
         if (arrayA+i:ptr+startA:ptr)@i8 !=
            (arrayB+i:ptr+startB:ptr)@i8 begin
             return false
-        end if
+        end
         set i += 1l
-    end while
+    end
     return true
-end proc
+end
 
 proc copy_str[strDest:ptr, strSource:ptr]
 begin
     set (strDest+STR_START_OFFSET)@i32 = (strSource+STR_START_OFFSET)@i32
     set (strDest+STR_PTR_OFFSET)@i32 = (strSource+STR_PTR_OFFSET)@i32
     set (strDest+STR_SIZE_OFFSET)@i32 = (strSource+STR_SIZE_OFFSET)@i32
-end proc
+end
 
 proc dup_str[strSource:ptr] ptr
 var strDest:ptr
@@ -200,7 +200,7 @@ begin
     set strDest = new_str[]
     copy_str[strDest, strSource]
     return strDest
-end proc
+end
 
 proc peek_rune[str:ptr] i32
 var array:ptr, start:i32, size:i32,
@@ -212,12 +212,12 @@ begin
 
     if size == 0l or array == NULL begin
         return ~1l
-    end if
+    end
 
     set rune, runeSize = utf8_decode[array+start:ptr]
 
     return rune
-end proc
+end
 
 # peek allocates a new header only,
 # the underlying array is the same,
@@ -234,26 +234,26 @@ begin
 
     if size == 0l or array == NULL begin
         return NULL
-    end if
+    end
 
     set i = 0
     set new_start = old_start
     while i < length begin
         if size <= 0l begin
             return NULL
-        end if
+        end
         set rune, runeSize = utf8_decode[array+new_start:ptr]
         set size -= runeSize:i32
         set new_start += runeSize:i32
         set i += 1
-    end while
+    end
 
     set outStr = new_str[]
     set (outStr+STR_PTR_OFFSET)@ptr = array
     set (outStr+STR_START_OFFSET)@i32 = old_start
     set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start
     return outStr
-end proc
+end
 
 proc pop_rune[str:ptr] i32
 var array:ptr, start:i32, size:i32,
@@ -265,7 +265,7 @@ begin
 
     if size == 0l or array == NULL begin
         return ~1l
-    end if
+    end
 
     set rune, runeSize = utf8_decode[array+start:ptr]
 
@@ -273,7 +273,7 @@ begin
     set (str+STR_SIZE_OFFSET)@i32 -= runeSize:i32
 
     return rune
-end proc
+end
 
 # pop allocates a new header,
 # but modifies the older one so that
@@ -291,19 +291,19 @@ begin
 
     if size == 0l or array == NULL begin
         return NULL
-    end if
+    end
 
     set i = 0
     set new_start = old_start
     while i < length begin
         if size <= 0l begin
             return NULL
-        end if
+        end
         set rune, runeSize = utf8_decode[array+new_start:ptr]
         set size -= runeSize:i32
         set new_start += runeSize:i32
         set i += 1
-    end while
+    end
 
     set (str+STR_START_OFFSET)@i32 = new_start
     set (str+STR_SIZE_OFFSET)@i32 = size
@@ -313,7 +313,7 @@ begin
     set (outStr+STR_START_OFFSET)@i32 = old_start
     set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start
     return outStr
-end proc
+end
 
 # Murmur Hash
 proc hash[str:ptr] i64
@@ -330,10 +330,10 @@ begin
         set out = (out |^ (array+(start+i):ptr)@i8:i64) * 0x5bd1e995
         set out = out |^ (out >> 15)
         set i += 1l
-    end while
+    end
 
     return out
-end proc
+end
 
 # scans the entire string and counts
 # the number of utf-8 codepoints
@@ -347,7 +347,7 @@ begin
 
     if size == 0l or array == NULL begin
         return 0 # empty string
-    end if
+    end
 
     set i = 0
     while 0l < size begin
@@ -355,10 +355,10 @@ begin
         set size -= runeSize:i32
         set start += runeSize:i32
         set i += 1
-    end while
+    end
 
     return i
-end proc
+end
 
 ################################# INTERNAL UTILITARIES
 
@@ -370,5 +370,5 @@ begin
 	begin
 		set (dest + i:ptr)@i8 = (source + i:ptr)@i8
 		set i += 1
-	end while
-end proc
+	end
+end

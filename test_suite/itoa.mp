@@ -9,56 +9,48 @@ proc main
 var p:ptr, size
 begin
 	set p, size = itoa[32]
-	if not equals[p, size, result0, result0.size]
-	begin
+	if not equals[p, size, result0, result0.size] begin
 		exit 1ss
-	end if
+	end
 	set p, size = itoa[~32]
-	if not equals[p, size, result1, result1.size]
-	begin
+	if not equals[p, size, result1, result1.size] begin
 		exit 2ss
-	end if
+	end
 	set p, size = itoa[1]
-	if not equals[p, size, result2, result2.size]
-	begin
+	if not equals[p, size, result2, result2.size] begin
 		exit 3ss
-	end if
+	end
 	set p, size = itoa[0]
-	if not equals[p, size, result3, result3.size]
-	begin
+	if not equals[p, size, result3, result3.size] begin
 		exit 4ss
-	end if
+	end
 	set p, size = itoa[1000]
-	if not equals[p, size, result4, result4.size]
-	begin
+	if not equals[p, size, result4, result4.size] begin
 		exit 5ss
-	end if
+	end
 	set p, size = itoa[~1000]
-	if not equals[p, size, result5, result5.size]
-	begin
+	if not equals[p, size, result5, result5.size] begin
 		exit 6ss
-	end if
-end proc
+	end
+end
 
 proc equals[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
 var i
 begin
-	if size1 != size2
-	begin
+	if size1 != size2 begin
 		return false
-	end if
+	end
 
 	set i = 0
 	while i < size1
 	begin
-		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8
-		begin
+		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8 begin
 			return false
-		end if
+		end
 		set i += 1
-	end while
+	end
 	return true
-end proc
+end
 
 data itoa_buff [32]
 
@@ -69,33 +61,28 @@ begin
 	set signal = 0ss
 	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
 
-	if n == 0
-	begin
+	if n == 0 begin
 		set itoa_buff@i8 = '0'
 		return itoa_buff, 1
-	end if
+	end
 
-	if n < 0
-	begin
+	if n < 0 begin
 		set signal = '-'
 		set n = ~n
-	end if
+	end
 
 	while n > 0 begin
 		set p@i8 = (n % 10):i8 + '0'
 		set n /= 10;
 		set p -= 1p
-	end while
-
-	if signal == '-'
-	begin
-		set p@i8 = signal
 	end
-	else
-	begin
+
+	if signal == '-' begin
+		set p@i8 = signal
+	end else begin
 		set p += 1p;
-	end if
+	end
 
 	return p, itoa_buff.size-(p-itoa_buff):i64 
-end proc
+end
 

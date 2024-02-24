@@ -4,4 +4,4 @@ data b [512]
 proc main
 begin
     exit 1ss
-end proc
+end

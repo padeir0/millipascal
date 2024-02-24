@@ -3,22 +3,22 @@ export Pi, Tau, Phi
 proc Pi[] i64
 begin
 	return 3
-end proc
+end
 
 proc Tau[] i64
 begin
 	return 6
-end proc
+end
 
 proc Phi[] i64
 begin
 	return 2
-end proc
+end
 
 proc main
 begin
 	if Pi[] != Tau[]/2 
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

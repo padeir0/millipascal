@@ -4,4 +4,4 @@ const b = a
 proc main
 begin
     exit 1ss
-end proc
+end

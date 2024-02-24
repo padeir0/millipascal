@@ -7,26 +7,26 @@ begin
 	if b != 2
 	begin
 		exit 1ss
-	end if
+	end
 
 	set b = Perform[b, b, Sub]
 	if b != 0 
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc Perform[a, b, p:proc[i64, i64] i64] i64
 begin
 	return p[a, b];
-end proc
+end
 
 proc Add[a, b] i64
 begin
 	return a + b
-end proc
+end
 
 proc Sub[a, b] i64
 begin
 	return a - b
-end proc
+end

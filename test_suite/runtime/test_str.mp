@@ -27,7 +27,7 @@ begin
     test_pop_rune[0x3050l, 0x3150l]
     test_pop_rune[0x56E0l, 0x57E0l]
     test_dup[]
-end proc
+end
 
 data PHRASE0 "My name is Ozymandias"
 data PHRASE1 "My name is Ozzy"
@@ -49,7 +49,7 @@ begin
 
     if not eq_str[b, c] or hash[b] != hash[c] begin
         exit 1ss
-    end if
+    end
 
     free_str[a]
     free_str[b]
@@ -66,7 +66,7 @@ begin
     free_str[f4]
 
     validate_init[]
-end proc
+end
 
 data Buff [64]
 
@@ -82,14 +82,14 @@ begin
     while r != ~1l begin
         if r != runeStart+i begin
             exit 2ss
-        end if
+        end
         set r = pop_rune[a]
         set i += 1l
-    end while
+    end
 
     free_str[a]
     validate_init[]
-end proc
+end
 
 proc test_dup
 var a:ptr, b:ptr
@@ -99,8 +99,8 @@ begin
     set b = dup_str[a]
     if not eq_str[a, b] or hash[a] != hash[b] begin
         exit 3ss
-    end if
-end proc
+    end
+end
 
 ############### UTILITARIES
 
@@ -115,6 +115,6 @@ begin
         set runeSize = utf8_encode[runeStart + i, buff+p:ptr]
         set p += runeSize
         set i += 1l
-    end while
+    end
     return p
-end proc
+end

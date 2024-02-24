@@ -16,18 +16,18 @@ begin
     set neg = mult_signal[is_neg[a], is_neg[b]]
     if not neg begin
         exit 2ss
-    end if
+    end
     set neg = mult_4signals[is_neg[a], is_neg[b], is_neg[c], is_neg[d]]
     if neg begin
         exit 3ss
-    end if
+    end
     set neg = mult_8signals[
         is_neg[a], is_neg[b], is_neg[c], is_neg[d],
         is_neg[e], is_neg[f], is_neg[g], is_neg[h]
     ]
     if not neg begin
         exit 4ss
-    end if
+    end
 
     set neg = mult_16signals[
         is_neg[a], is_neg[b], is_neg[c], is_neg[d],
@@ -37,7 +37,7 @@ begin
     ]
     if neg begin
         exit 5ss
-    end if
+    end
 
     set neg = mult_16signals[
         is_neg[a], is_neg[b], is_neg[c], is_neg[d],
@@ -47,7 +47,7 @@ begin
     ]
     if not neg begin
         exit 6ss
-    end if
+    end
 
     set neg = mult_16signals[
         is_neg[a], is_neg[b], is_neg[c], is_neg[d],
@@ -57,7 +57,7 @@ begin
     ]
     if neg begin
         exit 7ss
-    end if
+    end
 
     set neg = mult_16signals[
         is_neg[e], is_neg[f], is_neg[g], is_neg[h],
@@ -67,18 +67,18 @@ begin
     ]
     if not neg begin
         exit 8ss
-    end if
-end proc
+    end
+end
 
 proc is_neg[a:i32] bool
 begin
     return a < 0l
-end proc
+end
 
 proc mult_4signals[a:bool, b:bool, c:bool, d:bool] bool
 begin
     return mult_signal[mult_signal[a, b], mult_signal[c, d]]
-end proc
+end
 
 proc mult_8signals[
     a:bool, b:bool, c:bool, d:bool,
@@ -89,7 +89,7 @@ begin
             mult_4signals[a, b, c, d],
             mult_4signals[e, f, g, h]
     ]
-end proc
+end
 
 proc mult_16signals[
     a:bool, b:bool, c:bool, d:bool,
@@ -102,7 +102,7 @@ begin
             mult_8signals[a, b, c, d, e, f, g, h],
             mult_8signals[i, j, k, l, m, n, o, p]
     ]
-end proc
+end
 
 proc mult_signal[a:bool, b:bool] bool
 begin
@@ -112,6 +112,6 @@ begin
     # (-1)*1 = 1*(-1) = -1
     end elseif (not a and b) or (a and not b) begin
         return true
-    end if
+    end
     exit 1ss
-end proc
+end

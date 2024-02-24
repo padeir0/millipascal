@@ -39,7 +39,7 @@ begin
     test_mult_i32_vs_mult[]
     test_copy[]
     test_mult_vs_div[]
-end proc
+end
 
 proc test_div_i32
 var a:ptr, q:ptr, rem:i32, i:i32, j:i32
@@ -61,23 +61,23 @@ begin
                 put_int[(i/j):i64]
                 put_char['\n']
                 exit 36ss
-            end if
+            end
             if rem != i%j begin
                 exit 37ss
-            end if
+            end
 
             set j += 1l
             if j == 0l begin
                 set j += 1l
-            end if
-        end while
+            end
+        end
         set i += 1l
-    end while
+    end
 
     free_bint[a]
     free_bint[q]
     validate_init[]
-end proc
+end
 
 proc test_div
 var a:ptr, b:ptr, q:ptr, r:ptr, i:i32, j:i32
@@ -98,25 +98,25 @@ begin
             div[a, b, q, r]
             if comp_i32[q, i/j] != EQ begin
                 exit 34ss
-            end if
+            end
             if comp_i32[r, i%j] != EQ begin
                 exit 35ss
-            end if
+            end
 
             set j += 1l
             if j == 0l begin
                 set j += 1l
-            end if
-        end while
+            end
+        end
         set i += 1l
-    end while
+    end
 
     free_bint[a]
     free_bint[b]
     free_bint[q]
     free_bint[r]
     validate_init[]
-end proc
+end
 
 proc test_mult
 var a:ptr, b:ptr, c:ptr,
@@ -137,18 +137,18 @@ begin
             mult[a, b, c]
             if comp_i32[c, i*j] != EQ begin
                 exit 32ss
-            end if
+            end
 
             set j += 1l
-        end while
+        end
         set i += 1l
-    end while
+    end
 
     free_bint[a]
     free_bint[b]
     free_bint[c]
     validate_init[]
-end proc
+end
 
 proc test_mult_i32
 var a:ptr, b:ptr,
@@ -174,17 +174,17 @@ begin
                 put_bint[b]
                 put_char['\n']
                 exit 33ss
-            end if
+            end
 
             set j += 1l
-        end while
+        end
         set i += 1l
-    end while
+    end
 
     free_bint[a]
     free_bint[b]
     validate_init[]
-end proc
+end
 
 proc test_add
 var a:ptr, b:ptr,
@@ -197,25 +197,25 @@ begin
     while i < 20 begin
         add[a, b, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, 10l] != EQ begin
         exit 25ss
-    end if
+    end
 
     set_bint[b, ~1l]
     set i = 0
     while i < 20 begin
         add[a, b, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, ~10l] != EQ begin
         exit 26ss
-    end if
+    end
     
     free_bint[a]
     free_bint[b]
     validate_init[]
-end proc
+end
 
 proc test_add_i32
 var a:ptr, i, res
@@ -226,23 +226,23 @@ begin
     while i < 20 begin
         add_i32[a, 1l, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, 10l] != EQ begin
         exit 27ss
-    end if
+    end
 
     set i = 0
     while i < 20 begin
         add_i32[a, ~1l, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, ~10l] != EQ begin
         exit 28ss
-    end if
+    end
     
     free_bint[a]
     validate_init[]
-end proc
+end
 
 proc test_sub
 var a:ptr, b:ptr,
@@ -255,25 +255,25 @@ begin
     while i < 20 begin
         sub[a, b, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, 10l] != EQ begin
         exit 29ss
-    end if
+    end
 
     set_bint[b, 1l]
     set i = 0
     while i < 20 begin
         sub[a, b, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, ~10l] != EQ begin
         exit 30ss
-    end if
+    end
     
     free_bint[a]
     free_bint[b]
     validate_init[]
-end proc
+end
 
 proc test_sub_i32
 var a:ptr, i, res
@@ -284,23 +284,23 @@ begin
     while i < 20 begin
         sub_i32[a, ~1l, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, 10l] != EQ begin
         exit 31ss
-    end if
+    end
 
     set i = 0
     while i < 20 begin
         sub_i32[a, 1l, a]
         set i += 1
-    end while
+    end
     if comp_i32[a, ~10l] != EQ begin
         exit 32ss
-    end if
+    end
     
     free_bint[a]
     validate_init[]
-end proc
+end
 
 proc test_copy
 var a:ptr, b:ptr, c:ptr, d:ptr, e:ptr
@@ -312,11 +312,11 @@ begin
     copy_bint[b, a]
     if comp[a, b] != EQ begin
         exit 14ss
-    end if
+    end
     free_bint[a]
     free_bint[b]
     validate_init[]
-end proc
+end
 
 proc test_mult_i32_vs_mult
 var a:ptr, c:ptr, d:ptr, e:ptr, i
@@ -338,16 +338,16 @@ begin
 
         if comp[a, c] != EQ begin
             exit 13ss
-        end if
+        end
         set i += 1
-    end while
+    end
 
     free_bint[a]
     free_bint[c]
     free_bint[d]
     free_bint[e]
     validate_init[]
-end proc
+end
 
 proc test_add_vs_sub
 var a:ptr, b:ptr, c:ptr,
@@ -365,12 +365,12 @@ begin
     while i < 1_000_000 begin
         sub[a, b, a]
         set i += 1
-    end while
+    end
     set i = 0
     while i < 1_000_000 begin
         add[a, b, a]
         set i += 1
-    end while
+    end
 
     if comp[a, c] != EQ begin
         put_char['!']
@@ -381,13 +381,13 @@ begin
         put_bint[c]
         put_char['\n']
         exit 5ss
-    end if
+    end
 
     free_bint[a]
     free_bint[b]
     free_bint[c]
     validate_init[]
-end proc
+end
 
 proc test_add_i32_vs_sub_i32
 var a:ptr, b:ptr, c:ptr,
@@ -404,12 +404,12 @@ begin
     while i < 1_000_000 begin
         sub_i32[a, 64l, a]
         set i += 1
-    end while
+    end
     set i = 0
     while i < 1_000_000 begin
         add_i32[a, 64l, a]
         set i += 1
-    end while
+    end
 
     if comp[a, b] != EQ begin
         put_char['!']
@@ -418,13 +418,13 @@ begin
         put_bint[b]
         put_char['\n']
         exit 6ss
-    end if
+    end
 
     free_bint[a]
     free_bint[b]
     free_bint[c]
     validate_init[]
-end proc
+end
 
 proc test_mult_vs_div
 var a:ptr, b:ptr, c:ptr,
@@ -448,10 +448,10 @@ begin
 
         if comp[a, c] != EQ begin
             exit 21ss
-        end if
+        end
         add_i32[a, 9l, a]
         set i += 1
-    end while
+    end
 
     free_bint[a]
     free_bint[b]
@@ -459,4 +459,4 @@ begin
     free_bint[q]
     free_bint[r]
     validate_init[]
-end proc
+end

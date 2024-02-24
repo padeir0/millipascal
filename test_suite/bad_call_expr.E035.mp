@@ -2,10 +2,10 @@ proc main
 var a
 begin
 	set a = nothing[];
-end proc
+end
 
 proc nothing
 var a
 begin
 	set a = 1 + 1;
-end proc
+end

@@ -39,7 +39,7 @@ export
 
 proc main
 begin
-end proc
+end
 
 data ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
 data ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
@@ -83,7 +83,7 @@ begin
     set size = write_bint[bint, StrBuff, StrBuff.size]
     write[StrBuff, size]
     set_buff[StrBuff, size, 0ss]
-end proc
+end
 
 proc write_bint[bint:ptr, buff:ptr, buffSize] i64
 var len, i, array:ptr, currDigit:ptr,
@@ -97,7 +97,7 @@ begin
     if len == 0 begin
         set buff@i8 = '0'
         return 1;
-    end if
+    end
 
     set size = 0
     set i = len-1
@@ -107,20 +107,20 @@ begin
         set block@i8 = '~'
         set block += 1p
         set size += 1
-    end if
+    end
     while 0 <= i begin
         set currDigit = array + (i*sizeof i32):ptr
         if (block - buff):i64 >= buffSize-DIGITS_PER_INT begin
             fatal[ERR_STR_OVERFLOW, ERR_STR_OVERFLOW.size]
-        end if
+        end
         put_i32[currDigit@i32, block, first]
         set first = false
         set block += DIGITS_PER_INT:ptr
         set size += DIGITS_PER_INT
         set i -= 1
-    end while
+    end
     return size
-end proc
+end
 
 proc put_i32[n:i32, digits:ptr, first:bool]
 var p:ptr, i,
@@ -131,24 +131,24 @@ begin
         while i <= 9 begin
     		set (digits + i:ptr)@i8 = '0'
             set i += 1
-        end while
-        return
-	end if
+        end
+        return;
+	end
 	set p = digits + DIGITS_PER_INT:ptr - 1p # end of buffer
 	while n > 0l begin
 		set p@i8 = (n % 10l):i8 + '0'
 		set n /= 10l;
 		set p -= 1p
-	end while
+	end
 
     # padding
     if not first begin
         while p >= digits begin
     		set p@i8 = '0'
             set p -= 1p
-        end while
-    end if
-end proc
+        end
+    end
+end
 
 proc put_res[res]
 begin
@@ -161,25 +161,25 @@ begin
     end elseif res == LESS begin
         put_char['<']
         return
-    end if
+    end
 
     write[WTF, WTF.size]
     exit 3ss
-end proc
+end
 
 proc verify_digit[digit:i32]
 begin
     if digit < 0l or digit >= BASE begin
         fatal[ERR_SET_INVALID_DIGIT, ERR_SET_INVALID_DIGIT.size]
-    end if
-end proc
+    end
+end
 
 proc verify_i32[digit:i32]
 begin
     if digit <= ~BASE or digit >= BASE begin
         fatal[ERR_SET_INVALID_I32, ERR_SET_INVALID_I32.size]
-    end if
-end proc
+    end
+end
 
 proc set_bint[bint:ptr, first:i32]
 var len:i32, array:ptr
@@ -189,13 +189,13 @@ begin
         set len = 0l
     end else begin
         set len = 1l
-    end if
+    end
 
     set array = (bint+BINT_PTR_OFFSET)@ptr
     set (array-ARRAY_NEG_OFFSET)@bool = first < 0l
     set (array)@i32 = abs_i32[first]
     set (bint+BINT_LEN_OFFSET)@i32 = len
-end proc
+end
 
 proc set_abs_bint[bint:ptr, first:i32]
 var len:i32, array:ptr
@@ -205,20 +205,20 @@ begin
         set len = 0l
     end else begin
         set len = 1l
-    end if
+    end
 
     set array = (bint+BINT_PTR_OFFSET)@ptr
     set (array)@i32 = first
     set (bint+BINT_LEN_OFFSET)@i32 = len
-end proc
+end
 
 proc is_neg[bint:ptr] bool
 begin
     if is_zero[bint] begin
         return false
-    end if
+    end
     return ((bint+BINT_PTR_OFFSET)@ptr-ARRAY_NEG_OFFSET)@bool
-end proc
+end
 
 const INIT_ALLOC = 1
 
@@ -234,13 +234,13 @@ begin
         put_int[INIT_ALLOC*sizeof i32]
         put_char[' ']
         oom[]
-    end if
+    end
 
     if first == 0l begin
         set len = 0l
     end else begin
         set len = 1l
-    end if
+    end
 
     set (array-ARRAY_NEG_OFFSET)@bool = first < 0l
 
@@ -251,13 +251,13 @@ begin
     set array@i32 = abs_i32[first]
 
     return obj
-end proc
+end
 
 proc free_bint[bint:ptr]
 begin
     free[(bint+BINT_PTR_OFFSET)@ptr]
     free[bint]
-end proc
+end
 
 # pushes a digit at the end of the number,
 # increasing length by 1
@@ -281,7 +281,7 @@ begin
             put_bint_header[bint]
             put_char[' ']
             oom[]
-        end if
+        end
 
         copy_i32[new_array, array, len:i64]
         free[array]
@@ -289,10 +289,10 @@ begin
         set (bint+BINT_CAP_OFFSET)@i32 = new_cap:i32
         set (bint+BINT_PTR_OFFSET)@ptr = new_array
         set array = new_array
-    end if
+    end
     set (array+(len:i64*sizeof i32):ptr)@i32 = digit
     set (bint+BINT_LEN_OFFSET)@i32 = len + 1l
-end proc
+end
 
 proc put_bint_header[bint:ptr]
 var cap:i32, len:i32, array:ptr, neg:bool
@@ -319,7 +319,7 @@ begin
     put_char[':']
     put_bool[neg]
     put_char['}']
-end proc
+end
 
 proc copy_bint[iDest:ptr, iSource:ptr] 
 var source_cap:i32, source_len:i32, dest_cap:i32,
@@ -338,12 +338,12 @@ begin
 
         set (iDest+BINT_CAP_OFFSET)@i32 = source_cap
         set (iDest+BINT_PTR_OFFSET)@ptr = dest_array 
-    end if
+    end
 
     copy_i32[dest_array, source_array, source_len:i64]
     set (dest_array-ARRAY_NEG_OFFSET)@bool = (source_array-ARRAY_NEG_OFFSET)@bool
     set (iDest+BINT_LEN_OFFSET)@i32 = source_len
-end proc
+end
 
 proc copy_i32[dest:ptr, source:ptr, size]
 var i
@@ -352,8 +352,8 @@ begin
     while i < size begin
         set (dest+(i*sizeof i32):ptr)@i32 = (source+(i*sizeof i32):ptr)@i32
         set i += 1
-    end while
-end proc
+    end
+end
 
 proc remove_trailing_zeroes[bint:ptr]
 var len, i, arraySlot:ptr, currDigit:ptr
@@ -366,10 +366,10 @@ begin
         set len -= 1
         set i -= 1
         set currDigit = arraySlot@ptr+(i*sizeof i32):ptr
-    end while
+    end
 
     set (bint+BINT_LEN_OFFSET)@i32 = len:i32
-end proc
+end
 
 ######################################## $ABSOLUTE ARITHMETIC
 
@@ -393,7 +393,7 @@ var lenA, lenB, i, j, arrayA:ptr,
 begin
     if abs_comp_digit[iB, 0l] == 0 begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
-    end if
+    end
     set_zero[iQ]
     set_zero[iRem]
     set iIDD = new_bint[0l] # TODO: remove these allocations
@@ -420,14 +420,14 @@ begin
                     set low = guess
                 end elseif res == MORE begin 
                     set high = guess
-                end if
+                end
                 set guess = (low + high)/2l
                 set res = test_guess[iIDD, iScratch, iB, guess]
                 set j += 1
-            end while
+            end
             if j >= MAXITER begin
                 exit 4ss
-            end if
+            end
 
             copy_bint[iScratch, iB]
             abs_mult_digit[iScratch, guess, iScratch]
@@ -441,14 +441,14 @@ begin
         end else begin
             if abs_comp_digit[iQ, 0l] != EQ begin
                 abs_mult_base[iQ]
-            end if
-        end if
+            end
+        end
         set i -= 1
-    end while
+    end
     copy_bint[iRem, iIDD]
     free_bint[iIDD] # TODO: consider how the GC will look at these frees
     free_bint[iScratch]
-end proc
+end
 
 proc test_guess[
     iIDD:ptr,
@@ -463,20 +463,20 @@ begin
     set res = abs_comp[iScratch, iIDD]
     if (res == EQ) begin
         return EQ
-    end if
+    end
     if res == LESS begin 
         abs_add[iScratch, iB, iScratch]
         set res = abs_comp[iScratch, iIDD]
         if res == MORE begin # guess*B < IDD and (guess+1)*B > IDD
             return EQ
-        end if
+        end
         return LESS # too low
-    end if
+    end
     if res == MORE begin
         return MORE
-    end if
+    end
     exit 99ss
-end proc
+end
 
 # since 0 <= rem < B
 # we can store rem in a i32
@@ -495,7 +495,7 @@ var idd, q, b64,
 begin
     if b == 0l begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
-    end if
+    end
     set_zero[iQ]
 
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -515,11 +515,11 @@ begin
         abs_add_digit[iQ, q:i32, iQ]
         
         set i -= 1
-    end while
+    end
     # at the end of the loop, idd will be less than BASE,
     # so we can safely cast it
     return idd:i32
-end proc
+end
 
 # abs_slow_div computes the solution to A = Q*B + Rem
 # (where A, B are given and Q, Rem are output pointers)
@@ -539,15 +539,15 @@ begin
     set_zero[iRem]
     if abs_comp_digit[iB, 0l] == 0 begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
-    end if
+    end
     copy_bint[iRem, iA]
     set res = abs_comp[iRem, iB]
     while res == MORE or res == EQ begin
         abs_sub[iRem, iB, iRem]
         abs_add_digit[iQ, 1l, iQ]
         set res = abs_comp[iRem, iB]
-    end while
-end proc
+    end
+end
 
 # we will have to mark the pointers that point to objetcs
 # so the GC can ignore derived pointers.
@@ -586,25 +586,25 @@ begin
             if i+j == lenC begin
                 push_digit[iC, 0l]
                 set lenC += 1
-            end if
+            end
             set currDigitB = arrayB+(j*sizeof i32):ptr
             set currDigitC = arraySlotC@ptr+((i+j)*sizeof i32):ptr
             if j < lenB begin
                 set res = currDigitC@i32:i64 + carry:i64 + currDigitA@i32:i64*currDigitB@i32:i64
             end else begin
                 set res = currDigitC@i32:i64 + carry:i64
-            end if
+            end
 
             set currDigitC@i32 = (res % BASE:i64):i32
             set carry = (res / BASE:i64):i32
             
             set j += 1
-        end while
+        end
         set i += 1
-    end while
+    end
 
     remove_trailing_zeroes[iC]
-end proc
+end
 
 proc abs_mult_base[bint:ptr]
 var len, i, array:ptr
@@ -616,9 +616,9 @@ begin
     while 0 < i begin
         set (array+(i*sizeof i32):ptr)@i32 = (array+((i-1)*sizeof i32):ptr)@i32
         set i -= 1
-    end while
+    end
     set array@i32 = 0l # zeroes the first one
-end proc
+end
 
 # iA may be the same object as iC
 proc abs_mult_digit[iA:ptr, digit:i32, iC:ptr]
@@ -645,22 +645,22 @@ begin
         if i == lenC begin
             push_digit[iC, 0l]
             set lenC += 1
-        end if
+        end
         set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
         set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
 
         set res = carry:i64
         if i < lenA begin
             set res += currDigitA@i32:i64 * digit:i64
-        end if
+        end
         set currDigitC@i32 = (res % BASE:i64):i32
         set carry = (res / BASE:i64):i32
        
         set i += 1
-    end while
+    end
 
     remove_trailing_zeroes[iC]
-end proc
+end
 
 # iA, iB and iC need not to be different objects
 proc abs_sub[iA:ptr, iB:ptr, iC:ptr]
@@ -678,7 +678,7 @@ begin
     end elseif i == EQ begin
         set_zero[iC]
         return;
-    end if
+    end
     # for now on, we know that lenB <= lenA
 
     # if iB and iC are the same object set to zero
@@ -686,7 +686,7 @@ begin
     if abs_comp_digit[iB, 0l] == EQ begin
         copy_bint[iC, iA]
         return
-    end if
+    end
 
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
     set lenB = (iB+BINT_LEN_OFFSET)@i32:i64
@@ -702,7 +702,7 @@ begin
         if i == lenC begin
             push_digit[iC, 0l]
             set lenC += 1
-        end if
+        end
         set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
         set currDigitB = arraySlotB@ptr+(i*sizeof i32):ptr
         set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
@@ -710,10 +710,10 @@ begin
         set res = ~carry
         if i < lenA begin
             set res += currDigitA@i32
-        end if
+        end
         if i < lenB begin
             set res -= currDigitB@i32
-        end if
+        end
         set currDigitC@i32 = res
 
         if currDigitC@i32 < 0l begin
@@ -721,13 +721,13 @@ begin
             set currDigitC@i32 += BASE
         end else begin
             set carry = 0l
-        end if
+        end
 
         set i += 1
-    end while
+    end
     
     remove_trailing_zeroes[iC]
-end proc
+end
 
 # iA and iC need not to be different objects
 proc abs_sub_digit[iA:ptr, digit:i32, iC:ptr]
@@ -748,7 +748,7 @@ begin
     end elseif i == EQ begin
         set_zero[iC]
         return;
-    end if
+    end
     # for now on, we know that 1 <= lenA
 
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -762,7 +762,7 @@ begin
     if i == lenC begin
         push_digit[iC, 0l]
         set lenC += 1
-    end if
+    end
 
     set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
     set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
@@ -772,14 +772,14 @@ begin
     if currDigitC@i32 < 0l begin
         set carry = 1l
         set currDigitC@i32 += BASE
-    end if
+    end
     set i += 1
 
     while carry > 0l begin
         if i == lenC begin
             push_digit[iC, 0l]
             set lenC += 1
-        end if
+        end
         set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
         set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
 
@@ -787,7 +787,7 @@ begin
             set res = currDigitA@i32
         end else begin
             set res = 0l
-        end if
+        end
         set currDigitC@i32 = res - carry
 
         if currDigitC@i32 < 0l begin
@@ -795,18 +795,18 @@ begin
             set currDigitC@i32 += BASE
         end else begin
             set carry = 0l
-        end if
+        end
 
         set i += 1
-    end while
+    end
     
     remove_trailing_zeroes[iC]
-end proc
+end
 
 proc is_zero[bint:ptr] bool
 begin
     return (bint+BINT_LEN_OFFSET)@i32 <= 0l
-end proc
+end
 
 proc set_zero[bint:ptr]
 var array:ptr
@@ -816,7 +816,7 @@ begin
     set (bint+BINT_LEN_OFFSET)@i32 = 0l
     set (array)@i32 = 0l
     set (array-ARRAY_NEG_OFFSET)@bool = false
-end proc
+end
 
 const EQ = 0
 const MORE = 1
@@ -835,7 +835,7 @@ begin
         return MORE
     end elseif lenA < lenB begin
         return LESS
-    end if
+    end
 
     # we won't update the size of the array, thus we can keep
     # a pointer directly to the vector
@@ -851,13 +851,13 @@ begin
             return MORE
         end elseif currDigitA@i32 < currDigitB@i32 begin
             return LESS
-        end if
+        end
         
         set i -= 1
-    end while
+    end
 
     return EQ
-end proc
+end
 
 # abs_compares two numbers, just like abs_comp,
 # with the same outputs,
@@ -871,11 +871,11 @@ begin
 
     if digit == 0l and lenA == 0 begin
         return EQ # both are zero
-    end if
+    end
 
     if lenA > 1 begin
         return MORE
-    end if
+    end
 
     set digitA = ((iA+BINT_PTR_OFFSET)@ptr)@i32
 
@@ -883,9 +883,9 @@ begin
         return MORE
     end elseif digitA < digit begin
         return LESS
-    end if
+    end
     return EQ
-end proc
+end
 
 # abs_adds iA to iB and stores in iC
 #
@@ -910,25 +910,25 @@ begin
         if i == lenC begin
             push_digit[iC, 0l]
             set lenC += 1
-        end if
+        end
         set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
         set res = carry
         if i < lenA begin
             set res += (arraySlotA@ptr+(i*sizeof i32):ptr)@i32
-        end if
+        end
         if i < lenB begin
             set res += (arraySlotB@ptr+(i*sizeof i32):ptr)@i32
-        end if
+        end
         set currDigitC@i32 = res
         if BASE <= currDigitC@i32 begin
             set carry = 1l
             set currDigitC@i32 -= BASE
         end else begin
             set carry = 0l
-        end if
+        end
         set i += 1
-    end while
-end proc
+    end
+end
 
 # abs_adds two numbers, just like abs_add
 # but the second number is < BASE,
@@ -951,42 +951,42 @@ begin
     if i == lenC begin
         push_digit[iC, 0l]
         set lenC += 1
-    end if
+    end
     set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
 
     set carry = 0l
     set res = digit
     if i < lenA begin
          set res += (arraySlotA@ptr + (i*sizeof i32):ptr)@i32
-    end if
+    end
     set currDigitC@i32 = res
 
     if BASE <= currDigitC@i32 begin
         set carry = 1l
         set currDigitC@i32 -= BASE
-    end if
+    end
     set i += 1
     while carry > 0l begin
         if i == lenC begin
             # push_digit may alter the pointer at arraySlot
             push_digit[iC, 0l]
             set lenC += 1
-        end if
+        end
         set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
         set res = carry
         if i < lenA begin
             set res += (arraySlotA@ptr + (i*sizeof i32):ptr)@i32
-        end if
+        end
         set currDigitC@i32 = res
         if BASE <= currDigitC@i32 begin
             set carry = 1l
             set currDigitC@i32 -= BASE
         end else begin
             set carry = 0l
-        end if
+        end
         set i += 1
-    end while
-end proc
+    end
+end
 ######################################## $INTEGER ARITHMETIC
 
 proc comp[iA:ptr, iB:ptr] i64
@@ -1005,15 +1005,15 @@ begin
             return MORE
         end else begin
             return EQ
-        end if
+        end
     end elseif not negA and negB begin
         return MORE
     end elseif negA and not negB begin
         return LESS
-    end if
+    end
     fatal[WTF, WTF.size]
     return ~1
-end proc
+end
 
 proc comp_i32[iA:ptr, b:i32] i64
 var negA:bool, negB:bool, res
@@ -1033,29 +1033,29 @@ begin
             return MORE
         end else begin
             return EQ
-        end if
+        end
     end elseif not negA and negB begin
         return MORE
     end elseif negA and not negB begin
         return LESS
-    end if
+    end
     fatal[WTF, WTF.size]
     return ~1
-end proc
+end
 
 proc set_neg[bint:ptr, neg:bool]
 var array:ptr
 begin
     set array = (bint+BINT_PTR_OFFSET)@ptr
     set (array-ARRAY_NEG_OFFSET)@bool = neg
-end proc
+end
 
 proc neg[bint:ptr]
 var array:ptr
 begin
     set array = (bint+BINT_PTR_OFFSET)@ptr
     set (array-ARRAY_NEG_OFFSET)@bool = not (array-ARRAY_NEG_OFFSET)@bool
-end proc
+end
 
 proc sub[iA:ptr, iB:ptr, iC:ptr]
 var negA:bool, negB:bool, res:bool
@@ -1078,8 +1078,8 @@ begin
     	# (1 * a) - (-1 * b)  = a+b
         abs_add[iA, iB, iC]
         set_neg[iC, false]
-    end if
-end proc
+    end
+end
 
 proc sub_i32[iA:ptr, b:i32, iC:ptr]
 var negA:bool, negB:bool, res:bool
@@ -1104,8 +1104,8 @@ begin
     	# (1 * a) - (-1 * b)  = a+b
         abs_add_digit[iA, b, iC]
         set_neg[iC, false]
-    end if
-end proc
+    end
+end
 
 proc add[iA:ptr, iB:ptr, iC:ptr]
 var negA:bool, negB:bool, res:bool
@@ -1129,8 +1129,8 @@ begin
     	# (1 * a) + (-1 * b)  = a-b
         set res = pos_sub_sign[iA, iB, iC]
         set_neg[iC, res]
-    end if
-end proc
+    end
+end
 
 proc add_i32[iA:ptr, b:i32, iC:ptr]
 var negA:bool, negB:bool, res:bool
@@ -1155,8 +1155,8 @@ begin
     	# (1 * a) + (-1 * b)  = a-b
         set res = pos_sub_digit_sign[iA, b, iC]
         set_neg[iC, res]
-    end if
-end proc
+    end
+end
 
 proc mult[iA:ptr, iB:ptr, iC:ptr]
 var neg:bool, negA:bool, negB:bool
@@ -1166,7 +1166,7 @@ begin
     set neg = mult_signal[negA, negB]
     abs_mult[iA, iB, iC]
     set_neg[iC, neg]
-end proc
+end
 
 proc mult_i32[iA:ptr, b:i32, iC:ptr]
 var neg:bool, negA:bool, negB:bool
@@ -1177,7 +1177,7 @@ begin
     set b = abs_i32[b]
     abs_mult_digit[iA, b, iC]
     set_neg[iC, neg]
-end proc
+end
 
 proc div[iA:ptr, iB:ptr, iQ:ptr, iRem:ptr]
 var neg:bool, negA:bool, negB:bool
@@ -1188,11 +1188,11 @@ begin
     abs_div[iA, iB, iQ, iRem]
     if abs_comp_digit[iQ, 0l] != EQ begin
         set_neg[iQ, neg]
-    end if
+    end
     if abs_comp_digit[iRem, 0l] != EQ begin
         set_neg[iRem, negA]
-    end if
-end proc
+    end
+end
 
 proc div_i32[iA:ptr, b:i32, iQ:ptr] i32
 var neg:bool, negA:bool, negB:bool, rem:i32
@@ -1205,13 +1205,13 @@ begin
     set rem = abs_div_digit[iA, b, iQ]
     if abs_comp_digit[iQ, 0l] != EQ begin
         set_neg[iQ, neg]
-    end if
+    end
 
     if rem != 0l and negA != (rem < 0l) begin
         set rem = ~rem
-    end if
+    end
     return rem
-end proc
+end
 
 proc mult_signal[a:bool, b:bool] bool
 begin
@@ -1221,10 +1221,10 @@ begin
     # (-1)*1 = 1*(-1) = -1
     end elseif (not a and b) or (a and not b) begin
         return true
-    end if
+    end
     fatal[WTF, WTF.size]
     return false
-end proc
+end
 
 # subtracts two positive numbers
 # then returns a sign based on magnitude
@@ -1239,9 +1239,9 @@ begin
     end elseif res == LESS begin
         # if a < b then a-b < 0
         return true
-    end if
+    end
     return false
-end proc
+end
 
 # same as above, but second number may be an i32
 proc pos_sub_digit_sign[iA:ptr, b:i32, iC:ptr] bool
@@ -1253,6 +1253,6 @@ begin
         return false
     end elseif res == LESS begin
         return true
-    end if
+    end
     return false
-end proc
+end

@@ -5,4 +5,4 @@ begin
 	set b = 2;
 	set c = 3;
 	set d = 4;
-end proc
+end

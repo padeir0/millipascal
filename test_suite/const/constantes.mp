@@ -4,7 +4,7 @@ const Zero = 0ss
 const begin
 	Seis = 6
 	Sete = 7
-end const
+end
 
 proc main
 var a
@@ -12,15 +12,15 @@ begin
 	set a = Cinco
 	if a != 5 begin
 		exit 1ss
-	end if
+	end
 	set a = Seis
 	if a != 6 begin
 		exit 1ss
-	end if
+	end
 	set a = Sete
 	if a != 7 begin
 		exit 1ss
-	end if
+	end
 
 	exit Zero
-end proc
+end

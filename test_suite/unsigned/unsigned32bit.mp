@@ -5,17 +5,17 @@ begin
 	if a != 1ul
 	begin
 		exit 1ss;
-	end if
+	end
 
 	set a -= 1ul;
 	if a != 0ul
 	begin
 		exit 1ss
-	end if
+	end
 
 	set a -= 1ul;
 	if a != 4294967295ul
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

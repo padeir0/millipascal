@@ -1,10 +1,9 @@
 proc main
 begin
-	if fact[5] != 120
-	begin
+	if fact[5] != 120 begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc fact[n] i64
 var result
@@ -13,6 +12,6 @@ begin
 	while n > 0 begin
 		set result *= n
 		set n -= 1
-	end while
+	end
 	return result
-end proc
+end

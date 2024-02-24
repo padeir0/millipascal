@@ -5,14 +5,14 @@ var p:ptr
 begin
 	set p = middle[];
 	set p@i64 = square[2];
-end proc
+end
 
 proc middle[] ptr
 begin
 	return buff + 256p
-end proc
+end
 
 proc square[n] i64
 begin
 	return n * n
-end proc
+end

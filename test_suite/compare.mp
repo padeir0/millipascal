@@ -3,20 +3,20 @@ begin
 	if 'a' != 'a'
 	begin
 		exit 1ss
-	end if
+	end
 
 	if 'a' > 'b'
 	begin
 		exit 1ss
-	end if
+	end
 
 	if 'b' < 'a'
 	begin
 		exit 1ss
-	end if
+	end
 
 	if not('a' >= 'a')
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

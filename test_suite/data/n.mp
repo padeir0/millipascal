@@ -6,5 +6,5 @@ proc main
 begin
     if m::M.size != 100 begin
         exit 1ss
-    end if
-end proc
+    end
+end

@@ -15,7 +15,7 @@ begin
     test['A':i32, 'z':i32]
     test[0x3050l, 0x3150l]
     test[0x56E0l, 0x57E0l]
-end proc
+end
 
 data Test [MAX_RUNE_SIZE]
 
@@ -33,7 +33,7 @@ begin
 
         if e_size != d_size begin
             exit 1ss
-        end if
+        end
         if rune != testRune + i begin
             put_u8[Test@u8]
             put_char[' ']
@@ -44,10 +44,10 @@ begin
             put_u8[(Test+3p)@u8]
             put_ln[]
             exit 2ss
-        end if
+        end
 
         set i += 1l
-    end while
+    end
     put_char['\n']
-end proc
+end
 

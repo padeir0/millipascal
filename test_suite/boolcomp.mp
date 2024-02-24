@@ -5,4 +5,4 @@ begin
 	set b = 1 != 2
 	set c = 1 == 1
 	set d = a or (b and c)
-end proc
+end

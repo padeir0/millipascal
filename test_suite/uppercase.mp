@@ -6,14 +6,14 @@ begin
 	if char != 'A'
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc upper_case[a:i8] i8
 begin
 	if a >= 'a' and a <= 'z'
 	begin
 		return a - 32ss
-	end if
+	end
 	return a
-end proc
+end

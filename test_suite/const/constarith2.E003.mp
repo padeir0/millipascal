@@ -5,4 +5,4 @@ const c = a + b
 proc main
 begin
     exit 1ss
-end proc
+end

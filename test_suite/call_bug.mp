@@ -3,17 +3,17 @@ var a
 begin
     if Try[10] != 10 begin
         exit 1ss
-    end if
+    end
     if Try[5] != 5 begin
         exit 2ss
-    end if
+    end
     if Try[100] != 100 begin
         exit 3ss
-    end if
+    end
     if Try[33] != 33 begin
         exit 4ss
-    end if
-end proc
+    end
+end
 
 proc Try[n] i64
 var idd, i, q, b64
@@ -27,14 +27,14 @@ begin
         B[b64, q, b64]
 
         set i -= 1
-    end while
+    end
     return idd
-end proc
+end
 
 proc A[a]
 begin
-end proc
+end
 
 proc B[a, b, c]
 begin
-end proc
+end

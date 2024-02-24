@@ -40,7 +40,7 @@ begin
 		set out = alloc[]
 		set (Test + (i*sizeof ptr):ptr)@ptr = out
 		set i += 1
-	end while
+	end
 
 	set i = 0
 	while i < NUM_POINTERS
@@ -48,9 +48,9 @@ begin
 		if i % 2 == 0
 		begin
 			free[(Test + (i*sizeof ptr):ptr)@ptr]
-		end if
+		end
 		set i += 1
-	end while
+	end
 
 	set i = NUM_POINTERS-1
 	while 0 <= i
@@ -58,17 +58,17 @@ begin
 		if i % 2 != 0
 		begin
 			free[(Test + (i*sizeof ptr):ptr)@ptr]
-		end if
+		end
 		set i -= 1
-	end while
-end proc
+	end
+end
 
 proc init[chunksize]
 begin
 	if chunksize < MIN_CHUNK_SIZE
 	begin
 		fatal[ERR_CHUNK, ERR_CHUNK.size]
-	end if
+	end
 
 	set ChunkSize@i64 = chunksize
 	set Head@ptr = Pool
@@ -76,7 +76,7 @@ begin
 
 	setList[Pool, Pool.size, chunksize]
 	clear_bytes[ByteMap, ByteMap.size]
-end proc
+end
 
 proc alloc[] ptr
 var curr:ptr, position:ptr
@@ -84,7 +84,7 @@ begin
 	if Head@ptr == NULL
 	begin
 		oom[]
-	end if
+	end
 
 	set curr = Head@ptr
 	set Head@ptr = (Head@ptr)@ptr # get the next one
@@ -93,7 +93,7 @@ begin
 	set (ByteMap + position)@i8 = FULL
 
 	return curr
-end proc
+end
 
 proc free[p:ptr]
 var position:ptr
@@ -101,12 +101,12 @@ begin
 	if p < Pool or p > (Pool + Pool.size:ptr)
 	begin
 		fatal[ERR_BOUNDS, ERR_BOUNDS.size]
-	end if
+	end
 
 	if (p-Pool):i64 % ChunkSize@i64 != 0
 	begin
 		fatal[ERR_ALIGN, ERR_ALIGN.size]
-	end if
+	end
 
 	set p@ptr = NULL
 	set position = (p - Pool) / (ChunkSize@ptr)
@@ -116,11 +116,11 @@ begin
 	begin
 		set Head@ptr = p
 		return;
-	end if
+	end
 
 	set (Tail@ptr)@ptr = p
 	set Tail@ptr = p
-end proc
+end
 
 proc print_map[]
 var i
@@ -132,16 +132,16 @@ begin
 		if (ByteMap+i:ptr)@i8 == EMPTY
 		begin
 			put_char[' ']
-		end if
+		end
 		if (ByteMap+i:ptr)@i8 == FULL
 		begin
 			put_char['X']
-		end if
+		end
 		set i += 1
-	end while
+	end
 	put_char[']']
 	put_char['\n']
-end proc
+end
 
 proc setList[start:ptr, size, chunksize]
 var i
@@ -151,8 +151,8 @@ begin
 	begin
 		set (start+i:ptr)@ptr = start + (i+chunksize):ptr
 		set i += chunksize
-	end while
+	end
 	set i -= chunksize
 	set (start+i:ptr)@ptr = NULL
 	set Tail@ptr = (start+i:ptr)
-end proc
+end

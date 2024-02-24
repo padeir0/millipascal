@@ -1,8 +1,8 @@
 proc write
 begin
-end proc
+end
 
 proc main
 begin
     write[]
-end proc
+end

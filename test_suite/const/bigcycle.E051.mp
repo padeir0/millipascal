@@ -10,4 +10,4 @@ const h = a
 proc main
 begin
     exit 1ss
-end proc
+end

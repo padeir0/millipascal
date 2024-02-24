@@ -8,5 +8,5 @@ begin
 	elseif a begin
 	end
 	else begin
-	end if
-end proc
+	end
+end

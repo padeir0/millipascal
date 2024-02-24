@@ -1,16 +1,14 @@
 proc main
 begin
-	if fact[5] != 120
-	begin
+	if fact[5] != 120 begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc fact[n] i64
 begin
-	if n == 0 
-	begin
+	if n == 0 begin
 		return 1;
-	end if
+	end
 	return n * fact[n-1]
-end proc
+end

@@ -2,9 +2,9 @@ export P
 
 proc P
 begin
-end proc
+end
 
 proc main
 begin
 	exit 1ss
-end proc
+end

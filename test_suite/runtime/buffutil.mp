@@ -5,7 +5,7 @@ proc main
 begin
 	#TODO: Write tests
 	exit 0ss
-end proc
+end
 
 proc map_buff[p:ptr, size:i64, transform:proc[i8]i8]
 var a
@@ -15,13 +15,13 @@ begin
 	begin
 		set (p+a:ptr)@i8 = transform[ (p+a:ptr)@i8 ]
 		set a += 1
-	end while
-end proc
+	end
+end
 
 proc clear_bytes[start:ptr, size]
 begin
 	set_buff[start, size, 0ss]
-end proc
+end
 
 proc clear_words[start:ptr, size]
 var p:ptr, i
@@ -32,8 +32,8 @@ begin
 	begin
 		set (p+i:ptr)@i64 = 0
 		set i += 8
-	end while
-end proc
+	end
+end
 
 proc set_buff[p:ptr, size:i64, b:i8]
 var a
@@ -43,8 +43,8 @@ begin
 	begin
 		set (p+a:ptr)@i8 = b
 		set a += 1
-	end while
-end proc
+	end
+end
 
 proc comp[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
 var i
@@ -52,7 +52,7 @@ begin
 	if size1 != size2
 	begin
 		return false
-	end if
+	end
 
 	set i = 0
 	while i < size1
@@ -60,11 +60,11 @@ begin
 		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8
 		begin
 			return false
-		end if
+		end
 		set i += 1
-	end while
+	end
 	return true
-end proc
+end
 
 proc copy[source:ptr, source_size:i64, dest:ptr, dest_size:i64]
 var smallest, i
@@ -75,5 +75,5 @@ begin
 	begin
 		set (dest + i:ptr)@i8 = (source + i:ptr)@i8
 		set i += 1
-	end while
-end proc
+	end
+end

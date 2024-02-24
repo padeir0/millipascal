@@ -8,4 +8,4 @@ data m [500]
 proc main
 begin
     exit 1ss
-end proc
+end

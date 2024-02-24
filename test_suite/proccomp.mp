@@ -5,29 +5,29 @@ begin
 
     if a != F begin
         exit 1ss
-    end if
+    end
 
     if not(a == F) begin
         exit 2ss
-    end if
+    end
 
     if a == G begin
         exit 3ss
-    end if
+    end
 
     if not (a != G) begin
         exit 4ss
-    end if
+    end
 
     if G == F begin
         exit 5ss
-    end if
-end proc
+    end
+end
 
 proc F[]
 begin
-end proc
+end
 
 proc G[]
 begin
-end proc
+end

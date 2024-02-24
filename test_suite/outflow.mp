@@ -8,8 +8,8 @@ begin
         exit 2ss
     end elseif F[true, false] != 3 begin
         exit 3ss
-    end if
-end proc
+    end
+end
 
 proc F[a:bool, b:bool] i64
 begin
@@ -21,6 +21,6 @@ begin
         return 2
     end elseif a and not b begin
         return 3
-    end if
+    end
     exit 4ss
-end proc
+end

@@ -5,4 +5,4 @@ data bad {:i64
 proc main
 begin
     exit 1ss
-end proc
+end

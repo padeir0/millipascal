@@ -4,4 +4,4 @@ data m [500]
 
 proc main
 begin
-end proc
+end

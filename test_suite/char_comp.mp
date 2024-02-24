@@ -9,5 +9,5 @@ begin
 	if not res 
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

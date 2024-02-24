@@ -13,8 +13,7 @@ begin
 
 	set (buff1+(buff1.size/2):ptr)@i8 = 'O';
 
-	while gen < 1024
-	begin
+	while gen < 1024 begin
 		# write[b1, buff1.size]
 		# putchar[' ']
 		# pint[gen]
@@ -26,8 +25,8 @@ begin
 		set b1 = b3
 
 		set gen += 1
-	end while
-end proc
+	end
+end
 
 proc clear[p:ptr, size:i64]
 var a
@@ -37,8 +36,8 @@ begin
 	begin
 		set (p+a:ptr)@i8 = ' '
 		set a += 1
-	end while
-end proc
+	end
+end
 
 proc generation[b1:ptr, b2:ptr, size]
 var a, c:i8
@@ -48,8 +47,8 @@ begin
 	begin
 		set (b2+a:ptr)@i8 = rule110[b1, a]
 		set a += 1
-	end while
-end proc
+	end
+end
 
 proc rule110[buff:ptr, index] i8
 var left:i8, curr:i8, right:i8
@@ -59,62 +58,41 @@ begin
 	set curr  =  (buff + index:ptr)@i8
 	set right =  (buff + index:ptr + 1p)@i8
 
-	if left == 'O'
-	begin
-		if curr == 'O'
-		begin
-			if right == 'O'
-			begin
+	if left == 'O' begin
+		if curr == 'O' begin
+			if right == 'O' begin
+				return ' '
+			end else begin
+				return 'O'
+			end
+		end else begin
+			if right == 'O' begin
+				return 'O'
+			end else begin
 				return ' '
 			end
-			else
-			begin
-				return 'O'
-			end if
 		end
-		else
-		begin
-			if right == 'O'
-			begin
+	end else begin
+		if curr == 'O' begin
+			if right == 'O' begin
+				return 'O'
+			end else begin
 				return 'O'
 			end
-			else
-			begin
+		end else begin
+			if right == 'O' begin
+				return 'O'
+			end else begin
 				return ' '
-			end if
-		end if
+			end
+		end
 	end
-	else
-	begin
-		if curr == 'O'
-		begin
-			if right == 'O'
-			begin
-				return 'O'
-			end
-			else
-			begin
-				return 'O'
-			end if
-		end
-		else
-		begin
-			if right == 'O'
-			begin
-				return 'O'
-			end
-			else
-			begin
-				return ' '
-			end if
-		end if
-	end if
-end proc
+end
 
 proc debug
 begin
 	write[here, here.size]
-end proc
+end
 
 data pchar_buff [1]
 
@@ -122,14 +100,14 @@ proc putchar[n:i8]
 begin
 	set pchar_buff@i8 = n
 	write[pchar_buff, pchar_buff.size]
-end proc
+end
 
 proc pint[n]
 var p:ptr, size
 begin
 	set p, size = itoa[n]
 	write[p, size]
-end proc
+end
 
 data itoa_buff [32]
 
@@ -139,32 +117,27 @@ begin
 	set signal = 0ss
 	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
 
-	if n == 0
-	begin
+	if n == 0 begin
 		set itoa_buff@i8 = '0'
 		return itoa_buff, 1
-	end if
+	end
 
-	if n < 0
-	begin
+	if n < 0 begin
 		set signal = '-'
 		set n = ~n
-	end if
+	end
 
 	while n > 0 begin
 		set p@i8 = (n % 10):i8 + '0'
 		set n /= 10;
 		set p -= 1p
-	end while
-
-	if signal == '-'
-	begin
-		set p@i8 = signal
 	end
-	else
-	begin
+
+	if signal == '-' begin
+		set p@i8 = signal
+	end else begin
 		set p += 1p;
-	end if
+	end
 
 	return p, itoa_buff.size-(p-itoa_buff):i64 
-end proc
+end

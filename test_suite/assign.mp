@@ -11,9 +11,9 @@ begin
 	set a %= 3;
 	f[a];
 	set b = a;
-end proc
+end
 
 proc f[a]
 begin
 	# does nothing UwU
-end proc
+end

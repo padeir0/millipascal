@@ -17,18 +17,18 @@ begin
     if a != sizeof i32 or
         b != 32 * sizeof i32 or
         c != sizeof i32 << 1
-     begin
+    begin
         exit 1ss
-     end if
+    end
 
     if e != 2 begin
         exit 2ss
-    end if
+    end
 
     if g != i64max begin
         exit 3ss
-    end if
+    end
     if h != i64min begin
         exit 4ss
-    end if
-end proc
+    end
+end

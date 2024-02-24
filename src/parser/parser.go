@@ -180,7 +180,7 @@ func singleConst(s *Lexer) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// MultipleConst := 'begin' {SingleConst [';']} 'end' 'const'.
+// MultipleConst := 'begin' {SingleConst [';']} 'end'.
 func multipleConst(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.BEGIN)
 	if err != nil {
@@ -191,10 +191,6 @@ func multipleConst(s *Lexer) (*mod.Node, *Error) {
 		return nil, err
 	}
 	_, err = expect(s, lex.END)
-	if err != nil {
-		return nil, err
-	}
-	_, err = expect(s, lex.CONST)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +230,7 @@ func dataDef(s *Lexer) (*mod.Node, *Error) {
 	return kw, nil
 }
 
-// MultipleData := 'begin' {SingleData [';']} 'end' 'data'.
+// MultipleData := 'begin' {SingleData [';']} 'end'.
 func multipleData(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.BEGIN)
 	if err != nil {
@@ -245,10 +241,6 @@ func multipleData(s *Lexer) (*mod.Node, *Error) {
 		return nil, err
 	}
 	_, err = expect(s, lex.END)
-	if err != nil {
-		return nil, err
-	}
-	_, err = expect(s, lex.DATA)
 	if err != nil {
 		return nil, err
 	}
@@ -379,10 +371,6 @@ func procDef(s *Lexer) (*mod.Node, *Error) {
 		}
 	}
 	body, err := block(s)
-	if err != nil {
-		return nil, err
-	}
-	_, err = expect(s, lex.PROC)
 	if err != nil {
 		return nil, err
 	}
@@ -987,10 +975,6 @@ func _if(s *Lexer) (*mod.Node, *Error) {
 		}
 	}
 	keyword.SetLeaves([]*mod.Node{exp, bl, elseif_, else_})
-	_, err = expect(s, lex.IF)
-	if err != nil {
-		return nil, err
-	}
 	return keyword, nil
 }
 
@@ -1057,10 +1041,6 @@ func _while(s *Lexer) (*mod.Node, *Error) {
 		return nil, err
 	}
 	keyword.SetLeaves([]*mod.Node{exp, bl})
-	_, err = expect(s, lex.WHILE)
-	if err != nil {
-		return nil, err
-	}
 	return keyword, nil
 }
 

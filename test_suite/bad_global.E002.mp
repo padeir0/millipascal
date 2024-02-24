@@ -1,7 +1,7 @@
 proc p
 begin
-end proc
+end
 
 proc p
 begin
-end proc
+end

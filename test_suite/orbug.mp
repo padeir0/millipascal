@@ -6,10 +6,10 @@ begin
     set c = 2
     if f[a, b] != 1 or f[a, c] != 2 begin
         exit 1ss
-    end if
-end proc
+    end
+end
 
 proc f[a, b] i64
 begin
     return a+b
-end proc
+end

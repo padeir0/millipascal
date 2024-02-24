@@ -5,8 +5,8 @@ begin
     set b = 7
     if a%5 != ~2 begin
         exit 1ss
-    end if
+    end
     if b%5 != 2 begin
         exit 2ss
-    end if
-end proc
+    end
+end

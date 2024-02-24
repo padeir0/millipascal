@@ -8,7 +8,7 @@ export
 
 proc main
 begin
-end proc
+end
 
 const MAX_RUNE_SIZE = 4
 
@@ -28,14 +28,14 @@ begin
     end elseif p@u8 && 0b1110_0000uss == 0b1100_0000uss begin # 2 byte sequence
         if (p+1p)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
-        end if
+        end
         return ((p@u8 && LOWEST_5_BITS):i32 << 6l) ||
                ((p+1p)@u8 && LOWEST_6_BITS):i32, 2
     end elseif p@u8 && 0b1111_0000uss == 0b1110_0000uss begin # 3 byte sequence
         if (p+1p)@u8 && TOP_2_BITS != TOP_BIT or
            (p+2p)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
-        end if
+        end
         return ((p@u8 && LOWEST_4_BITS):i32 << 12l) ||
                (((p+1p)@u8 && LOWEST_6_BITS):i32 << 6l) ||
                ((p+2p)@u8 && LOWEST_6_BITS):i32, 3
@@ -44,15 +44,15 @@ begin
            (p+2p)@u8 && TOP_2_BITS != TOP_BIT or
            (p+3p)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
-        end if
+        end
         return ((p@u8 && LOWEST_4_BITS):i32 << 18l) ||
                (((p+1p)@u8 && LOWEST_6_BITS):i32 << 12l) ||
                (((p+2p)@u8 && LOWEST_6_BITS):i32 << 6l) ||
                ((p+3p)@u8 && LOWEST_6_BITS):i32, 4
-    end if
+    end
     fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
     return ~1l, 0
-end proc
+end
 
 const RANGE_S_1 = 0x0000_0000l
 const RANGE_E_1 = 0x0000_007Fl
@@ -97,9 +97,9 @@ begin
         return 4
     end else begin
         fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
-    end if
+    end
     return ~1;
-end proc
+end
 
 # returns the size of a rune in bytes
 # it that rune were to be encoded
@@ -115,12 +115,12 @@ begin
         return 4
     end else begin
         fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
-    end if
+    end
     return ~1;
-end proc
+end
 
 proc fatal[p:ptr, size]
 begin
 	write[p, size]
 	exit 1ss
-end proc
+end

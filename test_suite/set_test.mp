@@ -8,6 +8,6 @@ begin
 	while i < size
 	begin
 		set i += chunk
-	end while
+	end
 	exit 0ss
-end proc
+end

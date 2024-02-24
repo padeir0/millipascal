@@ -5,8 +5,8 @@ proc main
 begin
     if a != true begin
         exit 1ss
-    end if
+    end
     if b != false begin
         exit 2ss
-    end if
-end proc
+    end
+end

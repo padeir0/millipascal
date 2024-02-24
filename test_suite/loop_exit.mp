@@ -5,9 +5,9 @@ begin
 	while i < 10
 	begin
 		set i += 1;
-	end while
+	end
 	if i != 10
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

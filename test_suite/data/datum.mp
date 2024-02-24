@@ -4,4 +4,4 @@ data buff2 [512]
 
 proc main
 begin
-end proc
+end

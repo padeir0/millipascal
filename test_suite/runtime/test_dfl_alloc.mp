@@ -27,60 +27,60 @@ begin
 	while i < 100 begin
 		free[alloc_f[50]]
 		set i += 1
-	end while
+	end
 	
 	set i = 0
 	while i < 16 begin
 		test[i, _alloc_f, _alloc_f]
 		validate[]
 		set i += 1
-	end while
+	end
 	set i = 0
 	while i < 16 begin
 		test[i, _alloc_b, _alloc_b]
 		validate[]
 		set i += 1
-	end while
+	end
 	set i = 0
 	while i < 16 begin
 		test[i, _alloc_b, _alloc_f]
 		validate[]
 		set i += 1
-	end while
+	end
 	set i = 0
 	while i < 16 begin
 		test[i, _alloc_f, _alloc_b]
 		validate[]
 		set i += 1
-	end while
-end proc
+	end
+end
 
 # valida se estamos de volta no estado inicial
 proc validate
 begin
 	if get_total_free[] != Heap.size begin
 		exit 2ss
-	end if
+	end
 	if Head@ptr != Tail@ptr begin
 		exit 3ss
-	end if
+	end
 	if FrontLimit@ptr != Heap begin
 		exit 4ss
-	end if
+	end
 	if BackLimit@ptr != Heap+Heap.size:ptr begin
 		exit 5ss
-	end if
-end proc
+	end
+end
 
 proc _alloc_f[size] ptr
 begin
 	return alloc_f[size]
-end proc
+end
 
 proc _alloc_b[size] ptr
 begin
 	return alloc_b[size, 0uss, 0us, 0ul]
-end proc
+end
 
 const debug = 0
 
@@ -91,7 +91,7 @@ begin
 	if debug != 0 begin
 		print_map[]
 		print_list[]
-	end if
+	end
 	while i < TOTAL_TEST_PTRS begin
 		set a = NULL
 		if i % 5 == 0 begin
@@ -104,32 +104,32 @@ begin
 			set a = alloc2[27-n]
 		end elseif i % 5 == 4 begin
 			set a = alloc2[33-n]
-		end if
+		end
 
 		if i % 4 == 0 begin
 			free_n[1+(n%4)]
 		end elseif i % 4 == 3 begin
 			free_n[1]
-		end if
+		end
 
 		if a != NULL begin
 			set (TestPtrs + (i*8):ptr)@ptr = a
 		end else begin
 			oom[]
-		end if
+		end
 		if debug != 0 begin
 			put_char['\n']
 			print_map[]
 			print_list[]
-		end if
+		end
 		set i += 1
-	end while
+	end
 	free_n[TOTAL_TEST_PTRS]
 	if debug != 0 begin
 		print_map[]
 		print_list[]
-	end if
-end proc
+	end
+end
 
 proc free_n[n]
 var i, a:ptr
@@ -138,13 +138,13 @@ begin
 	while i < TOTAL_TEST_PTRS begin
 		if n <= 0 begin
 			return
-		end if
+		end
 		set a = (TestPtrs + (i*8):ptr)@ptr
 		if a != NULL begin
 			free[a]
 			set (TestPtrs + (i*8):ptr)@ptr = NULL
 			set n -= 1
-		end if
+		end
 		set i += 1
-	end while
-end proc
+	end
+end

@@ -9,7 +9,7 @@ export
 
 proc main
 begin
-end proc
+end
 
 data DEBUG_MSG "debug: "
 data Debug [sizeof i64] # inits as zero
@@ -20,20 +20,20 @@ begin
 	put_int[Debug@i64]
 	put_char['\n']
 	set Debug@i64 += 1
-end proc
+end
 
 proc fatal[p:ptr, size]
 begin
 	write_line[p, size]
 	exit 1ss
-end proc
+end
 
 data ERR_OOM "out of memory!\n"
 proc oom[]
 begin
 	write_line[ERR_OOM, ERR_OOM.size]
 	exit 123ss
-end proc
+end
 
 data PutRuneBuff [MAX_RUNE_SIZE]
 
@@ -42,7 +42,7 @@ var size
 begin
 	set size = utf8_encode[r, PutRuneBuff]
 	write[PutRuneBuff, size]
-end proc
+end
 
 data PutCharBuff [sizeof i8]
 
@@ -50,53 +50,53 @@ proc put_char[n:i8]
 begin
 	set PutCharBuff@i8 = n
 	write[PutCharBuff, PutCharBuff.size]
-end proc
+end
 
 proc put_ln[]
 begin
 	put_char['\n']
-end proc
+end
 
 proc put_uint[n:u64]
 var p:ptr, size
 begin
 	set p, size = u64_to_dec[n, ConvBuff, ConvBuff.size]
 	write[p, size]
-end proc
+end
 
 proc put_int[n]
 var p:ptr, size
 begin
 	set p, size = i64_to_dec[n, ConvBuff, ConvBuff.size]
 	write[p, size]
-end proc
+end
 
 proc put_u8[b:u8]
 var p:ptr, size
 begin
 	set p, size = u8_to_bin[b, ConvBuff, ConvBuff.size]
 	write[p, size]
-end proc
+end
 
 proc put_u16[b:u16]
 var p:ptr, size
 begin
 	set p, size = u16_to_bin[b, ConvBuff, ConvBuff.size]
 	write[p, size]
-end proc
+end
 
 proc put_bool[b:bool]
 var p:ptr, size
 begin
 	set p, size = bool_to_text[b]
 	write[p, size]
-end proc
+end
 
 proc write_line[p:ptr, size:i64]
 begin
 	write[p, size]
 	put_char['\n']
-end proc
+end
 
 ####################### conversion functions
 
@@ -110,7 +110,7 @@ begin
 	begin
 		set ConvBuff@i8 = '0'
 		return ConvBuff, 1
-	end if
+	end
 
 	set p = buff + buffSize:ptr
 
@@ -118,10 +118,10 @@ begin
 		set p -= 1p
 		set p@i8 = (n % 10u):i8 + '0'
 		set n /= 10u;
-	end while
+	end
 
 	return p, buffSize-(p-buff):i64 
-end proc
+end
 
 # do not modify the returned buffer
 proc i64_to_dec[n, buff:ptr, buffSize] ptr, i64
@@ -132,16 +132,16 @@ begin
 	if n < 0 begin
 		set sign = '~'
 		set n = ~n
-	end if
+	end
 
 	set buff, buffSize = u64_to_dec[n:u64, buff, buffSize]
 
 	if sign == '~' begin
 		set (buff-1p)@i8 = sign
 		return buff-1p, buffSize+1
-	end if
+	end
 	return buff, buffSize
-end proc
+end
 
 data _T "true"
 data _F "false"
@@ -156,14 +156,14 @@ begin
 	else
 	begin
 		return _F, _F.size
-	end if
-end proc
+	end
+end
 
 proc u8_to_bin[b:u8, buff:ptr, buffSize] ptr, i64
 begin
 	if buffSize < 9 begin
 		fatal[BUFF_TOO_SMALL, BUFF_TOO_SMALL.size]
-	end if
+	end
 	# loop unroll LOL
 	set (buff+0p)@u8 = '0':u8 + ((b && 0b1000_0000uss) != 0uss):u8
 	set (buff+1p)@u8 = '0':u8 + ((b && 0b0100_0000uss) != 0uss):u8
@@ -177,7 +177,7 @@ begin
 	set (buff+7p)@u8 = '0':u8 + ((b && 0b0000_0010uss) != 0uss):u8
 	set (buff+8p)@u8 = '0':u8 + ((b && 0b0000_0001uss) != 0uss):u8
 	return buff, 9
-end proc
+end
 
 proc u16_to_bin[b:u16, buff:ptr, buffSize] ptr, i64
 var i, j, mask:u16
@@ -188,17 +188,17 @@ begin
 	while i < 19 begin
 		if i >= buffSize begin
 			fatal[BUFF_TOO_SMALL, BUFF_TOO_SMALL.size]
-		end if
+		end
 		set (buff+i:ptr)@u8 = '0':u8 + ((b && mask) != 0us):u8
 
 		if j == 3 begin
 			set i += 1
 			set (buff+i:ptr)@i8 = '_'
-		end if
+		end
 
 		set mask = mask >> 1us
 		set i += 1
 		set j = (j+1)%4
-	end while
+	end
 	return buff, 19
-end proc
+end

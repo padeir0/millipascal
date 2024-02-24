@@ -34,22 +34,22 @@ begin
     test_i64[]
     test_int_naive[]
     #test_string[]
-end proc
+end
 
 ###### *str
 
 proc test_string
 begin
-end proc
+end
 
 proc eq_string[a:ptr, b:ptr] bool
 begin
     return false
-end proc
+end
 
 proc copy_string[dest:ptr, source:ptr]
 begin
-end proc
+end
 
 ###### *int (naïve)
 
@@ -70,18 +70,18 @@ begin
         setter_int_naive,
         tester_int_naive
     ]
-end proc
+end
 
 proc eq_int_naive[a:ptr, b:ptr] bool
 begin
     return bigint::comp[a@ptr, b@ptr] == bigint::EQ
-end proc
+end
 
 proc copy_int_naive[dest:ptr, source:ptr]
 begin
     set dest@ptr = bigint::new_bint[0l]
     bigint::copy_bint[dest@ptr, source@ptr]
-end proc
+end
 
 proc setter_int_naive[vecA:ptr, i]
 var bint:ptr
@@ -89,7 +89,7 @@ begin
     set bint = bigint::new_bint[1l]
     power2[bint, i:i32]
     set index[vecA, i]@ptr = bint
-end proc
+end
 
 # testers return true on failure
 proc tester_int_naive[vecA:ptr, i] bool
@@ -102,7 +102,7 @@ begin
     set out = bigint::comp[bint, iRes] != bigint::EQ
     bigint::free_bint[iRes]
     return out
-end proc
+end
 
 proc power2[bint:ptr, pw:i32] ptr
 var i
@@ -111,14 +111,14 @@ begin
     while i < pw:i64 begin
         bigint::mult_i32[bint, 2l, bint]
         set i += 1
-    end while
+    end
     return bint
-end proc
+end
 
 proc free_int_naive[item:ptr]
 begin
     bigint::free_bint[item@ptr]
-end proc
+end
 
 ###### *i64
 
@@ -133,32 +133,32 @@ begin
         setter_i64,
         tester_i64
     ]
-end proc
+end
 
 proc eq_i64[a:ptr, b:ptr] bool
 begin
     return a@i64 == b@i64
-end proc
+end
 
 proc copy_i64[dest:ptr, source:ptr]
 begin
     set dest@i64 = source@i64
-end proc
+end
 
 proc setter_i64[vecA:ptr, i]
 begin
     set index[vecA, i]@i64 = i*i
-end proc
+end
 
 # testers return true on failure
 proc tester_i64[vecA:ptr, i] bool
 begin
     return i*i != index[vecA, i]@i64
-end proc
+end
 
 proc noop[a:ptr]
 begin
-end proc
+end
 
 ############## GENERAL TESTS
 
@@ -176,18 +176,18 @@ begin
         push[vecA]
         setter[vecA, i]
         set i += 1
-    end while
+    end
     set i = 0
     while i < size:i64 begin
         if tester[vecA, i] begin
             exit 1ss
-        end if
+        end
         set i += 1
-    end while
+    end
 
     free_vec[vecA]
     validate_init[]
-end proc
+end
 
 proc test_iter_len[
     meta:ptr,
@@ -202,20 +202,20 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
     set i = 0
     while i < length[vecA] begin
         if tester[vecA, i] begin
             put_vec[vecA, printer]
             put_ln[]
             exit 2ss
-        end if
+        end
         set i += 1
-    end while
+    end
 
     free_vec[vecA]
     validate_init[]
-end proc
+end
 
 proc test_pop[
     meta:ptr,
@@ -231,19 +231,19 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
     set i = length[vecA]-1
     while length[vecA] > 0  begin
         if tester[vecA, i] begin
             exit 3ss
-        end if
+        end
         pop[vecA]
         set i -= 1
-    end while
+    end
 
     free_vec[vecA]
     validate_init[]
-end proc
+end
 
 proc test_concat[
     meta:ptr,
@@ -263,13 +263,13 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
 
     set j = 0
     while j < length[vecB] begin
         setter[vecB, j]
         set j += 1
-    end while
+    end
 
     set z = 0
     set vecC = concat[vecA, vecB]
@@ -278,21 +278,21 @@ begin
             # millipascal's operators are not shortcircuited
             if not eq[index[vecA, z], index[vecC, z]] begin
                 exit 4ss
-            end if
-        end if
+            end
+        end
         if z >= i  begin
             if not eq[index[vecB, z-i], index[vecC, z]] begin
                 exit 4ss
-            end if
-        end if
+            end
+        end
         set z += 1
-    end while
+    end
 
     free_vec[vecA]
     free_vec[vecB]
     free_vec[vecC]
     validate_init[]
-end proc
+end
 
 proc test_copy1_eq[
     meta:ptr,
@@ -308,19 +308,19 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
 
     set vecB = new_vec[meta, 0l, size/2l]
     copy_vec[vecB, vecA]
 
     if not eq_vec[vecA, vecB] begin
         exit 5ss
-    end if
+    end
 
     free_vec[vecA]
     free_vec[vecB]
     validate_init[]
-end proc
+end
 
 proc test_copy2_eq[
     meta:ptr,
@@ -335,19 +335,19 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
 
     set vecB = new_vec[meta, 0l, size]
     copy_vec[vecB, vecA]
 
     if not eq_vec[vecA, vecB] begin
         exit 6ss
-    end if
+    end
 
     free_vec[vecA]
     free_vec[vecB]
     validate_init[]
-end proc
+end
 
 proc test_slice[
     meta:ptr,
@@ -363,23 +363,23 @@ begin
     while i < length[vecA] begin
         setter[vecA, i]
         set i += 1
-    end while
+    end
 
     set vecB = slice[vecA, size:i64/2, size:i64 - (size:i64/2)]
 
     while 0 < length[vecB] begin
         if not eq[last[vecA], last[vecB]] begin
             exit 7ss
-        end if
+        end
 
         pop[vecA]
         pop[vecB]
-    end while
+    end
 
     free_vec[vecA]
     free_vec[vecB]
     validate_init[]
-end proc
+end
 
 ############## UTILITARIES
 
@@ -396,7 +396,7 @@ proc test_all[
     # test_n[amount, meta, test_copy1_eq, setter, tester]
     # test_n[amount, meta, test_copy2_eq, setter, tester]
     # test_n[amount, meta, test_slice,    setter, tester]
-end proc
+end
 
 proc test_n[
     amount,
@@ -411,10 +411,10 @@ begin
     while i < amount begin
         test[meta, i:i32, setter, tester]
         set i += 1
-    end while
-end proc
+    end
+end
 
 proc printer[a:ptr]
 begin
     put_uint[a@u64]
-end proc
+end

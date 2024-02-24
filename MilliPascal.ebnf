@@ -28,20 +28,20 @@ keywords
     u8     u16    u32    u64
     bool   ptr    true   false
     exit   import from   export
-	const  sizeof return set
-	attr.
+    const  sizeof return set
+    attr   struct.
 
 ponctuation:
-	,   :   (   )   [   ]
-	=   ==  !=  >   >=  < 
-	<=  +   -   *   /   %
-	-=  +=  *=  /=  %=  .
-	@   ::  ~   &&  ||  !
-	|^  >>  <<
+    ,   :   (   )   [   ]
+    =   ==  !=  >   >=  < 
+    <=  +   -   *   /   %
+    -=  +=  *=  /=  %=  .
+    @   ::  ~   &&  ||  !
+    |^  >>  <<  ->  ^
 
 basicType:
-	i8  i16  i32  i64  ptr  bool
-	u8  u16  u32  u64
+    i8  i16  i32  i64  ptr  bool
+    u8  u16  u32  u64
 
 -- Parser:
 Module := {Coupling} {AttSymbol}.
@@ -57,30 +57,36 @@ AttSymbol := [Attributes] Symbol.
 Attributes:= 'attr' IdList.
 
 Symbol := Procedure
-	| Data
-	| Const.
+    | Data
+    | Const
+    | Struct.
 
 Const := 'const' (SingleConst|MultipleConst).
 SingleConst := id '=' Expr.
-MultipleConst := 'begin' {SingleConst [';']} 'end' 'const'.
+MultipleConst := 'begin' {SingleConst [';']} 'end'.
 
 Data := 'data' (SingleData|MultipleData).
-MultipleData := 'begin' {SingleData [';']} 'end' 'data'.
+MultipleData := 'begin' {SingleData [';']} 'end'.
 SingleData :=  id (DExpr|string|Blob).
 Blob := '{' [Annot] ExprList '}'.
 DExpr := '[' Expr ']'.
 
-Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
+Struct := 'struct' id [Size] 'begin' Fields 'end'.
+Size := '[' Expr ']'.
+Field := id [Annot] [Offset].
+Offset := '{' Expr '}'.
+
+Procedure := 'proc' id [Args [Rets]] [Vars] Block.
 Args := '[' [DeclList] ']'.
 Vars := 'var' DeclList.
 Rets := TypeList.
 TypeList := Type {',' Type} [','].
 
 DeclList := Decl {',' Decl} [','].
-Decl := id ['*'] [Annot].
+Decl := idList Annot.
 Annot := ':' Type.
 
-Type := basicType | ProcType.
+Type := basicType | ProcType | id.
 ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
 ProcTypeRet := '[' [TypeList] ']'
              | [Type].
@@ -96,9 +102,9 @@ Code := If
       | Exit
       | Expr.
 
-While := 'while' Expr Block 'while'.
+While := 'while' Expr Block.
 
-If   := 'if' Expr Block {ElseIf} [Else] 'if'.
+If   := 'if' Expr Block {ElseIf} [Else].
 ElseIf := 'elseif' Expr Block.
 Else := 'else' Block.
 
@@ -106,7 +112,7 @@ Set := 'set' ExprList assignOp Expr.
 assignOp := '=' | '-=' | '+=' | '/=' | '*=' | '%='.
 
 Return := 'return' [ExprList].
-Exit := 'exit' Expr.
+Exit := 'exit' ['^'] Expr.
 
 ExprList := Expr {',' Expr} [','].
 Expr := And {'or' And}.
@@ -122,18 +128,20 @@ UnarySuffix := Factor {Suffix}.
 
 Prefix := 'not' | '~' | '!'.
 Suffix := Conversion
-	| Deref
-	| Call
-	| PropertyAccess.
+    | Deref
+    | Call
+    | PropertyAccess
+    | PropDeref.
 Conversion := Annot.
 Call := '[' [ExprList] ']'.
 Deref := '@' Type.
 PropertyAccess := '.' id.
+PropDeref := '->' id.
 
 Factor := Name
-	| Literal
-	| NestedExpr
-	| "sizeof" Type .
+    | Literal
+    | NestedExpr
+    | "sizeof" Type.
 NestedExpr := '(' Expr ')'.
 Literal := true | false | number | char.
 Name := id ["::" id].

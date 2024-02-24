@@ -4,4 +4,4 @@ begin
 	set a = write;
 	set a = error;
 	set b = read;
-end proc
+end

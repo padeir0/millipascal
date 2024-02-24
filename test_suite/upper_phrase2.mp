@@ -11,9 +11,9 @@ begin
 		if p@i8 >= 'a' and p@i8 <= 'z'
 		begin
 			set p@i8 -= 32ss
-		end if
+		end
 		set p += 1p;
-	end while
+	end
 
 	write[hello, hello.size]
-end proc
+end

@@ -8,4 +8,4 @@ begin
 
 	set p = p + 1p
 	set p@i8 = 2:i8
-end proc
+end

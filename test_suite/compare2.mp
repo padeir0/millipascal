@@ -5,25 +5,25 @@ begin
 	if a != a and a != a
 	begin
 		exit 1ss
-	end if
+	end
 
 	if a > 'b' and a > 'b'
 	begin
 		exit 1ss
-	end if
+	end
 
 	if 'b' < a and 'b' < a
 	begin
 		exit 1ss
-	end if
+	end
 
 	if not(a >= a) and not(a >= a)
 	begin
 		exit 1ss
-	end if
+	end
 
 	if not(a <= a) and not(a <= a)
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

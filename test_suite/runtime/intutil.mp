@@ -4,30 +4,30 @@ proc main
 begin
 	if max[5, 2] != 5 begin
 		exit 1ss
-	end if
+	end
 	if max[~1, 1] != 1 begin
 		exit 1ss
-	end if
+	end
 	if max[0, 10] != 10 begin
 		exit 1ss
-	end if
+	end
 	if max[~2000000, ~100000] != ~100000 begin
 		exit 1ss
-	end if
+	end
 
 	if min[5, 2] != 2 begin
 		exit 1ss
-	end if
+	end
 	if min[~1, 1] != ~1 begin
 		exit 1ss
-	end if
+	end
 	if min[0, 10] != 0 begin
 		exit 1ss
-	end if
+	end
 	if min[~2000000, ~100000] != ~2000000 begin
 		exit 1ss
-	end if
-end proc
+	end
+end
 
 proc max[a, b] i64
 begin
@@ -38,10 +38,10 @@ begin
 	else
 	begin
 		return b
-	end if
-end proc
+	end
+end
 
-proc min[a, b] i64
+proc min[a:i64, b:i64] i64
 begin
 	if a <= b
 	begin
@@ -50,21 +50,21 @@ begin
 	else
 	begin
 		return b
-	end if
-end proc
+	end
+end
 
 proc abs_i32[a:i32] i32
 begin
 	if a >= 0l begin
 		return a
-	end if
+	end
 	return ~a
-end proc
+end
 
-proc abs[a] i64
+proc abs[a:i64] i64
 begin
 	if a >= 0 begin
 		return a
-	end if
+	end
 	return ~a
-end proc
+end

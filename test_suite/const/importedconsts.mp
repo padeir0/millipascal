@@ -9,14 +9,14 @@ proc main
 begin
     if a != ~1 begin
         exit 1ss
-    end if
+    end
     if b != ~1 begin
         exit 2ss
-    end if
+    end
     if c != ~1 begin
         exit 3ss
-    end if
+    end
     if d != ~1 begin
         exit 4ss
-    end if
-end proc
+    end
+end

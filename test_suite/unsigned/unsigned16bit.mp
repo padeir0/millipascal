@@ -5,17 +5,17 @@ begin
 	if a != 1us
 	begin
 		exit 1ss;
-	end if
+	end
 
 	set a -= 1us;
 	if a != 0us
 	begin
 		exit 1ss
-	end if
+	end
 
 	set a -= 1us;
 	if a != 65535us
 	begin
 		exit 1ss
-	end if
-end proc
+	end
+end

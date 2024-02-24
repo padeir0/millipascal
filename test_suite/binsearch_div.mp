@@ -16,12 +16,12 @@ begin
             set q = Search[x, y]
             if q != x/y begin
                 exit 1ss
-            end if
+            end
             set y += 1
-        end while
+        end
         set x += 1
-    end while
-end proc
+    end
+end
 
 const EQ = 0
 const HIGH = 1
@@ -46,14 +46,14 @@ begin
             set high = guess
         end elseif res == LOW begin
             set low = guess
-        end if
+        end
         set guess = (low+high)>>1
         set res = Test[x, y, guess]
         set i += 1
-    end while
+    end
 
     return guess
-end proc
+end
 
 data unreachable "unreachable!\n"
 
@@ -63,17 +63,17 @@ begin
        (guess*y < x and (guess+1)*y > x)
     begin
         return EQ
-    end if
+    end
     if guess*y > x begin
         return HIGH
-    end if
+    end
     if guess*y < x begin
         return LOW
-    end if
+    end
 
     write[unreachable, unreachable.size]
     exit 2ss
-end proc
+end
 
 
 data H "high\n"
@@ -91,8 +91,8 @@ begin
     end elseif res == LOW begin
         write[L, L.size]
         return
-    end if
+    end
 
     write[unreachable, unreachable.size]
     exit 3ss
-end proc
+end

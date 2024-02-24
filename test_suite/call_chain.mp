@@ -2,9 +2,9 @@ proc main
 var result
 begin
 	set result = square[square[square[2]]];
-end proc
+end
 
 proc square[n] i64
 begin
 	return n * n;
-end proc
+end
