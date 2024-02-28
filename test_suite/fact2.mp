@@ -5,8 +5,8 @@ begin
 	end
 end
 
-proc fact[n] i64
-var result
+proc fact[n:i64] i64
+var result:i64
 begin
 	set result = 1
 	while n > 0 begin

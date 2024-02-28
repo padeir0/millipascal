@@ -82,8 +82,8 @@ data ERR_INVALID_CAP "error: capacity is smaller than length\n"
 # pointer in the first and third word
 const VEC_PTR_BITMAP = 0b10100000_00000000_00000000_00000000ul
 
-proc new_vec[meta:ptr, length:i32, cap:i32] ptr
-var itemSize:i32, header:ptr, array:ptr
+proc new_vec[meta:ptr, length, cap:i32] ptr
+var itemSize:i32, header, array:ptr
 begin
     if length > cap begin
         fatal[ERR_INVALID_CAP, ERR_INVALID_CAP.size]
@@ -121,7 +121,7 @@ begin
 end
 
 proc free_items[vec:ptr]
-var array:ptr, meta:ptr, itemSize, free_item:proc[ptr]
+var array, meta:ptr, itemSize:i64, free_item:proc[ptr]
 begin
     set meta      = (vec+VH_META_OFFSET)@ptr
     set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
@@ -131,8 +131,8 @@ begin
     free_array_items[array, itemSize, length[vec], free_item]
 end
 
-proc free_array_items[array:ptr, itemSize, len, free_item:proc[ptr]]
-var i
+proc free_array_items[array:ptr, itemSize, len:i64, free_item:proc[ptr]]
+var i:i64
 begin
     set i = 0
     while i < len begin
@@ -142,7 +142,8 @@ begin
 end
 
 proc put_vec_header[vec:ptr]
-var array:ptr, len, cap, meta:ptr
+var array, meta:ptr,
+    len, cap:i64
 begin
     set array = (vec+VH_PTR_OFFSET)@ptr
     set len   = (vec+VH_LEN_OFFSET)@i32:i64
@@ -185,7 +186,7 @@ begin
 end
 
 proc put_vec[vec:ptr, printer:proc[ptr]]
-var i, len
+var i, len:i64
 begin
     set len = (vec+VH_LEN_OFFSET)@i32:i64
     set i = 0
@@ -219,8 +220,9 @@ data ERR_OUT_OF_BOUNDS "out of bounds!\n"
 # This allows us to use the same implementation even
 # if the compiler chooses to inline some structures.
 # Bitvectors may be implemented separatedly if necessary.
-proc index[vec:ptr, index] ptr
-var meta:ptr, array:ptr, len:i32, itemSize:i32
+proc index[vec:ptr, index:i64] ptr
+var meta, array:ptr,
+    len, itemSize:i32
 begin
     set array = (vec+VH_PTR_OFFSET)@ptr
     set len = (vec+VH_LEN_OFFSET)@i32
@@ -239,12 +241,11 @@ data ERR_INCOMPATIBLE_META "vectors have incompatible metadata\n"
 
 # allocates a new vector; copies A and B into it
 # returns the vector;
-proc concat[vecA:ptr, vecB:ptr] ptr
-var metaA:ptr, metaB:ptr,
-    lenA, lenB,
-    itemSize,
+proc concat[vecA, vecB:ptr] ptr
+var metaA, metaB:ptr,
+    lenA, lenB, itemSize:i64,
     vecRes:ptr,
-    aArray:ptr, bArray:ptr, destArray:ptr,
+    aArray, bArray, destArray:ptr,
     copy:proc[ptr, ptr]
 begin
     # if metaA != metaB then fatal, because they must match types
@@ -273,10 +274,10 @@ begin
     return vecRes
 end
 
-proc eq_vec[vecA:ptr, vecB:ptr] bool
-var lenA, metaA:ptr,
-    lenB, metaB:ptr,
-    eq:proc[ptr, ptr]bool, i,
+proc eq_vec[vecA, vecB:ptr] bool
+var lenA:i64, metaA:ptr,
+    lenB:i64, metaB:ptr,
+    eq:proc[ptr, ptr]bool, i:i64,
     a:ptr, b:ptr
 begin
     set metaA = (vecA+VH_META_OFFSET)@ptr
@@ -308,10 +309,10 @@ begin
     return true
 end
 
-proc copy_vec[vecA:ptr, vecB:ptr]
-var arrayA:ptr, lenA, capA, metaA:ptr,
-    arrayB:ptr, lenB, capB, metaB:ptr,
-    itemSize, copy:proc[ptr, ptr],
+proc copy_vec[vecA, vecB:ptr]
+var arrayA:ptr, lenA, capA:i64, metaA:ptr,
+    arrayB:ptr, lenB, capB:i64, metaB:ptr,
+    itemSize:i64, copy:proc[ptr, ptr],
     newArray:ptr
 begin
     set metaA = (vecA+VH_META_OFFSET)@ptr
@@ -350,10 +351,10 @@ data ERR_SLICE_OUT_OF_BOUNDS "slicing goes out of bounds\n"
 
 # Make a new header; alloc a new array;
 # copy the contents; return it;
-proc slice[vec:ptr, start, length] ptr
-var array:ptr, len, meta:ptr,
-    arrayOut:ptr, vecOut:ptr,
-    itemSize, copy:proc[ptr, ptr]
+proc slice[vec:ptr, start, length:i64] ptr
+var array:ptr, len:i64, meta:ptr,
+    arrayOut, vecOut:ptr,
+    itemSize:i64, copy:proc[ptr, ptr]
 begin
     set len   = (vec+VH_LEN_OFFSET)@i32:i64
 
@@ -393,7 +394,7 @@ end
 # just increments the length by 1, may trigger allocation,
 # everything else shall be type specific
 proc push[vec:ptr]
-var meta:ptr, array:ptr, len, cap, itemSize,
+var meta, array:ptr, len, cap, itemSize:i64,
     newArray:ptr,
     copy:proc[ptr, ptr], free_item:proc[ptr]
 begin
@@ -429,7 +430,8 @@ begin
 end
 
 proc clear[vec:ptr]
-var array:ptr, meta:ptr, itemSize, i
+var array, meta:ptr,
+    itemSize, i:i64
 begin
     set meta = (vec+VH_META_OFFSET)@ptr
     set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32:i64
@@ -445,11 +447,12 @@ end
 proc copy_array[
     destArray:ptr,
     sourceArray:ptr,
-    len,
-    itemSize,
+    len:i64,
+    itemSize:i64,
     copy:proc[ptr, ptr]
 ]
-var i, a:ptr, b:ptr
+var i:i64,
+    a, b:ptr
 begin
     set i = 0
     while i < len begin

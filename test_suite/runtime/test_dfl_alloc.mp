@@ -19,7 +19,7 @@ const TOTAL_TEST_PTRS = 128
 data TestPtrs [TOTAL_TEST_PTRS * sizeof ptr]
 
 proc main
-var i
+var i:i64
 begin
 	init[]
 
@@ -72,20 +72,20 @@ begin
 	end
 end
 
-proc _alloc_f[size] ptr
+proc _alloc_f[size:i64] ptr
 begin
 	return alloc_f[size]
 end
 
-proc _alloc_b[size] ptr
+proc _alloc_b[size:i64] ptr
 begin
 	return alloc_b[size, 0uss, 0us, 0ul]
 end
 
 const debug = 0
 
-proc test[n, alloc1:proc[i64]ptr, alloc2:proc[i64]ptr]
-var i, a:ptr
+proc test[n:i64, alloc1:proc[i64]ptr, alloc2:proc[i64]ptr]
+var i:i64, a:ptr
 begin
 	set i = 0
 	if debug != 0 begin
@@ -131,8 +131,8 @@ begin
 	end
 end
 
-proc free_n[n]
-var i, a:ptr
+proc free_n[n:i64]
+var i:i64, a:ptr
 begin
 	set i = 0
 	while i < TOTAL_TEST_PTRS begin

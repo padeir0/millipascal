@@ -18,7 +18,7 @@ begin
 end
 
 proc equals[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
-var i
+var i:i64
 begin
 	if size1 != size2
 	begin

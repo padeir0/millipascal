@@ -7,7 +7,7 @@
 #     (q+1)*y > x
 
 proc main
-var x, y, q,
+var x, y, q:i64,
 begin
     set x = 1
     while x < HIGHEST begin
@@ -32,8 +32,8 @@ const HIGHEST = 2048
 const MAXITER = 12 # binary search has O(log_2) so log_2 (2048) = 11
 
 # finds x/y
-proc Search[x, y] i64
-var high, low, guess, res, i
+proc Search[x, y:i64] i64
+var high, low, guess, res, i:i64
 begin
     set low = LOWEST
     set high = HIGHEST
@@ -57,7 +57,7 @@ end
 
 data unreachable "unreachable!\n"
 
-proc Test[x, y, guess] i64
+proc Test[x, y, guess:i64] i64
 begin
     if (guess*y == x) or
        (guess*y < x and (guess+1)*y > x)
@@ -80,7 +80,7 @@ data H "high\n"
 data L "low\n"
 data E "eq\n"
 
-proc put_res[res]
+proc put_res[res:i64]
 begin
     if res == EQ begin
         write[E, E.size]

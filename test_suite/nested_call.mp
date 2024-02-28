@@ -1,6 +1,6 @@
 proc main
-var a:i32, b:i32, c:i32, d:i32,
-    e:i32, f:i32, g:i32, h:i32,
+var a, b, c, d:i32,
+    e, f, g, h:i32,
     neg:bool
 begin
     set a = 5l
@@ -75,14 +75,14 @@ begin
     return a < 0l
 end
 
-proc mult_4signals[a:bool, b:bool, c:bool, d:bool] bool
+proc mult_4signals[a, b, c, d:bool] bool
 begin
     return mult_signal[mult_signal[a, b], mult_signal[c, d]]
 end
 
 proc mult_8signals[
-    a:bool, b:bool, c:bool, d:bool,
-    e:bool, f:bool, g:bool, h:bool
+    a, b, c, d:bool,
+    e, f, g, h:bool
 ] bool
 begin
     return mult_signal[
@@ -92,10 +92,10 @@ begin
 end
 
 proc mult_16signals[
-    a:bool, b:bool, c:bool, d:bool,
-    e:bool, f:bool, g:bool, h:bool,
-    i:bool, j:bool, k:bool, l:bool,
-    m:bool, n:bool, o:bool, p:bool,
+    a, b, c, d:bool,
+    e, f, g, h:bool,
+    i, j, k, l:bool,
+    m, n, o, p:bool,
 ] bool
 begin
     return mult_signal[
@@ -104,7 +104,7 @@ begin
     ]
 end
 
-proc mult_signal[a:bool, b:bool] bool
+proc mult_signal[a, b:bool] bool
 begin
     # 1*1 = (-1)*(-1) = 1
     if (not a and not b) or (a and b) begin

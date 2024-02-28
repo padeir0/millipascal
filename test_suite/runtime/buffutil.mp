@@ -8,7 +8,7 @@ begin
 end
 
 proc map_buff[p:ptr, size:i64, transform:proc[i8]i8]
-var a
+var a:i64
 begin
 	set a = 0
 	while a < size
@@ -18,13 +18,13 @@ begin
 	end
 end
 
-proc clear_bytes[start:ptr, size]
+proc clear_bytes[start:ptr, size:i64]
 begin
 	set_buff[start, size, 0ss]
 end
 
-proc clear_words[start:ptr, size]
-var p:ptr, i
+proc clear_words[start:ptr, size:i64]
+var p:ptr, i:i64
 begin
 	set p = start
 	set i = 0
@@ -36,7 +36,7 @@ begin
 end
 
 proc set_buff[p:ptr, size:i64, b:i8]
-var a
+var a:i64
 begin
 	set a = 0
 	while a < size
@@ -47,7 +47,7 @@ begin
 end
 
 proc comp[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
-var i
+var i:i64
 begin
 	if size1 != size2
 	begin
@@ -67,7 +67,7 @@ begin
 end
 
 proc copy[source:ptr, source_size:i64, dest:ptr, dest_size:i64]
-var smallest, i
+var smallest, i:i64
 begin
 	set smallest = min[source_size, dest_size]
 	set i = 0

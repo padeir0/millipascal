@@ -22,13 +22,14 @@ begin
 	set Debug@i64 += 1
 end
 
-proc fatal[p:ptr, size]
+proc fatal[p:ptr, size:i64]
 begin
 	write_line[p, size]
 	exit 1ss
 end
 
 data ERR_OOM "out of memory!\n"
+
 proc oom[]
 begin
 	write_line[ERR_OOM, ERR_OOM.size]
@@ -38,7 +39,7 @@ end
 data PutRuneBuff [MAX_RUNE_SIZE]
 
 proc put_rune[r:i32]
-var size
+var size:i64
 begin
 	set size = utf8_encode[r, PutRuneBuff]
 	write[PutRuneBuff, size]
@@ -58,35 +59,35 @@ begin
 end
 
 proc put_uint[n:u64]
-var p:ptr, size
+var p:ptr, size:i64
 begin
 	set p, size = u64_to_dec[n, ConvBuff, ConvBuff.size]
 	write[p, size]
 end
 
-proc put_int[n]
-var p:ptr, size
+proc put_int[n:i64]
+var p:ptr, size:i64
 begin
 	set p, size = i64_to_dec[n, ConvBuff, ConvBuff.size]
 	write[p, size]
 end
 
 proc put_u8[b:u8]
-var p:ptr, size
+var p:ptr, size:i64
 begin
 	set p, size = u8_to_bin[b, ConvBuff, ConvBuff.size]
 	write[p, size]
 end
 
 proc put_u16[b:u16]
-var p:ptr, size
+var p:ptr, size:i64
 begin
 	set p, size = u16_to_bin[b, ConvBuff, ConvBuff.size]
 	write[p, size]
 end
 
 proc put_bool[b:bool]
-var p:ptr, size
+var p:ptr, size:i64
 begin
 	set p, size = bool_to_text[b]
 	write[p, size]
@@ -103,7 +104,7 @@ end
 data BUFF_TOO_SMALL "Destination buffer is too small\n"
 data ConvBuff [80]
 
-proc u64_to_dec[n:u64, buff:ptr, buffSize] ptr, i64
+proc u64_to_dec[n:u64, buff:ptr, buffSize:i64] ptr, i64
 var p:ptr
 begin
 	if n == 0u
@@ -124,7 +125,7 @@ begin
 end
 
 # do not modify the returned buffer
-proc i64_to_dec[n, buff:ptr, buffSize] ptr, i64
+proc i64_to_dec[n:i64, buff:ptr, buffSize:i64] ptr, i64
 var sign:i8
 begin
 	set sign = 0ss
@@ -159,7 +160,7 @@ begin
 	end
 end
 
-proc u8_to_bin[b:u8, buff:ptr, buffSize] ptr, i64
+proc u8_to_bin[b:u8, buff:ptr, buffSize:i64] ptr, i64
 begin
 	if buffSize < 9 begin
 		fatal[BUFF_TOO_SMALL, BUFF_TOO_SMALL.size]
@@ -179,8 +180,9 @@ begin
 	return buff, 9
 end
 
-proc u16_to_bin[b:u16, buff:ptr, buffSize] ptr, i64
-var i, j, mask:u16
+proc u16_to_bin[b:u16, buff:ptr, buffSize:i64] ptr, i64
+var i, j:i64,
+	mask:u16
 begin
 	set i = 0
 	set j = 0

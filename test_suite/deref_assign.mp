@@ -5,7 +5,7 @@ begin
 	set (buff+1p)@i8 = comp[1]
 end
 
-proc comp[index] i8
+proc comp[index:i64] i8
 begin
 	if index != 1
 	begin

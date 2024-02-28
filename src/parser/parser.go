@@ -530,25 +530,26 @@ func declList(s *Lexer) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// Decl := id [Annot].
+// Decl := idList Annot.
 func decl(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "Decl")
 	if s.Word.Lex != lex.IDENTIFIER {
 		return nil, nil
 	}
-	id, err := consume(s)
+	ids, err := repeatCommaList(s, ident)
 	if err != nil {
 		return nil, err
 	}
-	if s.Word.Lex == lex.COLON {
-		colon, err := annot(s)
-		if err != nil {
-			return nil, err
-		}
-		colon.SetLeaves([]*mod.Node{id, colon.Leaves[0]})
-		return colon, nil
+	idList := &mod.Node{
+		Lex:    lex.IDLIST,
+		Leaves: ids,
 	}
-	return id, nil
+	colon, err := annot(s)
+	if err != nil {
+		return nil, err
+	}
+	colon.SetLeaves([]*mod.Node{idList, colon.Leaves[0]})
+	return colon, nil
 }
 
 func ident(s *Lexer) (*mod.Node, *Error) {

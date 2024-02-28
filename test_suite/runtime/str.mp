@@ -51,7 +51,7 @@ const STR_BITMAP = 0b10000000_00000000_00000000_00000000ul
 
 # creates an empty string
 proc new_str[] ptr
-var array:ptr, header:ptr
+var array, header:ptr
 begin
     set header = alloc_b[STR_HEADER_SIZE, 0uss, 0us, STR_BITMAP]
     if header == NULL begin
@@ -76,8 +76,8 @@ begin
     free[(str+STR_PTR_OFFSET)@ptr]
 end
 
-proc set_str[str:ptr, mem:ptr, mem_size]
-var array:ptr, header:ptr
+proc set_str[str, mem:ptr, mem_size:i64]
+var array, header:ptr
 begin
     set (str+STR_PTR_OFFSET)@ptr = mem
     set (str+STR_START_OFFSET)@i32 = 0l
@@ -85,7 +85,7 @@ begin
 end
 
 proc put_str[str:ptr]
-var array:ptr, start:i32, size:i32
+var array:ptr, start, size:i32
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -109,11 +109,10 @@ end
 
 # allocates a new str; copies A and B into it
 # returns the str;
-proc concat[strA:ptr, strB:ptr] ptr
+proc concat[strA, strB:ptr] ptr
 var outStr:ptr, 
-    sizeA:i32, sizeB:i32, sizeOut:i32,
-    startA:i32, startB:i32,
-    arrayOut:ptr, arrayA:ptr, arrayB:ptr
+    sizeA, sizeB, sizeOut, startA, startB:i32,
+    arrayOut, arrayA, arrayB:ptr
 begin
     set startA = (strA+STR_START_OFFSET)@i32
     set startB = (strB+STR_START_OFFSET)@i32
@@ -150,10 +149,9 @@ begin
     return outStr
 end
 
-proc eq_str[strA:ptr, strB:ptr] bool
-var sizeA:i32, sizeB:i32,
-    startA:i32, startB:i32,
-    arrayA:ptr, arrayB:ptr,
+proc eq_str[strA, strB:ptr] bool
+var sizeA, sizeB, startA, startB:i32,
+    arrayA, arrayB:ptr,
     i:i32
 begin
     set startA = (strA+STR_START_OFFSET)@i32
@@ -187,7 +185,7 @@ begin
     return true
 end
 
-proc copy_str[strDest:ptr, strSource:ptr]
+proc copy_str[strDest, strSource:ptr]
 begin
     set (strDest+STR_START_OFFSET)@i32 = (strSource+STR_START_OFFSET)@i32
     set (strDest+STR_PTR_OFFSET)@i32 = (strSource+STR_PTR_OFFSET)@i32
@@ -203,8 +201,9 @@ begin
 end
 
 proc peek_rune[str:ptr] i32
-var array:ptr, start:i32, size:i32,
-    rune:i32, runeSize
+var array:ptr,
+    start, size, rune:i32,
+    runeSize:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -222,11 +221,12 @@ end
 # peek allocates a new header only,
 # the underlying array is the same,
 # strings are immutable
-proc peek[str:ptr, length] ptr
+proc peek[str:ptr, length:i64] ptr
 var array:ptr, size:i32,
-    old_start:i32, new_start:i32,
+    old_start, new_start:i32,
     outStr:ptr,
-    rune:i32, runeSize, i
+    rune:i32,
+    runeSize, i:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set old_start = (str+STR_START_OFFSET)@i32
@@ -256,8 +256,8 @@ begin
 end
 
 proc pop_rune[str:ptr] i32
-var array:ptr, start:i32, size:i32,
-    rune:i32, runeSize
+var array:ptr, start, size:i32,
+    rune:i32, runeSize:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -279,11 +279,11 @@ end
 # but modifies the older one so that
 # the substring returned is "popped"
 # from the beginning of the older string
-proc pop[str:ptr, length] ptr
+proc pop[str:ptr, length:i64] ptr
 var array:ptr, size:i32,
-    old_start:i32, new_start:i32,
+    old_start, new_start:i32,
     outStr:ptr,
-    rune:i32, runeSize, i
+    rune:i32, runeSize, i:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set old_start = (str+STR_START_OFFSET)@i32
@@ -317,8 +317,8 @@ end
 
 # Murmur Hash
 proc hash[str:ptr] i64
-var array:ptr, start:i32, size:i32,
-    i:i32, out
+var array:ptr, start, size:i32,
+    i:i32, out:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -338,8 +338,8 @@ end
 # scans the entire string and counts
 # the number of utf-8 codepoints
 proc length[str:ptr] i64
-var array:ptr, size:i32, start:i32,
-    rune:i32, runeSize, i
+var array:ptr, size, start:i32,
+    rune:i32, runeSize, i:i64
 begin
     set array = (str+STR_PTR_OFFSET)@ptr
     set start = (str+STR_START_OFFSET)@i32
@@ -362,8 +362,8 @@ end
 
 ################################# INTERNAL UTILITARIES
 
-proc copy[dest:ptr, source:ptr, source_size]
-var i
+proc copy[dest, source:ptr, source_size:i64]
+var i:i64
 begin
 	set i = 0
 	while i < source_size

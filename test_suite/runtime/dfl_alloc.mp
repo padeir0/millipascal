@@ -72,8 +72,8 @@ begin
 end
 
 # size é em bytes, não em words
-proc alloc_f[size] ptr
-var out:ptr, alloc_size
+proc alloc_f[size:i64] ptr
+var out:ptr, alloc_size:i64
 begin
 	set size += F_HEADER_SIZE
 	# alinhamento
@@ -105,8 +105,8 @@ begin
 	return out
 end
 
-proc alloc_b[size, meta:u8, stuff:u16, bitmap:u32] ptr
-var out:ptr, alloc_size
+proc alloc_b[size:i64, meta:u8, stuff:u16, bitmap:u32] ptr
+var out:ptr, alloc_size:i64
 begin
 	set size += B_HEADER_SIZE
 	# alinhamento
@@ -147,9 +147,9 @@ end
 # precisamos retornar, junto com o ponteiro pro nó alocado,
 # o tamanho do nó, já que pode ser que ele seja maior que o
 # tamanho pedido
-proc getNodeForward[size] ptr, i64
-var curr:ptr, curr_size, next:ptr,
-    prev:ptr
+proc getNodeForward[size:i64] ptr, i64
+var curr, next, prev:ptr,
+	curr_size:i64
 begin
 	if Head@ptr == NULL begin
 		return NULL, 0
@@ -189,9 +189,9 @@ begin
 	return NULL, 0
 end
 
-proc getNodeBackwards[size] ptr, i64
-var curr:ptr, curr_size, prev:ptr,
-    next:ptr
+proc getNodeBackwards[size:i64] ptr, i64
+var curr, prev, next:ptr,
+	curr_size:i64
 begin
 	if Tail@ptr == NULL begin
 		return NULL, 0
@@ -227,7 +227,7 @@ begin
 	return NULL, 0
 end
 
-proc pop[prev:ptr, curr:ptr, next:ptr] ptr
+proc pop[prev, curr, next:ptr] ptr
 begin
 	if prev != NULL begin
 		set (prev+FL_NEXT_OFFSET)@ptr = next
@@ -255,8 +255,9 @@ end
 #   v alocado
 # [xxxxx|           ]
 #            ^ livre
-proc splitFront[prev:ptr, curr:ptr, next:ptr, requested_size] ptr
-var newnode:ptr, newnode_size, curr_size
+proc splitFront[prev, curr, next:ptr, requested_size:i64] ptr
+var newnode:ptr,
+	newnode_size, curr_size:i64
 begin
 	set curr_size = (curr+FL_SIZE_OFFSET)@i64
 	set newnode_size = curr_size - requested_size
@@ -284,8 +285,9 @@ end
 #   v livre
 # [            |xxxxxx]
 #                ^ alocado
-proc splitBack[prev:ptr, curr:ptr, next:ptr, requested_size] ptr
-var newnode:ptr, newnode_size, remaining_size, curr_size
+proc splitBack[prev, curr, next:ptr, requested_size:i64] ptr
+var newnode:ptr,
+	newnode_size, remaining_size, curr_size:i64
 begin
 	set curr_size = (curr+FL_SIZE_OFFSET)@i64
 	set newnode_size = requested_size
@@ -310,8 +312,9 @@ begin
 end
 
 proc free[obj:ptr]
-var obj_size, new:ptr, prev:ptr, curr:ptr, isFront:bool,
-	leftmost:ptr, rightmost:ptr
+var obj_size:i64,
+	new, prev, curr, leftmost, rightmost:ptr,
+	isFront:bool,
 begin
 	if obj < FrontLimit@ptr begin
 		set new = obj - F_HEADER_SIZE:ptr
@@ -382,7 +385,7 @@ begin
 	fatal[UNREACHABLE, UNREACHABLE.size]
 end
 
-proc updateLimits[leftmost:ptr, rightmost:ptr]
+proc updateLimits[leftmost, rightmost:ptr]
 begin
 	if leftmost <= BackLimit@ptr and BackLimit@ptr < rightmost begin
 		set BackLimit@ptr = rightmost
@@ -393,7 +396,7 @@ begin
 end
 
 proc append[new:ptr]
-var size
+var size:i64
 begin
 	set size = (Tail@ptr+FL_SIZE_OFFSET)@i64
 	if Tail@ptr+size:ptr == new begin
@@ -408,7 +411,7 @@ begin
 end
 
 proc prepend[new:ptr]
-var size, next:ptr
+var size:i64, next:ptr
 begin
 	set size = (new+FL_SIZE_OFFSET)@i64
 	if new + size:ptr == Head@ptr begin
@@ -431,8 +434,8 @@ begin
 	set Head@ptr = new
 end
 
-proc join[prev:ptr, new:ptr, curr:ptr] ptr, ptr
-var size, next:ptr
+proc join[prev, new, curr:ptr] ptr, ptr
+var size:i64, next:ptr
 begin
 	set size = (prev+FL_SIZE_OFFSET)@i64
 	if prev+size:ptr == new begin
@@ -500,8 +503,8 @@ begin
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end
 
-proc setMap[obj:ptr, size, b:i8]
-var start:ptr, i:ptr, size_words:ptr
+proc setMap[obj:ptr, size:i64, b:i8]
+var start, i, size_words:ptr
 begin
 	set size_words = (size>>3):ptr
 	set start = ByteMap + ((obj - Heap) / WORD:ptr)
@@ -545,7 +548,7 @@ begin
 	put_ln[]
 end
 
-proc put_4int[a, b, c, d]
+proc put_4int[a, b, c, d:i64]
 begin
 	put_int[a]
 	put_char[',']
@@ -560,7 +563,7 @@ begin
 end
 
 proc get_total_free[] i64
-var curr:ptr, total_free
+var curr:ptr, total_free:i64
 begin
 	set curr = Head@ptr
 	set total_free = 0
@@ -572,7 +575,7 @@ begin
 end
 
 proc print_map[]
-var i
+var i:i64
 begin
 	set i = 0
 	put_char['[']

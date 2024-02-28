@@ -29,7 +29,7 @@ begin
 	end
 end
 
-proc max[a, b] i64
+proc max[a, b:i64] i64
 begin
 	if a >= b
 	begin
@@ -41,7 +41,7 @@ begin
 	end
 end
 
-proc min[a:i64, b:i64] i64
+proc min[a, b:i64] i64
 begin
 	if a <= b
 	begin

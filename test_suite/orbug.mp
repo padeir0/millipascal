@@ -1,5 +1,5 @@
 proc main
-var a, b, c
+var a, b, c:i64
 begin
     set a = 0
     set b = 1
@@ -9,7 +9,7 @@ begin
     end
 end
 
-proc f[a, b] i64
+proc f[a, b:i64] i64
 begin
     return a+b
 end

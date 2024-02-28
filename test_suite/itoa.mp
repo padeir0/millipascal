@@ -6,7 +6,7 @@ data result4 "1000"
 data result5 "-1000"
 
 proc main
-var p:ptr, size
+var p:ptr, size:i64
 begin
 	set p, size = itoa[32]
 	if not equals[p, size, result0, result0.size] begin
@@ -35,7 +35,7 @@ begin
 end
 
 proc equals[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
-var i
+var i:i64
 begin
 	if size1 != size2 begin
 		return false
@@ -55,7 +55,7 @@ end
 data itoa_buff [32]
 
 # do not modify the returned buffer
-proc itoa[n] ptr, i64
+proc itoa[n:i64] ptr, i64
 var p:ptr, signal:i8
 begin
 	set signal = 0ss

@@ -1,5 +1,5 @@
 proc main[]
-var i, size, chunk
+var i, size, chunk:i64
 begin
 	set i = 0;
 	set size = 128;

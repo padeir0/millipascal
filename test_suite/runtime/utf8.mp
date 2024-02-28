@@ -119,7 +119,7 @@ begin
     return ~1;
 end
 
-proc fatal[p:ptr, size]
+proc fatal[p:ptr, size:i64]
 begin
 	write[p, size]
 	exit 1ss

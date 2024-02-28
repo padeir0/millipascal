@@ -40,7 +40,7 @@ const TOTAL_TEST_PTRS = 256
 data Test [TOTAL_TEST_PTRS * sizeof ptr]
 
 proc main
-var i
+var i:i64
 begin
 	init[]
 
@@ -54,7 +54,7 @@ begin
 end
 
 proc _alloc
-var i, a:ptr
+var i:i64, a:ptr
 begin
 	set i = 0
 	while i < TOTAL_TEST_PTRS begin
@@ -87,8 +87,8 @@ begin
 	free_n[TOTAL_TEST_PTRS]
 end
 
-proc free_n[n]
-var i, a:ptr
+proc free_n[n:i64]
+var i:i64, a:ptr
 begin
 	set i = 0
 	while i < TOTAL_TEST_PTRS begin
@@ -105,8 +105,8 @@ begin
 	end
 end
 
-proc alloc[size, tag:u16, bitmap:u32] ptr
-var out:ptr, alloc_size
+proc alloc[size:i64, tag:u16, bitmap:u32] ptr
+var out:ptr, alloc_size:i64
 begin
 	set size += HEADER_SIZE
 	# alinhamento
@@ -137,9 +137,9 @@ end
 # precisamos retornar, junto com o ponteiro pro nó alocado,
 # o tamanho do nó, já que pode ser que ele seja maior que o
 # tamanho pedido
-proc get_node[size] ptr, i64
-var curr:ptr, curr_size, curr_next:ptr,
-    prev:ptr, prev_size, prev_next:ptr
+proc get_node[size:i64] ptr, i64
+var curr:ptr, curr_size:i64, curr_next:ptr,
+    prev:ptr, prev_size:i64, prev_next:ptr
 begin
 	if Head@ptr == NULL begin
 		return NULL, 0
@@ -179,7 +179,7 @@ begin
 	return NULL, 0
 end
 
-proc pop[prev:ptr, curr:ptr, curr_next:ptr] ptr
+proc pop[prev, curr, curr_next:ptr] ptr
 begin
 	if prev != NULL begin
 		set (prev+FL_NEXT_OFFSET)@ptr = curr_next
@@ -189,9 +189,9 @@ begin
 	return curr + HEADER_SIZE:ptr
 end
 
-proc split[prev:ptr, curr:ptr, curr_next:ptr,
-           curr_size, requested_size] ptr
-var newnode:ptr, newnode_size, newnode_next:ptr
+proc split[prev, curr, curr_next:ptr,
+           curr_size, requested_size:i64] ptr
+var newnode:ptr, newnode_size:i64, newnode_next:ptr
 begin
 	set newnode_size = curr_size - requested_size
 	set newnode = curr + requested_size:ptr
@@ -207,7 +207,7 @@ begin
 end
 
 proc free[obj:ptr]
-var obj_size, new:ptr, prev:ptr, curr:ptr
+var obj_size:i64, new, prev, curr:ptr
 begin
 	set new = obj - HEADER_SIZE:ptr
 	if new < Heap or new > Heap + Heap.size:ptr begin
@@ -253,8 +253,8 @@ begin
 	append[prev, new]
 end
 
-proc append[prev:ptr, new:ptr]
-var size
+proc append[prev, new:ptr]
+var size:i64
 begin
 	set size = (prev+FL_SIZE_OFFSET)@i64
 	if prev+size:ptr == new begin
@@ -267,7 +267,7 @@ begin
 end
 
 proc prepend[new:ptr]
-var size
+var size:i64
 begin
 	set size = (new+FL_SIZE_OFFSET)@i64
 	if new + size:ptr == Head@ptr begin
@@ -282,8 +282,8 @@ begin
 	set Head@ptr = new
 end
 
-proc join[prev:ptr, new:ptr, curr:ptr]
-var size
+proc join[prev, new, curr:ptr]
+var size:i64
 begin
 	set size = (prev+FL_SIZE_OFFSET)@i64
 	if prev+size:ptr == new begin
@@ -327,7 +327,7 @@ end
 data MSG_TOTAL_FREE "free: "
 
 proc print_list[]
-var curr:ptr, totalFree
+var curr:ptr, totalFree:i64
 begin
 	set curr = Head@ptr
 	set totalFree = 0
@@ -348,7 +348,7 @@ begin
 end
 
 proc print_map[]
-var i
+var i:i64
 begin
 	set i = 0
 	put_char['[']
@@ -365,8 +365,8 @@ begin
 	put_char['\n']
 end
 
-proc set_map[obj:ptr, size, b:i8]
-var start:ptr, i:ptr, size_words:ptr
+proc set_map[obj:ptr, size:i64, b:i8]
+var start, i, size_words:ptr
 begin
 	set size_words = (size>>3):ptr
 	set start = ByteMap + ((obj - Heap) / WORD:ptr)

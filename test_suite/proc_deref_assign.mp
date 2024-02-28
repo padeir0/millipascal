@@ -12,7 +12,7 @@ begin
 	return buff + 256p
 end
 
-proc square[n] i64
+proc square[n:i64] i64
 begin
 	return n * n
 end

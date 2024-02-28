@@ -5,7 +5,7 @@ begin
 	end
 end
 
-proc fact[n] i64
+proc fact[n:i64] i64
 begin
 	if n == 0 begin
 		return 1;

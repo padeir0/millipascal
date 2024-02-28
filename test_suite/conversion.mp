@@ -376,7 +376,7 @@ begin
 	end
 end
 
-proc square[a] i64
+proc square[a:i64] i64
 begin
 	return a*a;
 end

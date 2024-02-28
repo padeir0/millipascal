@@ -1,5 +1,5 @@
 proc main
-var a
+var a:i64
 begin
 	if a == a begin
 	end

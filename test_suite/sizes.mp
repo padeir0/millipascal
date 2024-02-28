@@ -1,5 +1,5 @@
 proc main
-var a
+var a:i64
 begin
 	set a = sizeof i8
 	if a != 1 begin

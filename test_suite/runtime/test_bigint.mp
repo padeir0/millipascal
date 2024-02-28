@@ -18,7 +18,7 @@ from bigint import
     neg
 
 proc main
-var a:ptr, b:ptr, c:ptr
+var a, b, c:ptr
 begin
     init[]
 
@@ -42,7 +42,8 @@ begin
 end
 
 proc test_div_i32
-var a:ptr, q:ptr, rem:i32, i:i32, j:i32
+var a, q:ptr,
+    rem, i, j:i32
 begin
     set a = new_bint[~10l]
     set q = new_bint[0l]
@@ -80,7 +81,8 @@ begin
 end
 
 proc test_div
-var a:ptr, b:ptr, q:ptr, r:ptr, i:i32, j:i32
+var a, b, q, r:ptr,
+    i, j:i32
 begin
     set a = new_bint[~10l]
     set b = new_bint[1l]
@@ -119,8 +121,8 @@ begin
 end
 
 proc test_mult
-var a:ptr, b:ptr, c:ptr,
-    i:i32, j:i32
+var a, b, c:ptr,
+    i, j:i32
 begin
     set a = new_bint[~10l]
     set b = new_bint[1l]
@@ -151,8 +153,8 @@ begin
 end
 
 proc test_mult_i32
-var a:ptr, b:ptr,
-    i:i32, j:i32
+var a, b:ptr,
+    i, j:i32
 begin
     set a = new_bint[~10l]
     set b = new_bint[0l]
@@ -187,8 +189,8 @@ begin
 end
 
 proc test_add
-var a:ptr, b:ptr,
-    i, res
+var a, b:ptr,
+    i, res:i64
 begin
     set a = new_bint[~10l]
     set b = new_bint[1l]
@@ -218,7 +220,7 @@ begin
 end
 
 proc test_add_i32
-var a:ptr, i, res
+var a:ptr, i, res:i64
 begin
     set a = new_bint[~10l]
 
@@ -245,8 +247,8 @@ begin
 end
 
 proc test_sub
-var a:ptr, b:ptr,
-    i, res
+var a, b:ptr,
+    i, res:i64
 begin
     set a = new_bint[~10l]
     set b = new_bint[~1l]
@@ -276,7 +278,7 @@ begin
 end
 
 proc test_sub_i32
-var a:ptr, i, res
+var a:ptr, i, res:i64
 begin
     set a = new_bint[~10l]
 
@@ -303,7 +305,7 @@ begin
 end
 
 proc test_copy
-var a:ptr, b:ptr, c:ptr, d:ptr, e:ptr
+var a, b, c, d, e:ptr
 begin
     set a = new_bint[99l]
     mult_i32[a, 100_000_000l, a]
@@ -319,7 +321,8 @@ begin
 end
 
 proc test_mult_i32_vs_mult
-var a:ptr, c:ptr, d:ptr, e:ptr, i
+var a, c, d, e:ptr,
+    i:i64
 begin
     set a = new_bint[99l]
     set c = new_bint[99l]
@@ -350,8 +353,8 @@ begin
 end
 
 proc test_add_vs_sub
-var a:ptr, b:ptr, c:ptr,
-    i
+var a, b, c:ptr,
+    i:i64
 begin
     set a = new_bint[64l]
     set b = new_bint[512l]
@@ -390,8 +393,8 @@ begin
 end
 
 proc test_add_i32_vs_sub_i32
-var a:ptr, b:ptr, c:ptr,
-    i
+var a, b, c:ptr,
+    i:i64
 begin
     set a = new_bint[64l]
     set b = new_bint[0l]
@@ -427,9 +430,8 @@ begin
 end
 
 proc test_mult_vs_div
-var a:ptr, b:ptr, c:ptr,
-    q:ptr, r:ptr,
-    i
+var a, b, c, q, r:ptr,
+    i:i64
 begin
     set a = new_bint[64l]
     set b = new_bint[512l]

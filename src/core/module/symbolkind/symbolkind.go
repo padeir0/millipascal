@@ -28,4 +28,5 @@ const (
 	Var
 	Arg
 	Module
+	Struct
 )

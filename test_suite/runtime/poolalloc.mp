@@ -31,7 +31,7 @@ const NUM_POINTERS = 64
 data Test [NUM_POINTERS * sizeof ptr]
 
 proc main
-var a:ptr, i, out:ptr
+var a:ptr, i:i64, out:ptr
 begin
 	init[16];
 	set i = 0
@@ -63,7 +63,7 @@ begin
 	end
 end
 
-proc init[chunksize]
+proc init[chunksize:i64]
 begin
 	if chunksize < MIN_CHUNK_SIZE
 	begin
@@ -79,7 +79,7 @@ begin
 end
 
 proc alloc[] ptr
-var curr:ptr, position:ptr
+var curr, position:ptr
 begin
 	if Head@ptr == NULL
 	begin
@@ -123,7 +123,7 @@ begin
 end
 
 proc print_map[]
-var i
+var i:i64
 begin
 	set i = 0
 	put_char['[']
@@ -143,8 +143,8 @@ begin
 	put_char['\n']
 end
 
-proc setList[start:ptr, size, chunksize]
-var i
+proc setList[start:ptr, size, chunksize:i64]
+var i:i64
 begin
 	set i = 0
 	while i < size

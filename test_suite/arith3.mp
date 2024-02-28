@@ -45,8 +45,8 @@ begin
 end
 
 proc test_2[]
-var a, b, c, d, e, f,
-    res
+var a, b, c, d, e, f:i64,
+    res:i64
 begin
     set a = 17
     set b = 9
@@ -62,7 +62,7 @@ begin
 end
 
 proc test_3[]
-var a:u8, b:u8, c:u8, d:u8, e:u8, f:u8,
+var a, b, c, d, e, f:u8,
     res:u8
 begin
     set a = 17uss

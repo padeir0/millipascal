@@ -19,8 +19,9 @@ end
 
 data Test [MAX_RUNE_SIZE]
 
-proc test[testRune:i32, upperRune:i32]
-var i:i32, p:ptr, rune:i32, e_size, d_size
+proc test[testRune, upperRune:i32]
+var i:i32, p:ptr, rune:i32,
+    e_size, d_size:i64
 begin
     set i = 0l
     set p = 0p

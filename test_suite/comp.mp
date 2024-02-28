@@ -1,7 +1,7 @@
 data hello "Hello, World!\n"
 
 proc main
-var a, p:ptr
+var a:i64, p:ptr
 begin
 	set a = 0;
 	set p = hello;

@@ -42,12 +42,12 @@ proc test_string
 begin
 end
 
-proc eq_string[a:ptr, b:ptr] bool
+proc eq_string[a, b:ptr] bool
 begin
     return false
 end
 
-proc copy_string[dest:ptr, source:ptr]
+proc copy_string[dest, source:ptr]
 begin
 end
 
@@ -72,18 +72,18 @@ begin
     ]
 end
 
-proc eq_int_naive[a:ptr, b:ptr] bool
+proc eq_int_naive[a, b:ptr] bool
 begin
     return bigint::comp[a@ptr, b@ptr] == bigint::EQ
 end
 
-proc copy_int_naive[dest:ptr, source:ptr]
+proc copy_int_naive[dest, source:ptr]
 begin
     set dest@ptr = bigint::new_bint[0l]
     bigint::copy_bint[dest@ptr, source@ptr]
 end
 
-proc setter_int_naive[vecA:ptr, i]
+proc setter_int_naive[vecA:ptr, i:i64]
 var bint:ptr
 begin
     set bint = bigint::new_bint[1l]
@@ -92,8 +92,8 @@ begin
 end
 
 # testers return true on failure
-proc tester_int_naive[vecA:ptr, i] bool
-var bint:ptr, iRes:ptr, out:bool
+proc tester_int_naive[vecA:ptr, i:i64] bool
+var bint, iRes:ptr, out:bool
 begin
     set iRes = bigint::new_bint[1l]
     power2[iRes, i:i32]
@@ -105,7 +105,7 @@ begin
 end
 
 proc power2[bint:ptr, pw:i32] ptr
-var i
+var i:i64
 begin
     set i = 0
     while i < pw:i64 begin
@@ -135,23 +135,23 @@ begin
     ]
 end
 
-proc eq_i64[a:ptr, b:ptr] bool
+proc eq_i64[a, b:ptr] bool
 begin
     return a@i64 == b@i64
 end
 
-proc copy_i64[dest:ptr, source:ptr]
+proc copy_i64[dest, source:ptr]
 begin
     set dest@i64 = source@i64
 end
 
-proc setter_i64[vecA:ptr, i]
+proc setter_i64[vecA:ptr, i:i64]
 begin
     set index[vecA, i]@i64 = i*i
 end
 
 # testers return true on failure
-proc tester_i64[vecA:ptr, i] bool
+proc tester_i64[vecA:ptr, i:i64] bool
 begin
     return i*i != index[vecA, i]@i64
 end
@@ -168,7 +168,7 @@ proc test_push[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, i
+var vecA:ptr, i:i64
 begin
     set vecA = new_vec[meta, 0l, size/8l]
     set i = 0
@@ -195,7 +195,7 @@ proc test_iter_len[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, i
+var vecA:ptr, i:i64
 begin
     set vecA = new_vec[meta, size, size]
     set i = 0
@@ -223,7 +223,7 @@ proc test_pop[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, i, initial_length
+var vecA:ptr, i, initial_length:i64
 begin
     set vecA = new_vec[meta, size, size]
 
@@ -251,8 +251,8 @@ proc test_concat[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, vecB:ptr, vecC:ptr,
-    i, j, z,
+var vecA, vecB, vecC:ptr,
+    i, j, z:i64,
     eq:proc[ptr,ptr]bool
 begin
     set vecA = new_vec[meta, size, size]
@@ -300,8 +300,8 @@ proc test_copy1_eq[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, vecB:ptr,
-    i
+var vecA, vecB:ptr,
+    i:i64
 begin
     set vecA = new_vec[meta, size, size]
     set i = 0
@@ -328,7 +328,7 @@ proc test_copy2_eq[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, vecB:ptr, i
+var vecA, vecB:ptr, i:i64
 begin
     set vecA = new_vec[meta, size, size]
     set i = 0
@@ -355,7 +355,7 @@ proc test_slice[
     setter:proc[ptr, i64],
     tester:proc[ptr, i64] bool
 ]
-var vecA:ptr, vecB:ptr, i, eq:proc[ptr, ptr]bool
+var vecA, vecB:ptr, i:i64, eq:proc[ptr, ptr]bool
 begin
     set vecA = new_vec[meta, size, size]
     set eq = get_eq[vecA]
@@ -384,7 +384,7 @@ end
 ############## UTILITARIES
 
 proc test_all[
-    amount,
+    amount:i64,
     meta:ptr,
     setter:proc[ptr, i64],
     tester:proc[ptr, i64]bool
@@ -399,13 +399,13 @@ proc test_all[
 end
 
 proc test_n[
-    amount,
+    amount:i64,
     meta:ptr,
     test:proc[ptr, i32, proc[ptr, i64], proc[ptr, i64]bool],
     setter:proc[ptr, i64],
     tester:proc[ptr, i64]bool
 ]
-var i
+var i:i64
 begin
     set i = 0
     while i < amount begin

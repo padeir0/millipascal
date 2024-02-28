@@ -3,7 +3,7 @@ data buff2 [102]
 data here "here\n"
 
 proc main
-var gen, b1:ptr, b2:ptr, b3:ptr
+var gen:i64, b1:ptr, b2:ptr, b3:ptr
 begin
 	clear[buff1, buff1.size]
 	clear[buff2, buff2.size]
@@ -29,7 +29,7 @@ begin
 end
 
 proc clear[p:ptr, size:i64]
-var a
+var a:i64
 begin
 	set a = 0
 	while a < size
@@ -39,8 +39,8 @@ begin
 	end
 end
 
-proc generation[b1:ptr, b2:ptr, size]
-var a, c:i8
+proc generation[b1:ptr, b2:ptr, size:i64]
+var a:i64, c:i8
 begin
 	set a = 1
 	while a < size -2
@@ -50,8 +50,8 @@ begin
 	end
 end
 
-proc rule110[buff:ptr, index] i8
-var left:i8, curr:i8, right:i8
+proc rule110[buff:ptr, index:i64] i8
+var left, curr, right:i8
 begin
 
 	set left  =  (buff + index:ptr - 1p)@i8
@@ -102,8 +102,8 @@ begin
 	write[pchar_buff, pchar_buff.size]
 end
 
-proc pint[n]
-var p:ptr, size
+proc pint[n:i64]
+var p:ptr, size:i64
 begin
 	set p, size = itoa[n]
 	write[p, size]
@@ -111,7 +111,7 @@ end
 
 data itoa_buff [32]
 
-proc itoa[n] ptr, i64
+proc itoa[n:i64] ptr, i64
 var p:ptr, signal:i8
 begin
 	set signal = 0ss

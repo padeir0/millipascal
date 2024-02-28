@@ -1,5 +1,5 @@
 proc main
-var a, b, c
+var a, b, c:i64
 begin
 	set a, b, c = P[]
 	if a != 1 begin

@@ -78,17 +78,17 @@ data ERR_STR_OVERFLOW "overflow of string buffer\n"
 data StrBuff [1_000]
 
 proc put_bint[bint:ptr]
-var size,
+var size:i64,
 begin
     set size = write_bint[bint, StrBuff, StrBuff.size]
     write[StrBuff, size]
     set_buff[StrBuff, size, 0ss]
 end
 
-proc write_bint[bint:ptr, buff:ptr, buffSize] i64
-var len, i, array:ptr, currDigit:ptr,
+proc write_bint[bint:ptr, buff:ptr, buffSize:i64] i64
+var len, i:i64, array:ptr, currDigit:ptr,
     block:ptr, first:bool, neg:bool,
-    size,
+    size:i64,
 begin
     set len = (bint+BINT_LEN_OFFSET)@i32:i64
     set array = (bint+BINT_PTR_OFFSET)@ptr
@@ -123,7 +123,7 @@ begin
 end
 
 proc put_i32[n:i32, digits:ptr, first:bool]
-var p:ptr, i,
+var p:ptr, i:i64,
 begin
 	if n == 0l
 	begin
@@ -150,7 +150,7 @@ begin
     end
 end
 
-proc put_res[res]
+proc put_res[res:i64]
 begin
     if res == EQ begin
         put_char['=']
@@ -263,7 +263,7 @@ end
 # increasing length by 1
 proc push_digit[bint:ptr, digit:i32]
 var cap:i32, len:i32,
-    array:ptr, new_array:ptr, new_cap
+    array:ptr, new_array:ptr, new_cap:i64
 begin
     verify_digit[digit]
     set cap = (bint+BINT_CAP_OFFSET)@i32
@@ -345,8 +345,8 @@ begin
     set (iDest+BINT_LEN_OFFSET)@i32 = source_len
 end
 
-proc copy_i32[dest:ptr, source:ptr, size]
-var i
+proc copy_i32[dest:ptr, source:ptr, size:i64]
+var i:i64
 begin
     set i = 0
     while i < size begin
@@ -356,7 +356,7 @@ begin
 end
 
 proc remove_trailing_zeroes[bint:ptr]
-var len, i, arraySlot:ptr, currDigit:ptr
+var len, i:i64, arraySlot:ptr, currDigit:ptr
 begin
     set arraySlot = bint+BINT_PTR_OFFSET
     set len = (bint+BINT_LEN_OFFSET)@i32:i64
@@ -387,9 +387,9 @@ proc abs_div[
     iQ:ptr,
     iRem:ptr
 ]
-var lenA, lenB, i, j, arrayA:ptr,
+var lenA, lenB, i, j:i64, arrayA:ptr,
     low:i32, high:i32, guess:i32,
-    res, iIDD:ptr, iScratch:ptr
+    res:i64, iIDD:ptr, iScratch:ptr
 begin
     if abs_comp_digit[iB, 0l] == 0 begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
@@ -456,7 +456,7 @@ proc test_guess[
     iB:ptr,
     guess:i32
 ] i64
-var res
+var res:i64
 begin
     copy_bint[iScratch, iB]
     abs_mult_digit[iScratch, guess, iScratch]
@@ -490,8 +490,8 @@ proc abs_div_digit[
     b:i32,
     iQ:ptr
 ] i32
-var idd, q, b64,
-    lenA, arrayA:ptr, i
+var idd, q, b64, i, lenA:i64,
+    arrayA:ptr,
 begin
     if b == 0l begin
         fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
@@ -533,7 +533,7 @@ proc abs_slow_div[
     iQ:ptr,
     iRem:ptr
 ]
-var res
+var res:i64
 begin
     set_zero[iQ]
     set_zero[iRem]
@@ -549,22 +549,12 @@ begin
     end
 end
 
-# we will have to mark the pointers that point to objetcs
-# so the GC can ignore derived pointers.
-#
-# proc abs_mult[natA*:ptr, natB*:ptr, natC*:ptr]
-# var i, j, sizeA, sizeB, sizeC, carry:i32, res,
-#     currdigitA:ptr, currdigitB:ptr, currdigitC:ptr,
-#     sizePtr:ptr
-# begin
-
 # iC must be a different object from iA and iB
 proc abs_mult[iA:ptr, iB:ptr, iC:ptr]
-var i, j,
-    lenA, lenB, lenC,
-    carry:i32, res,
-    arrayA:ptr, arrayB:ptr, arraySlotC:ptr,
-    currDigitA:ptr, currDigitB:ptr, currDigitC:ptr,
+var i, j, lenA, lenB, lenC, res:i64,
+    carry:i32,
+    arrayA, arrayB, arraySlotC:ptr,
+    currDigitA, currDigitB, currDigitC:ptr,
 begin
     set_zero[iC]
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -607,7 +597,7 @@ begin
 end
 
 proc abs_mult_base[bint:ptr]
-var len, i, array:ptr
+var len, i:i64, array:ptr
 begin
     push_digit[bint, 0l]
     set len = (bint+BINT_LEN_OFFSET)@i32:i64
@@ -622,11 +612,10 @@ end
 
 # iA may be the same object as iC
 proc abs_mult_digit[iA:ptr, digit:i32, iC:ptr]
-var i,
-    carry:i32, res,
-    lenA, lenC,
-    arraySlotA:ptr, arraySlotC:ptr,
-    currDigitA:ptr, currDigitC:ptr
+var carry:i32,
+    i, res, lenA, lenC:i64,
+    arraySlotA, arraySlotC:ptr,
+    currDigitA, currDigitC:ptr
 begin
     verify_digit[digit]
 
@@ -664,10 +653,10 @@ end
 
 # iA, iB and iC need not to be different objects
 proc abs_sub[iA:ptr, iB:ptr, iC:ptr]
-var i, lenA, lenB, lenC,
-    carry:i32, res:i32,
-    arraySlotA:ptr, arraySlotB:ptr, arraySlotC:ptr,
-    currDigitA:ptr, currDigitB:ptr, currDigitC:ptr,
+var i, lenA, lenB, lenC:i64,
+    carry, res:i32,
+    arraySlotA, arraySlotB, arraySlotC:ptr,
+    currDigitA, currDigitB, currDigitC:ptr,
     hold:ptr
 begin
     set i = abs_comp[iA, iB]
@@ -731,11 +720,10 @@ end
 
 # iA and iC need not to be different objects
 proc abs_sub_digit[iA:ptr, digit:i32, iC:ptr]
-var i, lenA, lenC,
-    carry:i32, res:i32,
-    arraySlotA:ptr, arraySlotC:ptr,
-    currDigitA:ptr, currDigitC:ptr,
-    a_digit:i32
+var i, lenA, lenC:i64,
+    carry, a_digit, res:i32,
+    arraySlotA, arraySlotC:ptr,
+    currDigitA, currDigitC:ptr,
 begin
     set i = abs_comp_digit[iA, digit]
 
@@ -824,9 +812,9 @@ const LESS = 2
 
 # iA and iB need not to be different objects
 proc abs_comp[iA:ptr, iB:ptr] i64
-var lenA, lenB,
-    arrayA:ptr, arrayB:ptr,
-    i, currDigitA:ptr, currDigitB:ptr
+var lenA, lenB, i:i64,
+    arrayA, arrayB:ptr,
+    currDigitA, currDigitB:ptr
 begin
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
     set lenB = (iB+BINT_LEN_OFFSET)@i32:i64
@@ -864,7 +852,7 @@ end
 # but the second number is < BASE,
 # that is, it's a single digit number.
 proc abs_comp_digit[iA:ptr, digit:i32] i64
-var lenA, i, digitA:i32
+var lenA, i:i64, digitA:i32
 begin
     verify_digit[digit]
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -891,9 +879,9 @@ end
 #
 # iA, iB and iC need not to be different objects
 proc abs_add[iA:ptr, iB:ptr, iC:ptr]
-var lenA, lenB, lenC, maxLen,
+var lenA, lenB, lenC, maxLen:i64,
     arraySlotA:ptr, arraySlotB:ptr, arraySlotC:ptr,
-    carry:i32, i, currDigitC:ptr,
+    carry:i32, i:i64, currDigitC:ptr,
     res:i32
 begin
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -936,10 +924,9 @@ end
 #
 # iA and iC need not to be different objects
 proc abs_add_digit[iA:ptr, digit:i32, iC:ptr]
-var lenA, lenC,
-    arraySlotA:ptr, arraySlotC:ptr,
-    currDigitC:ptr,
-    carry:i32, i, res:i32
+var lenA, lenC, i:i64,
+    arraySlotA, arraySlotC, currDigitC:ptr,
+    carry, res:i32
 begin
     verify_digit[digit]
     set lenA = (iA+BINT_LEN_OFFSET)@i32:i64
@@ -989,8 +976,8 @@ begin
 end
 ######################################## $INTEGER ARITHMETIC
 
-proc comp[iA:ptr, iB:ptr] i64
-var negA:bool, negB:bool, res
+proc comp[iA, iB:ptr] i64
+var negA, negB:bool, res:i64
 begin
     set negA = is_neg[iA]
     set negB = is_neg[iB]
@@ -1016,7 +1003,7 @@ begin
 end
 
 proc comp_i32[iA:ptr, b:i32] i64
-var negA:bool, negB:bool, res
+var negA, negB:bool, res:i64
 begin
     set negA = is_neg[iA]
     set negB = b < 0l
@@ -1082,7 +1069,7 @@ begin
 end
 
 proc sub_i32[iA:ptr, b:i32, iC:ptr]
-var negA:bool, negB:bool, res:bool
+var negA, negB, res:bool
 begin
     set negA = is_neg[iA]
     set negB = b < 0l
@@ -1107,8 +1094,8 @@ begin
     end
 end
 
-proc add[iA:ptr, iB:ptr, iC:ptr]
-var negA:bool, negB:bool, res:bool
+proc add[iA, iB, iC:ptr]
+var negA, negB, res:bool
 begin
     set negA = is_neg[iA]
     set negB = is_neg[iB]
@@ -1133,7 +1120,7 @@ begin
 end
 
 proc add_i32[iA:ptr, b:i32, iC:ptr]
-var negA:bool, negB:bool, res:bool
+var negA, negB, res:bool
 begin
     set negA = is_neg[iA]
     set negB = b < 0l
@@ -1158,8 +1145,8 @@ begin
     end
 end
 
-proc mult[iA:ptr, iB:ptr, iC:ptr]
-var neg:bool, negA:bool, negB:bool
+proc mult[iA, iB, iC:ptr]
+var neg, negA, negB:bool
 begin
     set negA = is_neg[iA]
     set negB = is_neg[iB]
@@ -1169,7 +1156,7 @@ begin
 end
 
 proc mult_i32[iA:ptr, b:i32, iC:ptr]
-var neg:bool, negA:bool, negB:bool
+var neg, negA, negB:bool
 begin
     set negA = is_neg[iA]
     set negB = b < 0l
@@ -1179,8 +1166,8 @@ begin
     set_neg[iC, neg]
 end
 
-proc div[iA:ptr, iB:ptr, iQ:ptr, iRem:ptr]
-var neg:bool, negA:bool, negB:bool
+proc div[iA, iB, iQ, iRem:ptr]
+var neg, negA, negB:bool
 begin
     set negA = is_neg[iA]
     set negB = is_neg[iB]
@@ -1195,7 +1182,7 @@ begin
 end
 
 proc div_i32[iA:ptr, b:i32, iQ:ptr] i32
-var neg:bool, negA:bool, negB:bool, rem:i32
+var neg, negA, negB:bool, rem:i32
 begin
     set negA = is_neg[iA]
     set negB = b < 0l
@@ -1213,7 +1200,7 @@ begin
     return rem
 end
 
-proc mult_signal[a:bool, b:bool] bool
+proc mult_signal[a, b:bool] bool
 begin
     # 1*1 = (-1)*(-1) = 1
     if (not a and not b) or (a and b) begin
@@ -1228,8 +1215,8 @@ end
 
 # subtracts two positive numbers
 # then returns a sign based on magnitude
-proc pos_sub_sign[iA:ptr, iB:ptr, iC:ptr] bool
-var res
+proc pos_sub_sign[iA, iB, iC:ptr] bool
+var res:i64
 begin
     set res = abs_comp[iA, iB]
     abs_sub[iA, iB, iC]
@@ -1245,7 +1232,7 @@ end
 
 # same as above, but second number may be an i32
 proc pos_sub_digit_sign[iA:ptr, b:i32, iC:ptr] bool
-var res
+var res:i64
 begin
     set res = abs_comp_digit[iA, b]
     abs_sub_digit[iA, b, iC]

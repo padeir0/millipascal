@@ -1,5 +1,5 @@
 proc main
-var a
+var a:i64
 begin
 	set a = 0
 	if a != 0 begin

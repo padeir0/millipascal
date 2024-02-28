@@ -33,8 +33,8 @@ data PHRASE0 "My name is Ozymandias"
 data PHRASE1 "My name is Ozzy"
 
 proc test_simple
-var a:ptr, b:ptr, c:ptr,
-    f1:ptr, f2:ptr, f3:ptr, f4:ptr
+var a, b, c:ptr,
+    f1, f2, f3, f4:ptr
 begin
     set a = new_str[]
     set_str[a, PHRASE0, PHRASE0.size]
@@ -70,8 +70,8 @@ end
 
 data Buff [64]
 
-proc test_pop_rune[runeStart:i32, runeEnd:i32]
-var a:ptr, size, r:i32, i:i32
+proc test_pop_rune[runeStart, runeEnd:i32]
+var a:ptr, size:i64, r, i:i32
 begin
     set a = new_str[]
     set size = fill_buff[Buff, Buff.size,runeStart, runeEnd]
@@ -92,7 +92,7 @@ begin
 end
 
 proc test_dup
-var a:ptr, b:ptr
+var a, b:ptr
 begin
     set a = new_str[]
     set_str[a, PHRASE0, PHRASE0.size]
@@ -104,8 +104,9 @@ end
 
 ############### UTILITARIES
 
-proc fill_buff[buff:ptr, buffSize, runeStart:i32, runeEnd:i32] i64
-var i:i32, p, runeSize
+proc fill_buff[buff:ptr, buffSize:i64, runeStart, runeEnd:i32] i64
+var i:i32,
+    p, runeSize:i64
 begin
     set i = 0l
     set p = 0

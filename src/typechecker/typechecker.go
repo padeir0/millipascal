@@ -207,59 +207,55 @@ func getProcRets(M *mod.Module, n *mod.Node) []*T.Type {
 
 func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Error) {
 	tps := []*T.Type{}
-	for i, decl := range n.Leaves {
-		var d *mod.Symbol
-		if len(decl.Leaves) == 0 {
-			d = &mod.Symbol{
-				Name: decl.Text,
-				N:    decl,
+	position := 0
+	for _, decl := range n.Leaves {
+		tp := getType(decl.Leaves[1])
+		idlist := decl.Leaves[0]
+		for _, id := range idlist.Leaves {
+			d := &mod.Symbol{
+				Name: id.Text,
+				N:    id,
 				T:    ST.Arg,
-				Type: T.T_I64,
+				Type: tp,
 			}
-		} else if len(decl.Leaves) == 2 {
-			d = &mod.Symbol{
-				Name: decl.Leaves[0].Text,
-				N:    decl,
-				T:    ST.Arg,
-				Type: getType(decl.Leaves[1]),
+			err := verifyIfDefined(M, proc, d)
+			if err != nil {
+				return nil, err
 			}
+			decl.T = d.Type
+			tps = append(tps, d.Type)
+			proc.ArgMap[d.Name] = mod.PositionalSymbol{
+				Position: position, Symbol: d,
+			}
+			proc.Args = append(proc.Args, d)
+			position++
 		}
-		err := verifyIfDefined(M, proc, d)
-		if err != nil {
-			return nil, err
-		}
-		decl.T = d.Type
-		tps = append(tps, d.Type)
-		proc.ArgMap[d.Name] = mod.PositionalSymbol{Position: i, Symbol: d}
-		proc.Args = append(proc.Args, d)
 	}
 	return tps, nil
 }
 
 func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	for i, decl := range n.Leaves {
-		var d *mod.Symbol
-		if len(decl.Leaves) == 0 {
-			d = &mod.Symbol{
-				Name: decl.Text,
-				N:    decl,
+	position := 0
+	for _, decl := range n.Leaves {
+		idlist := decl.Leaves[0]
+		tp := getType(decl.Leaves[1])
+		for _, id := range idlist.Leaves {
+			d := &mod.Symbol{
+				Name: id.Text,
+				N:    id,
 				T:    ST.Var,
-				Type: T.T_I64,
+				Type: tp,
 			}
-		} else if len(decl.Leaves) == 2 {
-			d = &mod.Symbol{
-				Name: decl.Leaves[0].Text,
-				N:    decl,
-				T:    ST.Var,
-				Type: getType(decl.Leaves[1]),
+			err := verifyIfDefined(M, proc, d)
+			if err != nil {
+				return err
 			}
+			decl.T = d.Type
+			proc.Vars[d.Name] = mod.PositionalSymbol{
+				Position: position, Symbol: d,
+			}
+			position++
 		}
-		err := verifyIfDefined(M, proc, d)
-		if err != nil {
-			return err
-		}
-		decl.T = d.Type
-		proc.Vars[d.Name] = mod.PositionalSymbol{Position: i, Symbol: d}
 	}
 	return nil
 }

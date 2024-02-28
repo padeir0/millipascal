@@ -1,5 +1,5 @@
 proc main
-var a, b:u64
+var a:i64, b:u64
 begin
 	set a = 0b0000_1111
 	if a |^ 0b1111_0000 != 0b1111_1111 begin
