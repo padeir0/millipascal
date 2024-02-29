@@ -636,11 +636,11 @@ func resDepExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
 		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.CHAR_LIT:
 		return nil // nothing to resolve here
 	case lex.SIZEOF:
-		return nil
+		return resSizeof(M, sy, n)
 	case lex.DOUBLECOLON:
 		return resExternalID(M, n, true)
 	case lex.DOT:
-		return resDotExpr(M, sy, n.Leaves[1])
+		panic("unimplemented")
 	case lex.IDENTIFIER:
 		return resDepID(M, sy, n, true)
 	case lex.NEG, lex.BITWISENOT, lex.NOT:
@@ -662,14 +662,17 @@ func resDepExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
 	return nil
 }
 
-func resDotExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
-	switch n.Lex {
+func resSizeof(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+	op := n.Leaves[0]
+	switch op.Lex {
 	case lex.IDENTIFIER:
-		return resDepID(M, sy, n, false)
+		return resDepID(M, sy, op, false)
 	case lex.DOUBLECOLON:
-		return resExternalID(M, n, false)
+		return resExternalID(M, op, false)
+	case lex.DOT:
+		panic("unimplemented")
 	default:
-		panic("this should not happen")
+		return nil
 	}
 }
 

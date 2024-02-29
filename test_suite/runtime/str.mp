@@ -99,7 +99,7 @@ data NULL_STR "NULL"
 proc put_str_debug[str:ptr]
 begin
     if str == NULL begin
-        write[NULL_STR, NULL_STR.size]
+        write[NULL_STR, sizeof NULL_STR]
         return
     end
     put_char['"']

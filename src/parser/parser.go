@@ -437,7 +437,7 @@ func obligatoryTypeList(s *Lexer) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// _type := basic | ProcType.
+// _type := basic | ProcType | TName.
 func _type(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "type")
 	switch s.Word.Lex {
@@ -446,12 +446,35 @@ func _type(s *Lexer) (*mod.Node, *Error) {
 		return consume(s)
 	case lex.PROC:
 		return procType(s)
+	case lex.IDENTIFIER:
+		return tname(s)
 	}
 	return nil, nil
 }
 
+// TName := Name ['.' id].
+func tname(s *Lexer) (*mod.Node, *Error) {
+	n, err := name(s)
+	if err != nil {
+		return nil, err
+	}
+	if s.Word.Lex == lex.DOT {
+		dot, err := consume(s)
+		if err != nil {
+			return nil, err
+		}
+		id, err := expect(s, lex.IDENTIFIER)
+		if err != nil {
+			return nil, err
+		}
+		dot.SetLeaves([]*mod.Node{n, id})
+		return dot, nil
+	}
+	return n, nil
+}
+
 // ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
-// ProcTypeRet := '[' [TypeList] ']' | [Type].
+// ProcTypeRet := '[' [TypeList] ']' | Type.
 func procType(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "procType")
 	keyword, err := expect(s, lex.PROC)
@@ -748,14 +771,30 @@ func suffix(s *Lexer) (*mod.Node, *Error) {
 	case lex.COLON:
 		return annot(s)
 	case lex.DOT:
-		return propertyAccess(s)
+		return dotAccess(s)
+	case lex.ARROW:
+		return dotAccess(s)
 	}
 	return nil, nil
 }
 
-// PropertyAccess := '.' id.
-func propertyAccess(s *Lexer) (*mod.Node, *Error) {
+// DotAccess := '.' id.
+func dotAccess(s *Lexer) (*mod.Node, *Error) {
 	dot, err := expect(s, lex.DOT)
+	if err != nil {
+		return nil, err
+	}
+	id, err := expect(s, lex.IDENTIFIER)
+	if err != nil {
+		return nil, err
+	}
+	dot.AddLeaf(id)
+	return dot, err
+}
+
+// ArrowAccess := '->' id.
+func arrowAccess(s *Lexer) (*mod.Node, *Error) {
+	dot, err := expect(s, lex.ARROW)
 	if err != nil {
 		return nil, err
 	}

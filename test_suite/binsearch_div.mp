@@ -71,7 +71,7 @@ begin
         return LOW
     end
 
-    write[unreachable, unreachable.size]
+    write[unreachable, sizeof unreachable]
     exit 2ss
 end
 
@@ -83,16 +83,16 @@ data E "eq\n"
 proc put_res[res:i64]
 begin
     if res == EQ begin
-        write[E, E.size]
+        write[E, sizeof E]
         return
     end elseif res == HIGH begin
-        write[H, H.size]
+        write[H, sizeof H]
         return
     end elseif res == LOW begin
-        write[L, L.size]
+        write[L, sizeof L]
         return
     end
 
-    write[unreachable, unreachable.size]
+    write[unreachable, sizeof unreachable]
     exit 3ss
 end

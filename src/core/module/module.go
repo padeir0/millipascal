@@ -179,24 +179,7 @@ func (this *Symbol) ResetVisited() {
 }
 
 func (v *Symbol) String() string {
-	switch v.T {
-	case ST.Proc:
-		return "proc " + v.Name
-	case ST.Var:
-		return "var " + v.Name + ":" + v.Type.String()
-	case ST.Arg:
-		return "arg " + v.Name + ":" + v.Type.String()
-	case ST.Data:
-		return "data " + v.Name
-	case ST.Module:
-		return "module " + v.Name
-	case ST.Builtin:
-		return "builtin " + v.Name
-	case ST.Const:
-		return "const " + v.Name
-	default:
-		return "invalid"
-	}
+	return v.T.String() + " " + v.Name
 }
 
 func (this *Symbol) Link(s *Symbol) {

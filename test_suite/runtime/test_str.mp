@@ -37,9 +37,9 @@ var a, b, c:ptr,
     f1, f2, f3, f4:ptr
 begin
     set a = new_str[]
-    set_str[a, PHRASE0, PHRASE0.size]
+    set_str[a, PHRASE0, sizeof PHRASE0]
     set b = new_str[]
-    set_str[b, PHRASE1, PHRASE1.size]
+    set_str[b, PHRASE1, sizeof PHRASE1]
 
     set f1 = pop[a, 12]
     set f2 = peek[a, 1]
@@ -74,7 +74,7 @@ proc test_pop_rune[runeStart, runeEnd:i32]
 var a:ptr, size:i64, r, i:i32
 begin
     set a = new_str[]
-    set size = fill_buff[Buff, Buff.size,runeStart, runeEnd]
+    set size = fill_buff[Buff, sizeof Buff, runeStart, runeEnd]
     set_str[a, Buff, size]
 
     set r = pop_rune[a]
@@ -95,7 +95,7 @@ proc test_dup
 var a, b:ptr
 begin
     set a = new_str[]
-    set_str[a, PHRASE0, PHRASE0.size]
+    set_str[a, PHRASE0, sizeof PHRASE0]
     set b = dup_str[a]
     if not eq_str[a, b] or hash[a] != hash[b] begin
         exit 3ss

@@ -50,7 +50,7 @@ begin
                (((p+2p)@u8 && LOWEST_6_BITS):i32 << 6l) ||
                ((p+3p)@u8 && LOWEST_6_BITS):i32, 4
     end
-    fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
+    fatal[ERR_OUT_OF_RANGE, sizeof ERR_OUT_OF_RANGE]
     return ~1l, 0
 end
 
@@ -96,7 +96,7 @@ begin
         set (p)@u8 = (rune && LOWEST_3_BITS:i32):u8 || 0b1111_0000uss
         return 4
     end else begin
-        fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
+        fatal[ERR_OUT_OF_RANGE, sizeof ERR_OUT_OF_RANGE]
     end
     return ~1;
 end
@@ -114,7 +114,7 @@ begin
     end elseif RANGE_S_4 <= rune and rune <= RANGE_E_4 begin # 4 byte sequence
         return 4
     end else begin
-        fatal[ERR_OUT_OF_RANGE,ERR_OUT_OF_RANGE.size]
+        fatal[ERR_OUT_OF_RANGE, sizeof ERR_OUT_OF_RANGE]
     end
     return ~1;
 end

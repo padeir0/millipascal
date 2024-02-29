@@ -26,7 +26,7 @@ begin
     set i = 0l
     set p = 0p
     while i < (upperRune-testRune) begin
-        clear_bytes[Test, Test.size]
+        clear_bytes[Test, sizeof Test]
         set e_size = utf8_encode[testRune + i, Test]
         write[Test, e_size]
 

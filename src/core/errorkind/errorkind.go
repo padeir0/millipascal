@@ -59,6 +59,7 @@ const (
 	InvalidTypeForConst
 	ValueOutOfBounds
 	DoesntMatchBlobAnnot
+	BadType
 )
 
 func (et ErrorKind) String() string {
@@ -121,4 +122,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidTypeForConst:            "E052",
 	ValueOutOfBounds:               "E053",
 	DoesntMatchBlobAnnot:           "E054",
+	BadType:                        "E055",
 }

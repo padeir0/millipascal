@@ -1,4 +1,4 @@
-const a = m.size
+const a = sizeof m
 
 data m [a]
 

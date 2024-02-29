@@ -440,6 +440,10 @@ func _exprPrec(ctx *context, n *mod.Node, prevPrecedence int) {
 		_exprPrec(ctx, n.Leaves[1], precedence(T.DOT))
 		ctx.Place([]byte("."))
 		_id(ctx, n.Leaves[0])
+	case T.ARROW:
+		_exprPrec(ctx, n.Leaves[1], precedence(T.ARROW))
+		ctx.Place([]byte("->"))
+		_id(ctx, n.Leaves[0])
 	case T.CALL:
 		_exprPrec(ctx, n.Leaves[1], precedence(T.CALL))
 		ctx.Place([]byte("["))
@@ -464,7 +468,7 @@ func unary(ctx *context, n *mod.Node) {
 
 func precedence(lex T.LexKind) int {
 	switch lex {
-	case T.COLON, T.CALL, T.AT, T.DOT:
+	case T.COLON, T.CALL, T.AT, T.DOT, T.ARROW:
 		return 7
 	case T.NEG, T.BITWISENOT, T.NOT:
 		return 6

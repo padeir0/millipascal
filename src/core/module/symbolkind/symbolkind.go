@@ -8,12 +8,18 @@ func (s SymbolKind) String() string {
 		return "proc"
 	case Data:
 		return "data"
+	case Builtin:
+		return "builtin"
 	case Var:
 		return "var"
 	case Arg:
 		return "arg"
 	case Module:
 		return "module"
+	case Struct:
+		return "struct"
+	case StructField:
+		return "struct field"
 	}
 	return "??"
 }
@@ -29,4 +35,5 @@ const (
 	Arg
 	Module
 	Struct
+	StructField
 )

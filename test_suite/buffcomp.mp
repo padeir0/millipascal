@@ -3,15 +3,15 @@ data second "second"
 
 proc main
 begin
-	if not equals[first, first.size, first, first.size]
+	if not equals[first, sizeof first, first, sizeof first]
 	begin
 		exit 1ss
 	end
-	if not equals[second, second.size, second, second.size]
+	if not equals[second, sizeof second, second, sizeof second]
 	begin
 		exit 1ss
 	end
-	if equals[first, first.size, second, second.size]
+	if equals[first, sizeof first, second, sizeof second]
 	begin
 		exit 1ss
 	end

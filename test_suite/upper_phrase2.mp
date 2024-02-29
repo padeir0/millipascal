@@ -4,7 +4,7 @@ proc main
 var p:ptr, c:i8
 begin
 	set p = hello;
-	write[hello, hello.size]
+	write[hello, sizeof hello]
 	
 	while p < hello + 6p
 	begin
@@ -15,5 +15,5 @@ begin
 		set p += 1p;
 	end
 
-	write[hello, hello.size]
+	write[hello, sizeof hello]
 end

@@ -26,16 +26,16 @@ proc set_meta[
     valSize:i32,
     hashProc:proc[ptr]i64,
     eqProc:proc[ptr,ptr]bool,
-    copyProc:proc[ptr,ptr],
-    freeProc:proc[ptr]
+    copyProc:proc[ptr,ptr][],
+    freeProc:proc[ptr][]
 ]
 begin
     set (meta+M_KEYSIZE_OFFSET)@i32 = keySize
     set (meta+M_VALSIZE_OFFSET)@i32 = valSize
     set (meta+M_HASHPROC_OFFSET)@proc[ptr]i64 = hashProc
     set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr]bool = eqProc
-    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr] = copyProc
-    set (meta+M_FREEPROC_OFFSET)@proc[ptr] = freeProc
+    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr][] = copyProc
+    set (meta+M_FREEPROC_OFFSET)@proc[ptr][] = freeProc
 end
 
 proc main

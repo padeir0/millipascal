@@ -58,7 +58,7 @@ end
 # valida se estamos de volta no estado inicial
 proc validate
 begin
-	if get_total_free[] != Heap.size begin
+	if get_total_free[] != sizeof Heap begin
 		exit 2ss
 	end
 	if Head@ptr != Tail@ptr begin
@@ -67,7 +67,7 @@ begin
 	if FrontLimit@ptr != Heap begin
 		exit 4ss
 	end
-	if BackLimit@ptr != Heap+Heap.size:ptr begin
+	if BackLimit@ptr != Heap+(sizeof Heap):ptr begin
 		exit 5ss
 	end
 end

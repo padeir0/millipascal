@@ -54,14 +54,14 @@ proc set_meta[
     meta:ptr,
     itemSize:i32,
     eqProc:proc[ptr,ptr]bool,
-    copyProc:proc[ptr,ptr],
-    freeProc:proc[ptr]
+    copyProc:proc[ptr,ptr][],
+    freeProc:proc[ptr][]
 ]
 begin
     set (meta+M_ITEMSIZE_OFFSET)@i32 = itemSize
     set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr]bool = eqProc
-    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr] = copyProc
-    set (meta+M_FREEPROC_OFFSET)@proc[ptr] = freeProc
+    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr][] = copyProc
+    set (meta+M_FREEPROC_OFFSET)@proc[ptr][] = freeProc
 end
 
 # vec header has 24 bytes of size, consisting of:
@@ -86,7 +86,7 @@ proc new_vec[meta:ptr, length, cap:i32] ptr
 var itemSize:i32, header, array:ptr
 begin
     if length > cap begin
-        fatal[ERR_INVALID_CAP, ERR_INVALID_CAP.size]
+        fatal[ERR_INVALID_CAP, sizeof ERR_INVALID_CAP]
     end
 
     set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32
@@ -121,17 +121,17 @@ begin
 end
 
 proc free_items[vec:ptr]
-var array, meta:ptr, itemSize:i64, free_item:proc[ptr]
+var array, meta:ptr, itemSize:i64, free_item:proc[ptr][]
 begin
     set meta      = (vec+VH_META_OFFSET)@ptr
-    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
+    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr][]
     set itemSize  = (meta+M_ITEMSIZE_OFFSET)@i32:i64
     set array     = (vec+VH_PTR_OFFSET)@ptr
 
     free_array_items[array, itemSize, length[vec], free_item]
 end
 
-proc free_array_items[array:ptr, itemSize, len:i64, free_item:proc[ptr]]
+proc free_array_items[array:ptr, itemSize, len:i64, free_item:proc[ptr][]]
 var i:i64
 begin
     set i = 0
@@ -169,12 +169,12 @@ begin
     put_char['}']
 end
 
-proc get_copy[vec:ptr] proc[ptr, ptr] # TODO: refactor the code by employing these "get" procedures
+proc get_copy[vec:ptr] proc[ptr, ptr][] # TODO: refactor the code by employing these "get" procedures
 begin
     return (
         (vec+VH_META_OFFSET)@ptr+ # meta
         M_COPYPROC_OFFSET
-    )@proc[ptr,ptr]
+    )@proc[ptr,ptr][]
 end
 
 proc get_eq[vec:ptr] proc[ptr, ptr] bool
@@ -185,7 +185,7 @@ begin
     )@proc[ptr,ptr]bool
 end
 
-proc put_vec[vec:ptr, printer:proc[ptr]]
+proc put_vec[vec:ptr, printer:proc[ptr][]]
 var i, len:i64
 begin
     set len = (vec+VH_LEN_OFFSET)@i32:i64
@@ -228,7 +228,7 @@ begin
     set len = (vec+VH_LEN_OFFSET)@i32
 
     if index:i32 >= len or index:i32 < 0l begin
-        fatal[ERR_OUT_OF_BOUNDS, ERR_OUT_OF_BOUNDS.size]
+        fatal[ERR_OUT_OF_BOUNDS, sizeof ERR_OUT_OF_BOUNDS]
     end
 
     set meta = (vec+VH_META_OFFSET)@ptr
@@ -246,18 +246,18 @@ var metaA, metaB:ptr,
     lenA, lenB, itemSize:i64,
     vecRes:ptr,
     aArray, bArray, destArray:ptr,
-    copy:proc[ptr, ptr]
+    copy:proc[ptr, ptr][]
 begin
     # if metaA != metaB then fatal, because they must match types
     set metaA = (vecA+VH_META_OFFSET)@ptr
     set metaB = (vecB+VH_META_OFFSET)@ptr
 
     if metaA != metaB begin
-        fatal[ERR_INCOMPATIBLE_META, ERR_INCOMPATIBLE_META.size]
+        fatal[ERR_INCOMPATIBLE_META, sizeof ERR_INCOMPATIBLE_META]
     end
 
     set itemSize = (metaA+M_ITEMSIZE_OFFSET)@i32:i64
-    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr,ptr]
+    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr,ptr][]
 
     set lenA = (vecA+VH_LEN_OFFSET)@i32:i64
     set lenB = (vecB+VH_LEN_OFFSET)@i32:i64
@@ -312,18 +312,18 @@ end
 proc copy_vec[vecA, vecB:ptr]
 var arrayA:ptr, lenA, capA:i64, metaA:ptr,
     arrayB:ptr, lenB, capB:i64, metaB:ptr,
-    itemSize:i64, copy:proc[ptr, ptr],
+    itemSize:i64, copy:proc[ptr, ptr][],
     newArray:ptr
 begin
     set metaA = (vecA+VH_META_OFFSET)@ptr
     set metaB = (vecB+VH_META_OFFSET)@ptr
 
     if metaA != metaB begin
-        fatal[ERR_INCOMPATIBLE_META, ERR_INCOMPATIBLE_META.size]
+        fatal[ERR_INCOMPATIBLE_META, sizeof ERR_INCOMPATIBLE_META]
     end
 
     set itemSize = (metaA+M_ITEMSIZE_OFFSET)@i32:i64
-    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+    set copy = (metaA+M_COPYPROC_OFFSET)@proc[ptr, ptr][]
 
     set lenB = (vecB+VH_LEN_OFFSET)@i32:i64
     set capA = (vecA+VH_CAP_OFFSET)@i32:i64
@@ -354,17 +354,17 @@ data ERR_SLICE_OUT_OF_BOUNDS "slicing goes out of bounds\n"
 proc slice[vec:ptr, start, length:i64] ptr
 var array:ptr, len:i64, meta:ptr,
     arrayOut, vecOut:ptr,
-    itemSize:i64, copy:proc[ptr, ptr]
+    itemSize:i64, copy:proc[ptr, ptr][]
 begin
     set len   = (vec+VH_LEN_OFFSET)@i32:i64
 
     if start+length > len begin
-        fatal[ERR_SLICE_OUT_OF_BOUNDS, ERR_SLICE_OUT_OF_BOUNDS.size]
+        fatal[ERR_SLICE_OUT_OF_BOUNDS, sizeof ERR_SLICE_OUT_OF_BOUNDS]
     end
     set array    = (vec+VH_PTR_OFFSET)@ptr
     set meta     = (vec+VH_META_OFFSET)@ptr
     set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32:i64
-    set copy     = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
+    set copy     = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr][]
 
     set vecOut   = new_vec[meta, length:i32, length:i32]
     set arrayOut = (vecOut+VH_PTR_OFFSET)@ptr
@@ -379,14 +379,14 @@ data ERR_POPPED_TOO_MUCH "pop in array with length 0\n"
 # just decrements the length by 1, freeing the underlying object, if any
 # everything else shall be type specific
 proc pop[vec:ptr]
-var len:i32, meta:ptr, free_item:proc[ptr]
+var len:i32, meta:ptr, free_item:proc[ptr][]
 begin
     set len = (vec+VH_LEN_OFFSET)@i32
     if len == 0l begin
-        fatal[ERR_POPPED_TOO_MUCH, ERR_POPPED_TOO_MUCH.size]
+        fatal[ERR_POPPED_TOO_MUCH, sizeof ERR_POPPED_TOO_MUCH]
     end
     set meta = (vec+VH_META_OFFSET)@ptr
-    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
+    set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr][]
     free_item[last[vec]]
     set (vec+VH_LEN_OFFSET)@i32 -= 1l
 end
@@ -396,7 +396,7 @@ end
 proc push[vec:ptr]
 var meta, array:ptr, len, cap, itemSize:i64,
     newArray:ptr,
-    copy:proc[ptr, ptr], free_item:proc[ptr]
+    copy:proc[ptr, ptr][], free_item:proc[ptr][]
 begin
     set len = (vec+VH_LEN_OFFSET)@i32:i64
     set cap = (vec+VH_CAP_OFFSET)@i32:i64
@@ -405,8 +405,8 @@ begin
         set array     = (vec+VH_PTR_OFFSET)@ptr
         set meta      = (vec+VH_META_OFFSET)@ptr
         set itemSize  = (meta+M_ITEMSIZE_OFFSET)@i32:i64
-        set copy      = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr]
-        set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr]
+        set copy      = (meta+M_COPYPROC_OFFSET)@proc[ptr, ptr][]
+        set free_item = (meta+M_FREEPROC_OFFSET)@proc[ptr][]
 
         if cap == 0 begin
             set cap = 2
@@ -449,7 +449,7 @@ proc copy_array[
     sourceArray:ptr,
     len:i64,
     itemSize:i64,
-    copy:proc[ptr, ptr]
+    copy:proc[ptr, ptr][]
 ]
 var i:i64,
     a, b:ptr

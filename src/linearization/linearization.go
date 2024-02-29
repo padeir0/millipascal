@@ -452,7 +452,7 @@ func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
 	case lk.IDENTIFIER:
 		return genExprID(M, c, exp)
 	case lk.SIZEOF:
-		return genSizeOfNum(exp)
+		return genSizeOfNum(M, c, exp)
 	case lk.DOUBLECOLON:
 		return genExternalID(c, M, exp)
 	case lk.FALSE, lk.TRUE:
@@ -481,7 +481,7 @@ func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
 	case lk.NOT, lk.NEG, lk.BITWISENOT:
 		return genUnaryOp(M, c, exp)
 	case lk.DOT:
-		return genDot(M, c, exp)
+		panic("unimplemented")
 	}
 	panic("invalid or unimplemented expression type: " + exp.Text)
 }
@@ -580,14 +580,32 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand 
 	panic("wht jus heppn?")
 }
 
-func genSizeOfNum(sizeof *mod.Node) pir.Operand {
-	t := sizeof.Leaves[0]
-	size := big.NewInt(int64(t.T.Size()))
+func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
+	op := sizeof.Leaves[0]
+	switch op.Lex {
+	case lk.IDENTIFIER:
+		// TODO: if inside a struct, this identifier might be a field whithin scope
+		sy := M.GetSymbol(op.Text)
+		return newNumLit(sy.Data.Size, sizeof.T)
+	case lk.DOUBLECOLON:
+		module := op.Leaves[0].Text
+		id := op.Leaves[1].Text
+		sy := M.GetExternalSymbol(module, id)
+		return newNumLit(sy.Data.Size, sizeof.T)
+	case lk.DOT:
+		panic("unimplemented")
+	default:
+		size := big.NewInt(int64(op.T.Size()))
+		return newNumLit(size, sizeof.T)
+	}
+}
+
+func newNumLit(num *big.Int, t *T.Type) pir.Operand {
 	return pir.Operand{
 		Class: pirc.Lit,
-		Type:  sizeof.T,
+		Type:  t,
 		ID:    -1,
-		Num:   size,
+		Num:   num,
 	}
 }
 
@@ -702,29 +720,6 @@ func lexToUnaryOp(op lk.LexKind) IT.InstrKind {
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected unaryOp")
-}
-
-func genDot(M *mod.Module, c *context, dot *mod.Node) pir.Operand {
-	left := dot.Leaves[1]
-	prop := dot.Leaves[0]
-	if prop.Text != "size" {
-		panic("bad property 2")
-	}
-	var s *mod.Symbol
-	switch left.Lex {
-	case lk.IDENTIFIER:
-		s = M.GetSymbol(left.Text)
-	case lk.DOUBLECOLON:
-		module := left.Leaves[0].Text
-		id := left.Leaves[1].Text
-		s = M.GetExternalSymbol(module, id)
-	}
-	return pir.Operand{
-		Class: pirc.Lit,
-		Type:  T.T_I64,
-		ID:    -1,
-		Num:   s.Data.Size,
-	}
 }
 
 func newBuiltin(sy *mod.Symbol) *pir.Procedure {

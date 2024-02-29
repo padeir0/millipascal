@@ -277,13 +277,16 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.PLUS
 		}
-	case '-': // - -=
+	case '-': // - -= ->
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
 		case '=':
 			nextRune(st)
 			tp = T.MINUS_ASSIGN
+		case '>':
+			nextRune(st)
+			tp = T.ARROW
 		default:
 			tp = T.MINUS
 		}

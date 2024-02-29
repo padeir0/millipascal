@@ -52,7 +52,7 @@ end
 
 data begin
 	Heap [1<<20] # 1MB (wow)
-	ByteMap [Heap.size/8]
+	ByteMap [(sizeof Heap)/8]
 
 	Head [sizeof ptr] # first node
 	Tail [sizeof ptr] # last node
@@ -125,7 +125,7 @@ begin
 	end
 
 	if (alloc_size>>3) > 255 begin
-		fatal[OBJ_TOO_BIG, OBJ_TOO_BIG.size]
+		fatal[OBJ_TOO_BIG, sizeof OBJ_TOO_BIG]
 	end
 	
 	if out < BackLimit@ptr begin
@@ -325,11 +325,11 @@ begin
 		set obj_size = ((obj-B_OBJ_SIZE_OFFSET)@u16):i64 << 3
 		set isFront = false
 	end else begin
-		fatal[OUTOFLIMITS, OUTOFLIMITS.size]
+		fatal[OUTOFLIMITS, sizeof OUTOFLIMITS]
 	end
 
-	if new < Heap or new > Heap + Heap.size:ptr begin
-		fatal[OUTOFBOUNDS, OUTOFBOUNDS.size]
+	if new < Heap or new > Heap + (sizeof Heap):ptr begin
+		fatal[OUTOFBOUNDS, sizeof OUTOFBOUNDS]
 	end
 
 	setMap[new, obj_size, EMPTY]
@@ -382,7 +382,7 @@ begin
 	# if not isFront begin
 	# 	set BackLimit@ptr = new+obj_size:ptr
 	# end
-	fatal[UNREACHABLE, UNREACHABLE.size]
+	fatal[UNREACHABLE, sizeof UNREACHABLE]
 end
 
 proc updateLimits[leftmost, rightmost:ptr]
@@ -491,15 +491,15 @@ end
 
 proc init
 begin
-	clear_words[Heap, Heap.size]
-	clear_bytes[ByteMap, ByteMap.size]
+	clear_words[Heap, sizeof Heap]
+	clear_bytes[ByteMap, sizeof ByteMap]
 
 	set Head@ptr = Heap
 	set Tail@ptr = Heap
 
 	set FrontLimit@ptr = Heap
-	set BackLimit@ptr = Heap + Heap.size:ptr
-	set (Heap+FL_SIZE_OFFSET)@i64 = Heap.size
+	set BackLimit@ptr = Heap + (sizeof Heap):ptr
+	set (Heap+FL_SIZE_OFFSET)@i64 = sizeof Heap
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end
 
@@ -536,13 +536,13 @@ begin
 	end
 	put_char[' ']
 
-	write[MSG_TOTAL_FREE, MSG_TOTAL_FREE.size]
+	write[MSG_TOTAL_FREE, sizeof MSG_TOTAL_FREE]
 	put_int[get_total_free[]]
 
-	write[MSG_FLIMIT, MSG_FLIMIT.size]
+	write[MSG_FLIMIT, sizeof MSG_FLIMIT]
 	put_int[FrontLimit@i64]
 
-	write[MSG_BLIMIT, MSG_BLIMIT.size]
+	write[MSG_BLIMIT, sizeof MSG_BLIMIT]
 	put_int[BackLimit@i64]
 
 	put_ln[]
@@ -579,7 +579,7 @@ var i:i64
 begin
 	set i = 0
 	put_char['[']
-	while i < Heap.size/WORD begin
+	while i < (sizeof Heap)/WORD begin
 		if (ByteMap+i:ptr)@i8 == EMPTY begin
 			put_char[' ']
 		end
@@ -595,7 +595,7 @@ end
 # validates if we're back to the initial position
 proc validate_init
 begin
-	if get_total_free[] != Heap.size begin
+	if get_total_free[] != sizeof Heap begin
 		exit 2ss
 	end
 	if Head@ptr != Tail@ptr begin
@@ -604,7 +604,7 @@ begin
 	if FrontLimit@ptr != Heap begin
 		exit 4ss
 	end
-	if BackLimit@ptr != Heap+Heap.size:ptr begin
+	if BackLimit@ptr != Heap+(sizeof Heap):ptr begin
 		exit 5ss
 	end
 end

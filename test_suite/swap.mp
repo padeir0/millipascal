@@ -3,7 +3,7 @@ data b "B"
 data nl "\n"
 proc newline[]
 begin
-	write[nl, nl.size]
+	write[nl, sizeof nl]
 end
 
 proc main

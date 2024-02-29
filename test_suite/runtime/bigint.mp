@@ -80,7 +80,7 @@ data StrBuff [1_000]
 proc put_bint[bint:ptr]
 var size:i64,
 begin
-    set size = write_bint[bint, StrBuff, StrBuff.size]
+    set size = write_bint[bint, StrBuff, sizeof StrBuff]
     write[StrBuff, size]
     set_buff[StrBuff, size, 0ss]
 end
@@ -111,7 +111,7 @@ begin
     while 0 <= i begin
         set currDigit = array + (i*sizeof i32):ptr
         if (block - buff):i64 >= buffSize-DIGITS_PER_INT begin
-            fatal[ERR_STR_OVERFLOW, ERR_STR_OVERFLOW.size]
+            fatal[ERR_STR_OVERFLOW, sizeof ERR_STR_OVERFLOW]
         end
         put_i32[currDigit@i32, block, first]
         set first = false
@@ -163,21 +163,21 @@ begin
         return
     end
 
-    write[WTF, WTF.size]
+    write[WTF, sizeof WTF]
     exit 3ss
 end
 
 proc verify_digit[digit:i32]
 begin
     if digit < 0l or digit >= BASE begin
-        fatal[ERR_SET_INVALID_DIGIT, ERR_SET_INVALID_DIGIT.size]
+        fatal[ERR_SET_INVALID_DIGIT, sizeof ERR_SET_INVALID_DIGIT]
     end
 end
 
 proc verify_i32[digit:i32]
 begin
     if digit <= ~BASE or digit >= BASE begin
-        fatal[ERR_SET_INVALID_I32, ERR_SET_INVALID_I32.size]
+        fatal[ERR_SET_INVALID_I32, sizeof ERR_SET_INVALID_I32]
     end
 end
 
@@ -392,7 +392,7 @@ var lenA, lenB, i, j:i64, arrayA:ptr,
     res:i64, iIDD:ptr, iScratch:ptr
 begin
     if abs_comp_digit[iB, 0l] == 0 begin
-        fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
+        fatal[ERR_DIVISION_BY_ZERO, sizeof ERR_DIVISION_BY_ZERO]
     end
     set_zero[iQ]
     set_zero[iRem]
@@ -494,7 +494,7 @@ var idd, q, b64, i, lenA:i64,
     arrayA:ptr,
 begin
     if b == 0l begin
-        fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
+        fatal[ERR_DIVISION_BY_ZERO, sizeof ERR_DIVISION_BY_ZERO]
     end
     set_zero[iQ]
 
@@ -538,7 +538,7 @@ begin
     set_zero[iQ]
     set_zero[iRem]
     if abs_comp_digit[iB, 0l] == 0 begin
-        fatal[ERR_DIVISION_BY_ZERO, ERR_DIVISION_BY_ZERO.size]
+        fatal[ERR_DIVISION_BY_ZERO, sizeof ERR_DIVISION_BY_ZERO]
     end
     copy_bint[iRem, iA]
     set res = abs_comp[iRem, iB]
@@ -998,7 +998,7 @@ begin
     end elseif negA and not negB begin
         return LESS
     end
-    fatal[WTF, WTF.size]
+    fatal[WTF, sizeof WTF]
     return ~1
 end
 
@@ -1026,7 +1026,7 @@ begin
     end elseif negA and not negB begin
         return LESS
     end
-    fatal[WTF, WTF.size]
+    fatal[WTF, sizeof WTF]
     return ~1
 end
 
@@ -1209,7 +1209,7 @@ begin
     end elseif (not a and b) or (a and not b) begin
         return true
     end
-    fatal[WTF, WTF.size]
+    fatal[WTF, sizeof WTF]
     return false
 end
 

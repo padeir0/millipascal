@@ -215,3 +215,7 @@ func DoesntMatchBlobAnnot(M *ir.Module, assignee *ir.Node, t *T.Type) *Error {
 	msg := "doesn't match blob annotation, has: " + assignee.T.String() + ", expected: " + t.String()
 	return NewSemanticError(M, et.DoesntMatchBlobAnnot, assignee, msg)
 }
+
+func ErrorBadType(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.BadType, n, "not a type")
+}

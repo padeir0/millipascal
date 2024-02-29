@@ -5,21 +5,17 @@ data here "here\n"
 proc main
 var gen:i64, b1:ptr, b2:ptr, b3:ptr
 begin
-	clear[buff1, buff1.size]
-	clear[buff2, buff2.size]
+	clear[buff1, sizeof buff1]
+	clear[buff2, sizeof buff2]
 	set gen = 0;
 	set b1 = buff1;
 	set b2 = buff2;
 
-	set (buff1+(buff1.size/2):ptr)@i8 = 'O';
+	set (buff1+((sizeof buff1)/2):ptr)@i8 = 'O';
 
 	while gen < 1024 begin
-		# write[b1, buff1.size]
-		# putchar[' ']
-		# pint[gen]
-		# putchar['\n']
 
-		generation[b1, b2, buff1.size]
+		generation[b1, b2, sizeof buff1]
 		set b3 = b2
 		set b2 = b1
 		set b1 = b3
@@ -91,7 +87,7 @@ end
 
 proc debug
 begin
-	write[here, here.size]
+	write[here, sizeof here]
 end
 
 data pchar_buff [1]
@@ -99,7 +95,7 @@ data pchar_buff [1]
 proc putchar[n:i8]
 begin
 	set pchar_buff@i8 = n
-	write[pchar_buff, pchar_buff.size]
+	write[pchar_buff, sizeof pchar_buff]
 end
 
 proc pint[n:i64]
@@ -115,7 +111,7 @@ proc itoa[n:i64] ptr, i64
 var p:ptr, signal:i8
 begin
 	set signal = 0ss
-	set p = itoa_buff + itoa_buff.size:ptr - 1p # end of buffer
+	set p = itoa_buff + (sizeof itoa_buff):ptr - 1p # end of buffer
 
 	if n == 0 begin
 		set itoa_buff@i8 = '0'
@@ -139,5 +135,5 @@ begin
 		set p += 1p;
 	end
 
-	return p, itoa_buff.size-(p-itoa_buff):i64 
+	return p, (sizeof itoa_buff)-(p-itoa_buff):i64 
 end

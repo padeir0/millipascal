@@ -198,11 +198,11 @@ func computeExpr(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
 	case lk.IDENTIFIER:
 		return getIDValue(m, n), nil
 	case lk.DOT:
-		return getPropValue(m, n), nil
+		panic("unimplemented")
 	case lk.DOUBLECOLON:
 		return getExternalSymbol(m, n), nil
 	case lk.SIZEOF:
-		return big.NewInt(int64(n.Leaves[0].T.Size())), nil
+		return getSizeof(m, n)
 	case lk.I64_LIT, lk.I32_LIT, lk.I16_LIT, lk.I8_LIT,
 		lk.U64_LIT, lk.U32_LIT, lk.U16_LIT, lk.U8_LIT,
 		lk.FALSE, lk.TRUE, lk.PTR_LIT,
@@ -352,24 +352,28 @@ func getIDValue(M *mod.Module, n *mod.Node) *big.Int {
 	return sy.Const.Value
 }
 
-func getPropValue(M *mod.Module, n *mod.Node) *big.Int {
-	left := n.Leaves[1]
-	prop := n.Leaves[0]
-	var sy *mod.Symbol
-	switch left.Lex {
-	case lk.DOUBLECOLON:
-		module := left.Leaves[0].Text
-		id := left.Leaves[1].Text
-		sy = M.GetExternalSymbol(module, id)
-	case lk.IDENTIFIER:
-		sy = M.GetSymbol(left.Text)
+func getSizeof(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
+	op := n.Leaves[0]
+	switch op.Lex {
+	case lk.DOT: // struct fields
+		left := n.Leaves[0]
+		// right := n.Leaves[1]
+		switch left.Lex {
+		case lk.IDENTIFIER: // struct
+		case lk.DOUBLECOLON: // external struct
+		}
+		panic("unimplemented")
+	case lk.IDENTIFIER: // data declaration
+		sy := M.GetSymbol(op.Text)
+		return sy.Data.Size, nil
+	case lk.DOUBLECOLON: // external data declaration
+		modName := op.Leaves[0].Text
+		symName := op.Leaves[1].Text
+		sy := M.GetExternalSymbol(modName, symName)
+		return sy.Data.Size, nil
 	default:
-		panic("should not happen")
+		return big.NewInt(int64(op.T.Size())), nil
 	}
-	if prop.Text != "size" {
-		panic("bad property")
-	}
-	return sy.Data.Size
 }
 
 func getExternalSymbol(M *mod.Module, n *mod.Node) *big.Int {

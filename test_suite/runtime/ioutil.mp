@@ -16,7 +16,7 @@ data Debug [sizeof i64] # inits as zero
 
 proc debug[]
 begin
-	write[DEBUG_MSG, DEBUG_MSG.size]
+	write[DEBUG_MSG, sizeof DEBUG_MSG]
 	put_int[Debug@i64]
 	put_char['\n']
 	set Debug@i64 += 1
@@ -32,7 +32,7 @@ data ERR_OOM "out of memory!\n"
 
 proc oom[]
 begin
-	write_line[ERR_OOM, ERR_OOM.size]
+	write_line[ERR_OOM, sizeof ERR_OOM]
 	exit 123ss
 end
 
@@ -50,7 +50,7 @@ data PutCharBuff [sizeof i8]
 proc put_char[n:i8]
 begin
 	set PutCharBuff@i8 = n
-	write[PutCharBuff, PutCharBuff.size]
+	write[PutCharBuff, sizeof PutCharBuff]
 end
 
 proc put_ln[]
@@ -61,28 +61,28 @@ end
 proc put_uint[n:u64]
 var p:ptr, size:i64
 begin
-	set p, size = u64_to_dec[n, ConvBuff, ConvBuff.size]
+	set p, size = u64_to_dec[n, ConvBuff, sizeof ConvBuff]
 	write[p, size]
 end
 
 proc put_int[n:i64]
 var p:ptr, size:i64
 begin
-	set p, size = i64_to_dec[n, ConvBuff, ConvBuff.size]
+	set p, size = i64_to_dec[n, ConvBuff, sizeof ConvBuff]
 	write[p, size]
 end
 
 proc put_u8[b:u8]
 var p:ptr, size:i64
 begin
-	set p, size = u8_to_bin[b, ConvBuff, ConvBuff.size]
+	set p, size = u8_to_bin[b, ConvBuff, sizeof ConvBuff]
 	write[p, size]
 end
 
 proc put_u16[b:u16]
 var p:ptr, size:i64
 begin
-	set p, size = u16_to_bin[b, ConvBuff, ConvBuff.size]
+	set p, size = u16_to_bin[b, ConvBuff, sizeof ConvBuff]
 	write[p, size]
 end
 
@@ -152,18 +152,18 @@ proc bool_to_text[b:bool] ptr, i64
 begin
 	if b
 	begin
-		return _T, _T.size
+		return _T, sizeof _T
 	end 
 	else
 	begin
-		return _F, _F.size
+		return _F, sizeof _F
 	end
 end
 
 proc u8_to_bin[b:u8, buff:ptr, buffSize:i64] ptr, i64
 begin
 	if buffSize < 9 begin
-		fatal[BUFF_TOO_SMALL, BUFF_TOO_SMALL.size]
+		fatal[BUFF_TOO_SMALL, sizeof BUFF_TOO_SMALL]
 	end
 	# loop unroll LOL
 	set (buff+0p)@u8 = '0':u8 + ((b && 0b1000_0000uss) != 0uss):u8
@@ -189,7 +189,7 @@ begin
 	set mask = 0b1000_0000_0000_0000us
 	while i < 19 begin
 		if i >= buffSize begin
-			fatal[BUFF_TOO_SMALL, BUFF_TOO_SMALL.size]
+			fatal[BUFF_TOO_SMALL, sizeof BUFF_TOO_SMALL]
 		end
 		set (buff+i:ptr)@u8 = '0':u8 + ((b && mask) != 0us):u8
 

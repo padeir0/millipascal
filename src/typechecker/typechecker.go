@@ -131,14 +131,21 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 		var err *Error
 		if annot != nil {
 			annotT := annot.Leaves[0]
-			annotT.T = getType(annot.Leaves[0])
+			t, err := getType(M, sy, annot.Leaves[0])
+			if err != nil {
+				return err
+			}
+			annotT.T = t
 			dt.DataType = annotT.T
 			err = checkBlob(M, sy, contents, annotT.T)
+			if err != nil {
+				return err
+			}
 		} else {
 			err = checkBlob(M, sy, contents, T.T_I64)
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	default:
 		expr := sy.N.Leaves[1]
@@ -179,7 +186,10 @@ func checkProc(M *mod.Module, proc *mod.Proc) *Error {
 	}
 
 	if nRets != nil {
-		rets = getProcRets(M, nRets)
+		rets, err = getProcRets(M, nRets)
+		if err != nil {
+			return err
+		}
 		proc.Rets = rets
 	}
 
@@ -195,21 +205,27 @@ func checkProc(M *mod.Module, proc *mod.Proc) *Error {
 	return nil
 }
 
-func getProcRets(M *mod.Module, n *mod.Node) []*T.Type {
+func getProcRets(M *mod.Module, n *mod.Node) ([]*T.Type, *Error) {
 	types := []*T.Type{}
 	for _, tNode := range n.Leaves {
-		t := getType(tNode)
+		t, err := getType(M, nil, tNode)
+		if err != nil {
+			return nil, err
+		}
 		types = append(types, t)
 		tNode.T = t
 	}
-	return types
+	return types, nil
 }
 
 func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Error) {
 	tps := []*T.Type{}
 	position := 0
 	for _, decl := range n.Leaves {
-		tp := getType(decl.Leaves[1])
+		tp, err := getType(M, nil, decl.Leaves[1])
+		if err != nil {
+			return nil, err
+		}
 		idlist := decl.Leaves[0]
 		for _, id := range idlist.Leaves {
 			d := &mod.Symbol{
@@ -238,7 +254,10 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	position := 0
 	for _, decl := range n.Leaves {
 		idlist := decl.Leaves[0]
-		tp := getType(decl.Leaves[1])
+		tp, err := getType(M, nil, decl.Leaves[1])
+		if err != nil {
+			return err
+		}
 		for _, id := range idlist.Leaves {
 			d := &mod.Symbol{
 				Name: id.Text,
@@ -268,41 +287,50 @@ func verifyIfDefined(M *mod.Module, proc *mod.Proc, d *mod.Symbol) *Error {
 	return nil
 }
 
-func getType(n *mod.Node) *T.Type {
+// sy might be nil
+func getType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 	switch n.Lex {
 	case lk.I8:
-		return T.T_I8
+		return T.T_I8, nil
 	case lk.I16:
-		return T.T_I16
+		return T.T_I16, nil
 	case lk.I32:
-		return T.T_I32
+		return T.T_I32, nil
 	case lk.I64:
-		return T.T_I64
+		return T.T_I64, nil
 	case lk.U8:
-		return T.T_U8
+		return T.T_U8, nil
 	case lk.U16:
-		return T.T_U16
+		return T.T_U16, nil
 	case lk.U32:
-		return T.T_U32
+		return T.T_U32, nil
 	case lk.U64:
-		return T.T_U64
+		return T.T_U64, nil
 	case lk.PTR:
-		return T.T_Ptr
+		return T.T_Ptr, nil
 	case lk.BOOL:
-		return T.T_Bool
+		return T.T_Bool, nil
 	case lk.PROC:
-		return getProcType(n)
+		return getProcType(M, sy, n)
+	case lk.IDENTIFIER, lk.DOUBLECOLON:
+		return getIDType(M, sy, n)
+	case lk.DOT:
+		return nil, msg.ErrorBadType(M, n)
 	}
 	panic("getType: what: " + n.String())
 }
 
-func getProcType(n *mod.Node) *T.Type {
+func getProcType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 	argTypes := make([]*T.Type, 0)
 	if n.Leaves[0] != nil {
 		args := n.Leaves[0].Leaves
 		argTypes = make([]*T.Type, len(args))
 		for i, arg := range args {
-			argTypes[i] = getType(arg)
+			t, err := getType(M, sy, arg)
+			if err != nil {
+				return nil, err
+			}
+			argTypes[i] = t
 		}
 	}
 
@@ -311,7 +339,11 @@ func getProcType(n *mod.Node) *T.Type {
 		rets := n.Leaves[1].Leaves
 		retTypes = make([]*T.Type, len(rets))
 		for i, ret := range rets {
-			retTypes[i] = getType(ret)
+			t, err := getType(M, sy, ret)
+			if err != nil {
+				return nil, err
+			}
+			retTypes[i] = t
 		}
 	}
 
@@ -320,7 +352,38 @@ func getProcType(n *mod.Node) *T.Type {
 			Args: argTypes,
 			Rets: retTypes,
 		},
+	}, nil
+}
+
+func getIDType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
+	switch n.Lex {
+	case lk.IDENTIFIER: // name in scope
+		if sy == nil { // not inside a struct
+			name := n.Text
+			source := M.GetSymbol(name)
+			if source == nil {
+				return nil, msg.ErrorNameNotDefined(M, n)
+			}
+			if source.T != ST.Struct {
+				return nil, msg.ErrorBadType(M, n)
+			}
+			return source.Type, nil
+		}
+		if sy.T == ST.Struct {
+			// TODO: check if identifier exists in fields of struct
+		}
+	case lk.DOUBLECOLON: // accessing a name in module
+		moduleName := n.Leaves[0].Text
+		symbolName := n.Leaves[1].Text
+		source := M.GetExternalSymbol(moduleName, symbolName)
+		if source == nil {
+			return nil, msg.ErrorNameNotDefined(M, n)
+		}
+		if source.T != ST.Struct {
+			return nil, msg.ErrorBadType(M, n)
+		}
 	}
+	panic("unreachable")
 }
 
 func checkBlock(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
@@ -604,9 +667,7 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	case lk.IDENTIFIER:
 		return checkID(M, proc, n)
 	case lk.SIZEOF:
-		n.Leaves[0].T = getType(n.Leaves[0])
-		n.T = T.T_I64
-		return nil
+		return checkSizeof(M, proc, n)
 	case lk.DOUBLECOLON:
 		return checkExternalID(M, n)
 	case lk.I64_LIT, lk.I32_LIT, lk.I16_LIT, lk.I8_LIT,
@@ -637,8 +698,51 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	case lk.NOT:
 		return unaryOp(M, proc, n, _bool, outBool)
 	case lk.DOT:
-		return propertyAccess(M, n)
+		return dotAccess(M, n)
+	case lk.ARROW:
+		return arrowAccess(M, n)
 	}
+	return nil
+}
+
+func checkSizeof(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	thing := n.Leaves[0]
+	// special cases of sizeof: data declarations, struct fields
+	switch thing.Lex {
+	case lk.DOT: // struct fields
+		left := n.Leaves[0]
+		// right := n.Leaves[1]
+		switch left.Lex {
+		case lk.IDENTIFIER: // struct
+		case lk.DOUBLECOLON: // external struct
+		}
+		panic("unimplemented")
+	case lk.IDENTIFIER: // data declarations
+		sy := M.GetSymbol(thing.Text)
+		if sy == nil {
+			return msg.ErrorNameNotDefined(M, n)
+		}
+		if sy.T != ST.Data {
+			return msg.ErrorExpectedData(M, n)
+		}
+	case lk.DOUBLECOLON: // external data declarations
+		moduleName := thing.Leaves[0].Text
+		symbolName := thing.Leaves[1].Text
+		sy := M.GetExternalSymbol(moduleName, symbolName)
+		if sy == nil {
+			return msg.ErrorNameNotDefined(M, n)
+		}
+		if sy.T != ST.Data {
+			return msg.ErrorExpectedData(M, n)
+		}
+	default:
+		t, err := getType(M, nil, thing)
+		if err != nil {
+			return err
+		}
+		thing.T = t
+	}
+	n.T = T.T_I64
 	return nil
 }
 
@@ -647,7 +751,10 @@ func conversion(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	if err != nil {
 		return err
 	}
-	n.T = getType(n.Leaves[0])
+	n.T, err = getType(M, nil, n.Leaves[0])
+	if err != nil {
+		return err
+	}
 	if !T.IsBasicOrProc(n.T) {
 		return msg.ErrorExpectedBasicOrProc(M, n)
 	}
@@ -886,10 +993,14 @@ func unaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver) 
 func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	exp := n.Leaves[1]
 	t := n.Leaves[0]
-	t.T = getType(t)
+	var err *Error
+	t.T, err = getType(M, nil, t)
+	if err != nil {
+		return err
+	}
 	n.T = t.T
 
-	err := checkExpr(M, proc, exp)
+	err = checkExpr(M, proc, exp)
 	if err != nil {
 		return err
 	}
@@ -899,30 +1010,19 @@ func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	return nil
 }
 
-func propertyAccess(M *mod.Module, n *mod.Node) *Error {
-	left := n.Leaves[1]
-	prop := n.Leaves[0]
-	var sy *mod.Symbol
-	switch left.Lex {
-	case lk.DOUBLECOLON:
-		module := left.Leaves[0].Text
-		id := left.Leaves[1].Text
-		sy = M.GetExternalSymbol(module, id)
-	case lk.IDENTIFIER:
-		sy = M.GetSymbol(left.Text)
-	default:
-		return msg.ErrorExpectedData(M, n)
-	}
-	if sy == nil || sy.Data == nil {
-		return msg.ErrorExpectedData(M, left)
-	}
-	if prop.Lex != lk.IDENTIFIER || isInvalidProp(prop.Text) {
-		return msg.ErrorInvalidProp(M, prop)
-	}
-	n.T = T.T_I64
-	return nil
+// Cases:
+//     STRUCT.field yielding a pointer offset
+//     p.field
+//         where p is an expression of struct type
+//         and field is a valid field in the struct type.
+//         yields (p + STRUCT.field) of type pointer
+func dotAccess(M *mod.Module, n *mod.Node) *Error {
+	panic("unimplemented")
 }
 
-func isInvalidProp(text string) bool {
-	return text != "size"
+// p->field where p is an expression of struct type and field is a
+// valid field in the struct, yields (p + STRUCT.field)@fieldtype,
+// where fieldtype is the type specified at the struct declaration
+func arrowAccess(M *mod.Module, n *mod.Node) *Error {
+	panic("unimplemented")
 }

@@ -101,7 +101,7 @@ Annot := ':' Type.
 Type := basicType | ProcType | TName.
 ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
 ProcTypeRet := '[' [TypeList] ']'
-             | [Type].
+             | Type.
 TName := Name ['.' id].
 
 Block := 'begin' {CodeSemicolon} 'end'.
@@ -143,13 +143,13 @@ Prefix := 'not' | '~' | '!'.
 Suffix := Conversion
     | Deref
     | Call
-    | PropertyAccess
-    | PropDeref.
+    | DotAccess
+    | ArrowAccess.
 Conversion := Annot.
 Call := '[' [ExprList] ']'.
 Deref := '@' Type.
-PropertyAccess := '.' id.
-PropDeref := '->' id.
+DotAccess := '.' id.
+ArrowAccess := '->' id.
 
 Factor := Name
     | Literal

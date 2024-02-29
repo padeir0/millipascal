@@ -24,7 +24,7 @@ begin
         exit 4ss
     end
 
-    if a.size != 4*sizeof i64 begin
+    if sizeof a != 4*sizeof i64 begin
         exit 5ss
     end
 end
@@ -43,7 +43,7 @@ begin
         exit 8ss
     end
 
-    if b.size != 3*sizeof i32 begin
+    if sizeof b != 3*sizeof i32 begin
         exit 9ss
     end
 end
@@ -62,7 +62,7 @@ begin
         exit 12ss
     end
 
-    if c.size != 3*sizeof i16 begin
+    if sizeof c != 3*sizeof i16 begin
         exit 13ss
     end
 end
@@ -81,7 +81,7 @@ begin
         exit 16ss
     end
 
-    if d.size != 3*sizeof i8 begin
+    if sizeof d != 3*sizeof i8 begin
         exit 17ss
     end
 end
@@ -100,7 +100,7 @@ begin
         exit 20ss
     end
 
-    if e.size != 3*sizeof u8 begin
+    if sizeof e != 3*sizeof u8 begin
         exit 21ss
     end
 end

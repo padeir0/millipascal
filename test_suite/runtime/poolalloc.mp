@@ -21,7 +21,7 @@ data ChunkSize [sizeof i64]
 
 const FULL = 1ss
 const EMPTY = 0ss
-data ByteMap [Pool.size/MIN_CHUNK_SIZE]
+data ByteMap [(sizeof Pool)/MIN_CHUNK_SIZE]
 
 data ERR_CHUNK "Chunk too small (minimum 8 bytes)\n"
 data ERR_BOUNDS "Pointer to be freed is out of bounds\n"
@@ -67,15 +67,15 @@ proc init[chunksize:i64]
 begin
 	if chunksize < MIN_CHUNK_SIZE
 	begin
-		fatal[ERR_CHUNK, ERR_CHUNK.size]
+		fatal[ERR_CHUNK, sizeof ERR_CHUNK]
 	end
 
 	set ChunkSize@i64 = chunksize
 	set Head@ptr = Pool
-	clear_words[Pool, Pool.size]
+	clear_words[Pool, sizeof Pool]
 
-	setList[Pool, Pool.size, chunksize]
-	clear_bytes[ByteMap, ByteMap.size]
+	setList[Pool, sizeof Pool, chunksize]
+	clear_bytes[ByteMap, sizeof ByteMap]
 end
 
 proc alloc[] ptr
@@ -98,14 +98,14 @@ end
 proc free[p:ptr]
 var position:ptr
 begin
-	if p < Pool or p > (Pool + Pool.size:ptr)
+	if p < Pool or p > (Pool + (sizeof Pool):ptr)
 	begin
-		fatal[ERR_BOUNDS, ERR_BOUNDS.size]
+		fatal[ERR_BOUNDS, sizeof ERR_BOUNDS]
 	end
 
 	if (p-Pool):i64 % ChunkSize@i64 != 0
 	begin
-		fatal[ERR_ALIGN, ERR_ALIGN.size]
+		fatal[ERR_ALIGN, sizeof ERR_ALIGN]
 	end
 
 	set p@ptr = NULL
@@ -127,7 +127,7 @@ var i:i64
 begin
 	set i = 0
 	put_char['[']
-	while i < Pool.size/(ChunkSize@i64)
+	while i < (sizeof Pool)/(ChunkSize@i64)
 	begin
 		if (ByteMap+i:ptr)@i8 == EMPTY
 		begin

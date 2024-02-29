@@ -2,8 +2,8 @@ data buff "am i uppercase yet?\n"
 
 proc main
 begin
-	byte_map[buff, buff.size, upper_case]
-	write[buff, buff.size]
+	byte_map[buff, sizeof buff, upper_case]
+	write[buff, sizeof buff]
 end
 
 proc byte_map[b:ptr, bsize:i64, op:proc[i8]i8]

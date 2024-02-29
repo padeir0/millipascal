@@ -52,7 +52,10 @@ const (
 	ASSIGNMENT
 	COMMA
 	SEMICOLON
+
 	DOT
+	ARROW
+
 	BITWISEAND
 	BITWISEOR
 	BITWISEXOR
@@ -159,6 +162,7 @@ var tktostr = map[LexKind]string{
 	ASSIGNMENT:            "ASSIGNMENT",
 	COMMA:                 "COMMA",
 	DOT:                   "DOT",
+	ARROW:                 "ARROW",
 	BITWISEAND:            "BITWISEAND",
 	BITWISEOR:             "BITWISEOR",
 	BITWISEXOR:            "BITWISEXOR",
@@ -278,6 +282,7 @@ var Tktosrc = map[LexKind]string{
 	DIFFERENT:             "!=",
 	ASSIGNMENT:            "=",
 	DOT:                   ".",
+	ARROW:                 "->",
 	BITWISEAND:            "&&",
 	BITWISEOR:             "||",
 	BITWISEXOR:            "|^",

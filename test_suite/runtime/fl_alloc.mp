@@ -30,7 +30,7 @@ const FL_SIZE_OFFSET = 0p
 const FL_NEXT_OFFSET = 8p
 
 data Heap [1<<16] # 64KB
-data ByteMap [Heap.size/8] # cada byte representa uma WORD na Heap
+data ByteMap [(sizeof Heap)/8] # cada byte representa uma WORD na Heap
 data Head [sizeof ptr]
 
 data UNREACHABLE "Code should not reach here!\n"
@@ -47,7 +47,7 @@ begin
 	set i = 0
 
 	while i < 4 begin
-		clear_words[Test, Test.size]
+		clear_words[Test, sizeof Test]
 		_alloc[]
 		set i += 1
 	end
@@ -210,8 +210,8 @@ proc free[obj:ptr]
 var obj_size:i64, new, prev, curr:ptr
 begin
 	set new = obj - HEADER_SIZE:ptr
-	if new < Heap or new > Heap + Heap.size:ptr begin
-		fatal[OUTOFBOUNDS, OUTOFBOUNDS.size]
+	if new < Heap or new > Heap + (sizeof Heap):ptr begin
+		fatal[OUTOFBOUNDS, sizeof OUTOFBOUNDS]
 	end
 
 	set obj_size = ((obj-OBJ_SIZE_OFFSET)@u16):i64 << 3
@@ -316,11 +316,11 @@ end
 
 proc init
 begin
-	clear_words[Heap, Heap.size]
-	clear_bytes[ByteMap, ByteMap.size]
+	clear_words[Heap, sizeof Heap]
+	clear_bytes[ByteMap, sizeof ByteMap]
 
 	set Head@ptr = Heap
-	set (Heap+FL_SIZE_OFFSET)@i64 = Heap.size
+	set (Heap+FL_SIZE_OFFSET)@i64 = sizeof Heap
 	set (Heap+FL_NEXT_OFFSET)@ptr = NULL
 end
 
@@ -342,7 +342,7 @@ begin
 		set curr = (curr+FL_NEXT_OFFSET)@ptr
 	end
 	put_char[' ']
-	write[MSG_TOTAL_FREE, MSG_TOTAL_FREE.size]
+	write[MSG_TOTAL_FREE, sizeof MSG_TOTAL_FREE]
 	put_int[totalFree]
 	put_char['\n']
 end
@@ -352,7 +352,7 @@ var i:i64
 begin
 	set i = 0
 	put_char['[']
-	while i < Heap.size/WORD begin
+	while i < (sizeof Heap)/WORD begin
 		if (ByteMap+i:ptr)@i8 == EMPTY begin
 			put_char[' ']
 		end

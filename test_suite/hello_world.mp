@@ -2,5 +2,5 @@ data hello "Hello, World!\n"
 
 proc main
 begin
-	write[hello, hello.size]
+	write[hello, sizeof hello]
 end
