@@ -299,7 +299,7 @@ end
 ```
 
 And then, we can iterate an array using
-`set item = (array + (i*sizeof POS):ptr):POS`,
+`set item = array + i*sizeof POS`,
 which gives us `item->Previous`, `item->Current` and `item->Next`
 to look at any given moment.
 
@@ -338,7 +338,7 @@ end
 ```
 
 This means the following:
- - `POINT.X` is a global constant of type `ptr`
+ - `POINT.X` is a global constant of type `i32`
  - `p.X` calculates the offset `p+POINT.X`
  - `p->X` calculates the offset and uses the type information to make a deref
 
@@ -411,12 +411,12 @@ need to be inlined. Procedures for accessing M1 and M2 would differ:
 ```
 proc access_M1[i:i64] A
 begin
-    return (M1+(i*sizeof ptr):ptr)@A
+    return (M1 + i*sizeof ptr)@A
 end
 
 proc access_M2[i:i64] A
 begin
-    return (M2+(i*sizeof A):ptr):A
+    return (M2 + i*sizeof A):A
 end
 ```
 

@@ -3,18 +3,18 @@
 Millipascal is basically a thin wrap over assembly that evolved to
 be used as an intermediate language.
 
-```
-memory hello "Hello, World!\n"
+```millipascal
+data hello "Hello, World!\n"
 
 proc main
 begin
-	write[hello, hello.size]
+	write[hello, sizeof hello]
 end proc
 ```
 
 It has 10 basic types:
 
-```
+```millipascal
 i8    i16    i32    i64
 u8    u16    u32    u64
 bool  ptr
@@ -31,22 +31,22 @@ proc[i8]bool    proc[ptr, i64][]    proc[][]
 Procedures are first-class and can have multiple arguments and multiple returns:
 
 ```
-memory buff "am i uppercase yet?\n"
+data buff "am i uppercase yet?\n"
 
 proc main
 begin
-	byte_map[buff, buff.size, upper_case]
-	write[buff, buff.size]
+	byte_map[buff, sizeof buff, upper_case]
+	write[buff, sizeof buff]
 end proc
 
 proc byte_map[b:ptr, bsize:i64, op:proc[i8]i8]
-var i:ptr
+var i:i64
 begin
-	set i = 0p
-	while i < bsize:ptr
+	set i = 0
+	while i < bsize
 	begin
 		set (b+i)@i8 = op[(b+i)@i8]
-		set i += 1p
+		set i += 1
 	end while
 end proc
 
@@ -67,15 +67,11 @@ it doesn't share parenthesis in the middle of expressions, being easier to read.
 
 Control flow is `if`, `while`, `return` and `exit`.
 
-If you notice, omiting the type of an argument makes it default to `i64`.
-The compiler allocates on the stack every type as 8 byte chunks
-anyway, so it doesn't matter.
-
 To change the value of a variable, you use `set`.
-You can declare static memory with `memory`:
+You can declare static memory with `data`:
 
 ```
-memory w 32
+data w 32
 
 proc main
 begin
@@ -127,16 +123,16 @@ the style of `./test_suite/runtime/bigint.mp`.
 
 ## Identifiers
 
-Constants and string memory should be in ALL_CAPS_SNAKE_CASE:
+Constants and string data should be in ALL_CAPS_SNAKE_CASE:
 
 ```
 const OBJ_SIZE_OFFSET 8p
 const OBJ_TAG_OFFSET 6p
 const OBJ_BITMAP_OFFSET 4p
 
-memory ERR_NAT_OVERFLOW "number is too big (max 72 digits)\n"
-memory ERR_NAT_NEGATIVE "number subtraction went negative\n"
-memory ERR_DIVISION_BY_ZERO "division by zero\n"
+data ERR_NAT_OVERFLOW "number is too big (max 72 digits)\n"
+data ERR_NAT_NEGATIVE "number subtraction went negative\n"
+data ERR_DIVISION_BY_ZERO "division by zero\n"
 ```
 
 Procedures should be in lower_snake_case:
@@ -163,12 +159,12 @@ begin
 end proc
 ```
 
-Reserved memory should follow UpperCammelCase,
+Reserved data should follow UpperCammelCase,
 while local variables and arguments should follow lowerCamelCase:
 
 ```
-memory NatIDD 40
-memory Scratch 40
+data NatIDD 40
+data Scratch 40
 
 proc div[natA:ptr, natB:ptr, natQ:ptr, natRem:ptr]
 var sizeA, sizeB, i, j,
@@ -206,11 +202,3 @@ end if
 ```
 
 However, never keep `begin` in the same line as `end`.
-
-# TODO
-
- - [ ] Allow main to have the signature: `proc[argc:i64, argv:ptr] int`
- - [ ] Allow arguments and variables be marked to signal that it's pointing to an object
- - [ ] Have a way to access the frame pointer
- - [ ] Inject function information on stack frame
- - [ ] Have a built-in to open files
