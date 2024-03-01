@@ -158,12 +158,12 @@ var basic_res = Checker{
 
 var num_oper = Checker{
 	Class: hirc.IsOperable,
-	Type:  T.IsNumber,
+	Type:  T.IsInteger,
 }
 
 var num_res = Checker{
 	Class: hirc.IsResult,
-	Type:  T.IsNumber,
+	Type:  T.IsInteger,
 }
 
 var bool_oper = Checker{
@@ -192,7 +192,9 @@ func checkInstr(s *state, instr hir.Instr) *Error {
 		return err
 	}
 	switch instr.T {
-	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
+	case IT.Add, IT.Sub:
+		return checkAddSub(instr)
+	case IT.Div, IT.Mult, IT.Rem:
 		return checkArith(instr)
 	case IT.Eq, IT.Diff:
 		return checkComp(instr)
@@ -218,6 +220,27 @@ func checkInstr(s *state, instr hir.Instr) *Error {
 		return checkCall(s, instr)
 	}
 	panic("sumthin' went wong")
+}
+
+func checkAddSub(instr hir.Instr) *Error {
+	err := checkForm(instr, 2, true)
+	if err != nil {
+		return err
+	}
+	a := instr.Operands[0]
+	b := instr.Operands[1]
+	dest := instr.Destination[0]
+	if T.IsPtr(a.Type) {
+		return checkBinary(instr, ptr_oper, num_oper, ptr_res)
+	} else if T.IsPtr(b.Type) {
+		return checkBinary(instr, num_oper, ptr_oper, ptr_res)
+	} else {
+		err = checkEqual(instr, instr.Type, a.Type, b.Type, dest.Type)
+		if err != nil {
+			return err
+		}
+		return checkBinary(instr, num_oper, num_oper, num_res)
+	}
 }
 
 func checkArith(instr hir.Instr) *Error {

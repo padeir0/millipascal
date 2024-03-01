@@ -6,13 +6,13 @@ begin
 	set p = hello;
 	write[hello, sizeof hello]
 	
-	while p < hello + 6p
+	while p < hello + 6
 	begin
 		if p@i8 >= 'a' and p@i8 <= 'z'
 		begin
 			set p@i8 -= 32ss
 		end
-		set p += 1p;
+		set p += 1;
 	end
 
 	write[hello, sizeof hello]

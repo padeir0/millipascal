@@ -2,7 +2,7 @@ data buff [3]
 
 proc main
 begin
-	set (buff+1p)@i8 = comp[1]
+	set (buff+1)@i8 = comp[1]
 end
 
 proc comp[index:i64] i8

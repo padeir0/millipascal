@@ -255,12 +255,12 @@ var basic_addr = Checker{
 
 var num_imme = Checker{
 	Class: mirc.IsImmediate,
-	Type:  T.IsNumber,
+	Type:  T.IsInteger,
 }
 
 var num_reg = Checker{
 	Class: mirc.IsRegister,
-	Type:  T.IsNumber,
+	Type:  T.IsInteger,
 }
 
 var bool_imme = Checker{
@@ -293,7 +293,9 @@ func checkInstr(s *state, instr mir.Instr) *Error {
 		return err
 	}
 	switch instr.T {
-	case IT.Add, IT.Sub, IT.Div, IT.Mult, IT.Rem:
+	case IT.Add, IT.Sub:
+		return checkAddSub(s, instr)
+	case IT.Div, IT.Mult, IT.Rem:
 		return checkArith(s, instr)
 	case IT.Eq, IT.Diff:
 		return checkComp(s, instr)
@@ -323,6 +325,31 @@ func checkInstr(s *state, instr mir.Instr) *Error {
 		return checkCall(s, instr)
 	}
 	panic("sumthin' went wong")
+}
+
+func checkAddSub(s *state, instr mir.Instr) *Error {
+	err := checkForm(instr, true, true, true)
+	if err != nil {
+		return err
+	}
+
+	err = checkRegs(s, instr)
+	if err != nil {
+		return err
+	}
+	s.SetReg(instr.Dest.Operand)
+
+	if T.IsPtr(instr.A.Type) {
+		return checkBinary(instr, ptr_imme, num_imme, ptr_reg)
+	} else if T.IsPtr(instr.B.Type) {
+		return checkBinary(instr, num_imme, ptr_imme, ptr_reg)
+	} else {
+		err = checkEqual(instr, instr.Type, instr.A.Type, instr.B.Type, instr.Dest.Type)
+		if err != nil {
+			return err
+		}
+		return checkBinary(instr, num_imme, num_imme, num_reg)
+	}
 }
 
 func checkArith(s *state, instr mir.Instr) *Error {

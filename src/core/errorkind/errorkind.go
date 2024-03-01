@@ -39,7 +39,7 @@ const (
 	MismatchedMultiRetAssignment
 	MismatchedTypeInMultiRetAssign
 	MismatchedTypeInAssign
-	InvalidClassforExpr
+	InvalidTypeForExpr
 	CannotUseVoid
 	ExpectedBasicOrProcType
 	CanOnlyUseNormalAssignment
@@ -101,7 +101,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	MismatchedMultiRetAssignment:   "E027",
 	MismatchedTypeInMultiRetAssign: "E028",
 	MismatchedTypeInAssign:         "E031",
-	InvalidClassforExpr:            "E033",
+	InvalidTypeForExpr:             "E033",
 	CannotUseVoid:                  "E035",
 	ExpectedBasicOrProcType:        "E036",
 	CanOnlyUseNormalAssignment:     "E037",

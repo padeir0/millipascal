@@ -579,11 +579,21 @@ func checkAssignment(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 			return err
 		}
 	} else {
-		if !left.Leaves[0].T.Equals(right.T) {
-			return msg.ErrorMismatchedTypesInAssignment(M, left.Leaves[0], right)
-		}
-		if op.Lex != lk.ASSIGNMENT && !T.IsNumber(left.Leaves[0].T) {
-			return msg.ExpectedNumber(M, op, left.T)
+		leftside := left.Leaves[0]
+		if T.IsPtr(leftside.T) {
+			if op.Lex != lk.ASSIGNMENT && !T.IsInteger(right.T) {
+				return msg.ExpectedNumber(M, op, right.T)
+			}
+			if op.Lex == lk.ASSIGNMENT && !T.IsPtr(right.T) {
+				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
+			}
+		} else {
+			if !leftside.T.Equals(right.T) {
+				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
+			}
+			if op.Lex != lk.ASSIGNMENT && !T.IsInteger(leftside.T) {
+				return msg.ExpectedNumber(M, op, left.T)
+			}
 		}
 	}
 
@@ -677,12 +687,16 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		n.T = termToType(n.Lex)
 		return nil
 	case lk.NEG, lk.BITWISENOT:
-		return unaryOp(M, proc, n, number, outSame)
-	case lk.PLUS, lk.MINUS, lk.MULTIPLICATION,
+		return unaryOp(M, proc, n, integer, outSame)
+	case lk.PLUS:
+		return checkAdd(M, proc, n)
+	case lk.MINUS:
+		return checkSub(M, proc, n)
+	case lk.MULTIPLICATION,
 		lk.DIVISION, lk.REMAINDER, lk.BITWISEAND,
 		lk.BITWISEXOR, lk.BITWISEOR, lk.SHIFTLEFT,
 		lk.SHIFTRIGHT:
-		return binaryOp(M, proc, n, number, outSame)
+		return binaryOp(M, proc, n, integer, outSame)
 	case lk.EQUALS, lk.DIFFERENT:
 		return binaryOp(M, proc, n, comparable, outBool)
 	case lk.MORE, lk.MOREEQ, lk.LESS, lk.LESSEQ:
@@ -886,7 +900,7 @@ type class struct {
 }
 
 var basic = class{
-	Description: "i8 ~ i64, u8 ~ u64, ptr or bool",
+	Description: "integer, ptr or bool",
 	Checker:     T.IsBasic,
 }
 
@@ -895,9 +909,9 @@ var _bool = class{
 	Checker:     T.IsBool,
 }
 
-var number = class{
-	Description: "i8 ~ i64, u8 ~ u64 or ptr",
-	Checker:     T.IsNumber,
+var integer = class{
+	Description: "integer",
+	Checker:     T.IsInteger,
 }
 
 var comparable = class{
@@ -908,6 +922,107 @@ var comparable = class{
 var ptr = class{
 	Description: "ptr",
 	Checker:     T.IsPtr,
+}
+
+func checkAdd(M *mod.Module, proc *mod.Proc, op *mod.Node) *Error {
+	if len(op.Leaves) != 2 {
+		panic(M.Name + ": internal error, binary operator should have two leaves")
+	}
+	left := op.Leaves[0]
+	err := checkExpr(M, proc, left)
+	if err != nil {
+		return err
+	}
+	right := op.Leaves[1]
+	err = checkExpr(M, proc, right)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, left)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, right)
+	if err != nil {
+		return err
+	}
+
+	if T.IsPtr(left.T) {
+		if !T.IsInteger(right.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
+		}
+		op.T = T.T_Ptr
+		return nil
+	} else if T.IsPtr(right.T) {
+		if !T.IsInteger(left.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, left, "integer")
+		}
+		op.T = T.T_Ptr
+		return nil
+	} else {
+		if !integer.Checker(left.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, left, integer.Description)
+		}
+		if !integer.Checker(right.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, right, integer.Description)
+		}
+		if !left.T.Equals(right.T) {
+			return msg.ErrorOperationBetweenUnequalTypes(M, op)
+		}
+		op.T = left.T
+		return nil
+	}
+}
+
+func checkSub(M *mod.Module, proc *mod.Proc, op *mod.Node) *Error {
+	if len(op.Leaves) != 2 {
+		panic(M.Name + ": internal error, binary operator should have two leaves")
+	}
+	left := op.Leaves[0]
+	err := checkExpr(M, proc, left)
+	if err != nil {
+		return err
+	}
+	right := op.Leaves[1]
+	err = checkExpr(M, proc, right)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, left)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, right)
+	if err != nil {
+		return err
+	}
+
+	if T.IsPtr(right.T) {
+		return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
+	}
+	if T.IsPtr(left.T) {
+		if !T.IsInteger(right.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
+		}
+		op.T = T.T_Ptr
+		return nil
+	} else {
+		if !integer.Checker(left.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, left, integer.Description)
+		}
+		if !integer.Checker(right.T) {
+			return msg.ErrorInvalidTypeForExpr(M, op, right, integer.Description)
+		}
+		if !left.T.Equals(right.T) {
+			return msg.ErrorOperationBetweenUnequalTypes(M, op)
+		}
+		op.T = left.T
+		return nil
+	}
 }
 
 // a op b where type(a) = type(b) and type(a op b) = deriver(type(a), type(b))
@@ -938,11 +1053,11 @@ func binaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver)
 	}
 
 	if !c.Checker(left.T) {
-		return msg.ErrorInvalidClassForExpr(M, op, left, c.Description)
+		return msg.ErrorInvalidTypeForExpr(M, op, left, c.Description)
 	}
 
 	if !c.Checker(right.T) {
-		return msg.ErrorInvalidClassForExpr(M, op, right, c.Description)
+		return msg.ErrorInvalidTypeForExpr(M, op, right, c.Description)
 	}
 
 	if !left.T.Equals(right.T) {
@@ -983,7 +1098,7 @@ func unaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver) 
 	}
 
 	if !c.Checker(operand.T) {
-		return msg.ErrorInvalidClassForExpr(M, op, operand, c.Description)
+		return msg.ErrorInvalidTypeForExpr(M, op, operand, c.Description)
 	}
 
 	op.T = der(operand.T)

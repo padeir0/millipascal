@@ -6,7 +6,7 @@ Constraints:
  - ASCII based
  - Numerical and symbolical consts and blobs
  - Only plain arithmetical constant evaluation, no complex procedure call stuff
- - Only static pointer-arithmetic syntax-sugar (structs)
+ - Only static-pointer-arithmetic syntax-sugar (structs)
 
 ```ebnf
 id := letter {letter | digit}.
@@ -83,7 +83,7 @@ Blob := '{' [Annot] ExprList '}'.
 DExpr := '[' Expr ']'.
 Typed := Annot.
 
-Struct := 'struct' id [Size] 'begin' Fields 'end'.
+Struct := 'struct' id [Size] 'begin' {Field} 'end'.
 Size := '[' Expr ']'.
 Field := id [Annot] [Offset].
 Offset := '{' Expr '}'.

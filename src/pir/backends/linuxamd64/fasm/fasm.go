@@ -579,14 +579,16 @@ func genCode(P *mir.Program, proc *mir.Procedure, block *mir.BasicBlock) *fasmBl
 
 func genInstr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
 	switch instr.T {
-	case IT.Add, IT.Or, IT.And, IT.Xor:
+	case IT.Add:
+		return genAdd(P, proc, instr)
+	case IT.Sub:
+		return genSub(P, proc, instr)
+	case IT.Or, IT.And, IT.Xor:
 		return genSimpleBin(P, proc, instr)
 	case IT.ShiftLeft, IT.ShiftRight:
 		return genShift(P, proc, instr)
 	case IT.Mult:
 		return genMul(P, proc, instr)
-	case IT.Sub:
-		return genSub(P, proc, instr)
 	case IT.Eq, IT.Diff, IT.Less, IT.More, IT.LessEq, IT.MoreEq:
 		return genComp(P, proc, instr)
 	case IT.Load, IT.Store, IT.Copy:
@@ -623,7 +625,7 @@ func genConvert(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64In
 		out = append(out, mov_t(
 			dest, RCX,
 			instr.Dest.Type.Size(), instr.A.Type.Size(),
-			T.IsInt(instr.Dest.Type), T.IsInt(instr.A.Type),
+			T.IsSigned(instr.Dest.Type), T.IsSigned(instr.A.Type),
 		))
 
 		return out
@@ -639,7 +641,7 @@ func genConvert(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64In
 		mov_t(
 			dest, source,
 			instr.Dest.Type.Size(), instr.A.Type.Size(),
-			T.IsInt(instr.Dest.Type), T.IsInt(instr.A.Type),
+			T.IsSigned(instr.Dest.Type), T.IsSigned(instr.A.Type),
 		),
 	}
 }
@@ -730,7 +732,7 @@ func signExtendRCX(instr mir.Instr) (rcx string, op string) {
 		rcx = "ecx"
 		op = "cdq"
 	case 8:
-		if T.IsInt(instr.Type) {
+		if T.IsSigned(instr.Type) {
 			rcx = "rcx"
 			op = "cqo"
 		}
@@ -747,7 +749,7 @@ func signExtend(P *mir.Program, proc *mir.Procedure, instr mir.Instr, opnd mir.O
 		operand = convertOptOperandProc(P, proc, opnd)
 		operation = "cdq"
 	case 8:
-		if T.IsInt(instr.Type) {
+		if T.IsSigned(instr.Type) {
 			operand = convertOptOperandProc(P, proc, instr.B)
 			operation = "cqo"
 		}
@@ -808,40 +810,146 @@ func genRem(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr 
 	}
 }
 
-func genSub(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
-	sub := genInstrName(instr)
-
-	if areOpEqual(instr.A, instr.Dest) {
-		out, newOp1 := resolveOperand(P, proc, instr.B.Operand)
-		newDest := convertOptOperandProc(P, proc, instr.Dest)
-		out = append(out, []*amd64Instr{
-			bin(sub, newDest, newOp1),
-		}...)
-		return out
+// given P+N:
+//      if N is i8~i32 we sign-extend
+//      if N is i64 we add normally
+//      if N is u8~u16 we zero-extend
+//      if N is u32 we mov to higher register
+//      if N is u64 we add normally
+func genAdd(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	if !T.IsPtr(instr.A.Type) && !T.IsPtr(instr.B.Type) {
+		return genSimpleBin(P, proc, instr)
 	}
+	out := []*amd64Instr{}
+	if T.IsPtr(instr.A.Type) {
+		ptrOp := convertOptOperandProc(P, proc, instr.A)
+		intOp := _genReg(RAX, T.T_Ptr)
 
-	if areOpEqual(instr.B, instr.Dest) {
-		rax := _genReg(RAX, instr.Type)
+		switch instr.B.Class {
+		case mirc.Lit, mirc.Static:
+			op := convertOptOperandProc(P, proc, instr.B)
+			mv := mov(intOp, op)
+			out = append(out, mv)
+		case mirc.Register:
+			breg := getReg(instr.B.Op())
+			mv := mov_t(RAX, breg, T.T_Ptr.Size(), instr.B.Type.Size(), true, T.IsSigned(instr.B.Type))
+			out = append(out, mv)
+		}
+
+		if areOpEqual(instr.A, instr.Dest) { // the output must be a pointer
+			add := bin(Add, ptrOp, intOp)
+			out = append(out, add)
+			return out
+		} else {
+			destOp := convertOptOperandProc(P, proc, instr.Dest)
+			mv := mov(destOp, ptrOp)
+			out = append(out, mv)
+			add := bin(Add, destOp, intOp)
+			out = append(out, add)
+			return out
+		}
+	}
+	if T.IsPtr(instr.B.Type) {
+		ptrOp := convertOptOperandProc(P, proc, instr.B)
+		intOp := _genReg(RAX, T.T_Ptr)
+
+		switch instr.A.Class {
+		case mirc.Lit, mirc.Static:
+			op := convertOptOperandProc(P, proc, instr.A)
+			mv := mov(intOp, op)
+			out = append(out, mv)
+		case mirc.Register:
+			areg := getReg(instr.A.Op())
+			mv := mov_t(RAX, areg, T.T_Ptr.Size(), instr.A.Type.Size(), true, T.IsSigned(instr.A.Type))
+			out = append(out, mv)
+		}
+		if areOpEqual(instr.B, instr.Dest) { // the output must be a pointer
+			add := bin(Add, ptrOp, intOp)
+			out = append(out, add)
+			return out
+		} else {
+			destOp := convertOptOperandProc(P, proc, instr.Dest)
+			mv := mov(destOp, ptrOp)
+			out = append(out, mv)
+			add := bin(Add, destOp, intOp)
+			out = append(out, add)
+			return out
+		}
+	}
+	panic("unreachable")
+}
+
+// given P+N, where P is a ptr and N is an integer
+//      if N is i8~i32 we sign-extend, neg and add
+//      if N is i64 we neg and add
+//      if N is u8~u16 we zero-extend, neg and add
+//      if N is u32 we mov to higher register, neg and add
+//      if N is u64 we neg and add
+func genSub(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
+	if T.IsPtr(instr.A.Type) {
+		out := []*amd64Instr{}
+		ptrOp := convertOptOperandProc(P, proc, instr.A)
+		intOp := _genReg(RAX, T.T_Ptr)
+
+		switch instr.B.Class {
+		case mirc.Lit, mirc.Static:
+			op := convertOptOperandProc(P, proc, instr.B)
+			mv := mov(intOp, op)
+			out = append(out, mv)
+		case mirc.Register:
+			breg := getReg(instr.B.Op())
+			mv := mov_t(RAX, breg, T.T_Ptr.Size(), instr.B.Type.Size(), true, T.IsSigned(instr.B.Type))
+			out = append(out, mv)
+		}
+
+		neg := unary(Neg, _genReg(RAX, T.T_Ptr))
+		out = append(out, neg)
+
+		if areOpEqual(instr.A, instr.Dest) { // the output must be a pointer
+			add := bin(Add, ptrOp, intOp)
+			out = append(out, add)
+			return out
+		} else {
+			destOp := convertOptOperandProc(P, proc, instr.Dest)
+			mv := mov(destOp, ptrOp)
+			out = append(out, mv)
+			add := bin(Add, destOp, intOp)
+			out = append(out, add)
+			return out
+		}
+	} else {
+		if areOpEqual(instr.A, instr.Dest) {
+			out, newOp1 := resolveOperand(P, proc, instr.B.Operand)
+			newDest := convertOptOperandProc(P, proc, instr.Dest)
+			out = append(out, []*amd64Instr{
+				bin(Sub, newDest, newOp1),
+			}...)
+			return out
+		}
+
+		if areOpEqual(instr.B, instr.Dest) {
+			rax := _genReg(RAX, instr.Type)
+			newOp1 := convertOptOperandProc(P, proc, instr.A)
+			out, newOp2 := resolveOperand(P, proc, instr.B.Operand)
+			newDest := convertOptOperandProc(P, proc, instr.Dest)
+			out = append(out, []*amd64Instr{
+				bin(Xor, RAX.QWord, RAX.QWord),
+				mov(rax, newOp1),
+				bin(Sub, rax, newOp2),
+				mov(newDest, rax),
+			}...)
+			return out
+		}
+
 		newOp1 := convertOptOperandProc(P, proc, instr.A)
 		out, newOp2 := resolveOperand(P, proc, instr.B.Operand)
 		newDest := convertOptOperandProc(P, proc, instr.Dest)
 		out = append(out, []*amd64Instr{
-			bin(Xor, RAX.QWord, RAX.QWord),
-			mov(rax, newOp1),
-			bin(sub, rax, newOp2),
-			mov(newDest, rax),
+			mov(newDest, newOp1),
+			bin(Sub, newDest, newOp2),
 		}...)
 		return out
 	}
-
-	newOp1 := convertOptOperandProc(P, proc, instr.A)
-	out, newOp2 := resolveOperand(P, proc, instr.B.Operand)
-	newDest := convertOptOperandProc(P, proc, instr.Dest)
-	out = append(out, []*amd64Instr{
-		mov(newDest, newOp1),
-		bin(sub, newDest, newOp2),
-	}...)
-	return out
 }
 
 func genMul(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []*amd64Instr {
@@ -937,7 +1045,7 @@ func mov_opToReg(
 ) *amd64Instr {
 	source := getReg(op)
 	sourceSize := op.Type.Size()
-	sourceSigned := T.IsInt(op.Type)
+	sourceSigned := T.IsSigned(op.Type)
 	return mov_t(dest, source, destSize, sourceSize, destSigned, sourceSigned)
 }
 
@@ -1071,6 +1179,7 @@ func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumO
 func getReg(op mir.Operand) *register {
 	num := op.ID
 	if num > int64(len(Registers)) || num < 0 {
+		fmt.Println(op)
 		panic("oh no")
 	}
 	return Registers[num]
@@ -1139,7 +1248,7 @@ func genType(t *T.Type) string {
 }
 
 func genInstrName(instr mir.Instr) string {
-	if T.IsInt(instr.Type) {
+	if T.IsSigned(instr.Type) {
 		switch instr.T {
 		case IT.Add:
 			return Add

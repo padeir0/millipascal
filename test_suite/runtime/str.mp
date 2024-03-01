@@ -38,9 +38,9 @@ export
 const STR_HEADER_SIZE = 16
 
 # positive offset
-const STR_PTR_OFFSET = 0p   # ptr
-const STR_START_OFFSET = 8p # i32
-const STR_SIZE_OFFSET = 12p  # i32
+const STR_PTR_OFFSET = 0   # ptr
+const STR_START_OFFSET = 8 # i32
+const STR_SIZE_OFFSET = 12  # i32
 
 proc main
 begin
@@ -91,7 +91,7 @@ begin
     set start = (str+STR_START_OFFSET)@i32
     set size = (str+STR_SIZE_OFFSET)@i32
 
-    write[(array+start:ptr), size:i64]
+    write[(array+start), size:i64]
 end
 
 data NULL_STR "NULL"
@@ -136,10 +136,10 @@ begin
     end
     
     if arrayA != NULL begin # empty string is NULL
-        copy[arrayOut, (arrayA+startA:ptr), sizeA:i64]
+        copy[arrayOut, (arrayA+startA), sizeA:i64]
     end
     if arrayB != NULL begin
-        copy[arrayOut+sizeA:ptr, (arrayB+startB:ptr), sizeB:i64]
+        copy[arrayOut+sizeA, (arrayB+startB), sizeB:i64]
     end
 
     set (outStr+STR_PTR_OFFSET)@ptr = arrayOut
@@ -176,8 +176,8 @@ begin
 
     set i = 0l
     while i < sizeA begin
-        if (arrayA+i:ptr+startA:ptr)@i8 !=
-           (arrayB+i:ptr+startB:ptr)@i8 begin
+        if (arrayA+i+startA)@i8 !=
+           (arrayB+i+startB)@i8 begin
             return false
         end
         set i += 1l
@@ -213,7 +213,7 @@ begin
         return ~1l
     end
 
-    set rune, runeSize = utf8_decode[array+start:ptr]
+    set rune, runeSize = utf8_decode[array+start]
 
     return rune
 end
@@ -242,7 +242,7 @@ begin
         if size <= 0l begin
             return NULL
         end
-        set rune, runeSize = utf8_decode[array+new_start:ptr]
+        set rune, runeSize = utf8_decode[array+new_start]
         set size -= runeSize:i32
         set new_start += runeSize:i32
         set i += 1
@@ -267,7 +267,7 @@ begin
         return ~1l
     end
 
-    set rune, runeSize = utf8_decode[array+start:ptr]
+    set rune, runeSize = utf8_decode[array+start]
 
     set (str+STR_START_OFFSET)@i32 += runeSize:i32
     set (str+STR_SIZE_OFFSET)@i32 -= runeSize:i32
@@ -299,7 +299,7 @@ begin
         if size <= 0l begin
             return NULL
         end
-        set rune, runeSize = utf8_decode[array+new_start:ptr]
+        set rune, runeSize = utf8_decode[array+new_start]
         set size -= runeSize:i32
         set new_start += runeSize:i32
         set i += 1
@@ -327,7 +327,7 @@ begin
     set out = 0xCAFEBABE
     set i = 0l
     while i < size begin
-        set out = (out |^ (array+(start+i):ptr)@i8:i64) * 0x5bd1e995
+        set out = (out |^ (array+(start+i))@i8:i64) * 0x5bd1e995
         set out = out |^ (out >> 15)
         set i += 1l
     end
@@ -351,7 +351,7 @@ begin
 
     set i = 0
     while 0l < size begin
-        set rune, runeSize = utf8_decode[array+start:ptr]
+        set rune, runeSize = utf8_decode[array+start]
         set size -= runeSize:i32
         set start += runeSize:i32
         set i += 1
@@ -368,7 +368,7 @@ begin
 	set i = 0
 	while i < source_size
 	begin
-		set (dest + i:ptr)@i8 = (source + i:ptr)@i8
+		set (dest + i)@i8 = (source + i)@i8
 		set i += 1
 	end
 end

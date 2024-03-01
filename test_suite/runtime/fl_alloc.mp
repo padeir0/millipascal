@@ -15,9 +15,9 @@ export init, alloc, free
 const HEADER_SIZE = 8
 
 # offset negativo
-const OBJ_SIZE_OFFSET = 8p
-const OBJ_TAG_OFFSET = 6p
-const OBJ_BITMAP_OFFSET = 4p
+const OBJ_SIZE_OFFSET = 8
+const OBJ_TAG_OFFSET = 6
+const OBJ_BITMAP_OFFSET = 4
 
 # Além disso, cada nó da free-list terá 8 bytes,
 # Com os primeiros 8 bytes representando o tamanho da àrea a
@@ -26,8 +26,8 @@ const OBJ_BITMAP_OFFSET = 4p
 
 const NODE_SIZE = 16
 
-const FL_SIZE_OFFSET = 0p
-const FL_NEXT_OFFSET = 8p
+const FL_SIZE_OFFSET = 0
+const FL_NEXT_OFFSET = 8
 
 data Heap [1<<16] # 64KB
 data ByteMap [(sizeof Heap)/8] # cada byte representa uma WORD na Heap
@@ -78,7 +78,7 @@ begin
 		end
 
 		if a != NULL begin
-			set (Test + (i*sizeof ptr):ptr)@ptr = a
+			set (Test + i*sizeof ptr)@ptr = a
 		end else begin
 			oom[]
 		end
@@ -95,10 +95,10 @@ begin
 		if n <= 0 begin
 			return
 		end
-		set a = (Test + (i*8):ptr)@ptr
+		set a = (Test + i*sizeof ptr)@ptr
 		if a != NULL begin
 			free[a]
-			set (Test + (i*8):ptr)@ptr = NULL
+			set (Test + i*sizeof ptr)@ptr = NULL
 			set n -= 1
 		end
 		set i += 1
@@ -129,7 +129,7 @@ begin
 	set (out-OBJ_TAG_OFFSET)@u16 = tag
 	set (out-OBJ_BITMAP_OFFSET)@u32 = bitmap
 
-	set_map[out-HEADER_SIZE:ptr, alloc_size, FULL]
+	set_map[out-HEADER_SIZE, alloc_size, FULL]
 
 	return out
 end
@@ -186,7 +186,7 @@ begin
 	end else begin
         set Head@ptr = curr_next
 	end
-	return curr + HEADER_SIZE:ptr
+	return curr + HEADER_SIZE
 end
 
 proc split[prev, curr, curr_next:ptr,
@@ -194,7 +194,7 @@ proc split[prev, curr, curr_next:ptr,
 var newnode:ptr, newnode_size:i64, newnode_next:ptr
 begin
 	set newnode_size = curr_size - requested_size
-	set newnode = curr + requested_size:ptr
+	set newnode = curr + requested_size
 	set newnode_next = curr_next
 
 	set (newnode + FL_SIZE_OFFSET)@i64 = newnode_size
@@ -209,8 +209,8 @@ end
 proc free[obj:ptr]
 var obj_size:i64, new, prev, curr:ptr
 begin
-	set new = obj - HEADER_SIZE:ptr
-	if new < Heap or new > Heap + (sizeof Heap):ptr begin
+	set new = obj - HEADER_SIZE
+	if new < Heap or new > Heap + sizeof Heap begin
 		fatal[OUTOFBOUNDS, sizeof OUTOFBOUNDS]
 	end
 
@@ -257,7 +257,7 @@ proc append[prev, new:ptr]
 var size:i64
 begin
 	set size = (prev+FL_SIZE_OFFSET)@i64
-	if prev+size:ptr == new begin
+	if prev+size == new begin
 		# COALESCING, append
 		set (prev+FL_SIZE_OFFSET)@i64 = size + (new+FL_SIZE_OFFSET)@i64
 		return
@@ -270,7 +270,7 @@ proc prepend[new:ptr]
 var size:i64
 begin
 	set size = (new+FL_SIZE_OFFSET)@i64
-	if new + size:ptr == Head@ptr begin
+	if new + size == Head@ptr begin
 		# COALESCING, prepend
 		set (new+FL_SIZE_OFFSET)@i64 = size + (Head@ptr + FL_SIZE_OFFSET)@i64
 		set (new+FL_NEXT_OFFSET)@ptr = (Head@ptr + FL_NEXT_OFFSET)@ptr
@@ -286,11 +286,11 @@ proc join[prev, new, curr:ptr]
 var size:i64
 begin
 	set size = (prev+FL_SIZE_OFFSET)@i64
-	if prev+size:ptr == new begin
+	if prev+size == new begin
 		# COALESCING, append
 		set size = size + (new+FL_SIZE_OFFSET)@i64
 
-		if prev+size:ptr == curr begin
+		if prev+size == curr begin
 			# nesse caso, prev, new e curr são adjacentes
 			set (prev+FL_SIZE_OFFSET)@i64 = size + (curr+FL_SIZE_OFFSET)@i64
 			set (prev+FL_NEXT_OFFSET)@ptr = (curr+FL_NEXT_OFFSET)@ptr
@@ -302,7 +302,7 @@ begin
 	end
 
 	set size = (new+FL_SIZE_OFFSET)@i64
-	if new + size:ptr == curr begin
+	if new + size == curr begin
 		# COALESCING, prepend
 		set (prev+FL_NEXT_OFFSET)@ptr = new
 		set (new+FL_SIZE_OFFSET)@i64 = size + (curr+FL_SIZE_OFFSET)@i64
@@ -353,10 +353,10 @@ begin
 	set i = 0
 	put_char['[']
 	while i < (sizeof Heap)/WORD begin
-		if (ByteMap+i:ptr)@i8 == EMPTY begin
+		if (ByteMap+i)@i8 == EMPTY begin
 			put_char[' ']
 		end
-		if (ByteMap+i:ptr)@i8 == FULL begin
+		if (ByteMap+i)@i8 == FULL begin
 			put_char['X']
 		end
 		set i += 1
@@ -366,13 +366,13 @@ begin
 end
 
 proc set_map[obj:ptr, size:i64, b:i8]
-var start, i, size_words:ptr
+var start:ptr, i, size_words:i64
 begin
-	set size_words = (size>>3):ptr
-	set start = ByteMap + ((obj - Heap) / WORD:ptr)
-	set i = 0p
+	set size_words = (size>>3)
+	set start = ByteMap + ((obj:i64 - Heap:i64) / WORD)
+	set i = 0
 	while i < size_words begin
 		set (start+i)@i8 = b
-		set i += 1p
+		set i += 1
 	end
 end

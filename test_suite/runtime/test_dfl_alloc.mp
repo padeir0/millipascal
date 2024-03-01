@@ -67,7 +67,7 @@ begin
 	if FrontLimit@ptr != Heap begin
 		exit 4ss
 	end
-	if BackLimit@ptr != Heap+(sizeof Heap):ptr begin
+	if BackLimit@ptr != Heap+(sizeof Heap) begin
 		exit 5ss
 	end
 end
@@ -113,7 +113,7 @@ begin
 		end
 
 		if a != NULL begin
-			set (TestPtrs + (i*8):ptr)@ptr = a
+			set (TestPtrs + (i*sizeof ptr))@ptr = a
 		end else begin
 			oom[]
 		end
@@ -139,10 +139,10 @@ begin
 		if n <= 0 begin
 			return
 		end
-		set a = (TestPtrs + (i*8):ptr)@ptr
+		set a = (TestPtrs + (i*sizeof ptr))@ptr
 		if a != NULL begin
 			free[a]
-			set (TestPtrs + (i*8):ptr)@ptr = NULL
+			set (TestPtrs + (i*sizeof ptr))@ptr = NULL
 			set n -= 1
 		end
 		set i += 1

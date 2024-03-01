@@ -26,7 +26,7 @@ begin
         exit 2ss
     end
 
-    if sizeof P != sizeof Q or sizeof P !- sizeof R begin
+    if sizeof P != sizeof Q or sizeof P != sizeof R begin
         exit 3ss
     end 
 end

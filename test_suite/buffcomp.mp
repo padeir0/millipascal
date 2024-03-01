@@ -28,7 +28,7 @@ begin
 	set i = 0
 	while i < size1
 	begin
-		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8
+		if (p1 + i)@i8 != (p2 + i)@i8
 		begin
 			return false
 		end

@@ -9,7 +9,7 @@ end
 
 proc middle[] ptr
 begin
-	return buff + 256p
+	return buff + 256
 end
 
 proc square[n:i64] i64

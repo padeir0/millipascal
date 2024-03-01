@@ -38,7 +38,7 @@ begin
 	while i < NUM_POINTERS
 	begin
 		set out = alloc[]
-		set (Test + (i*sizeof ptr):ptr)@ptr = out
+		set (Test + (i*sizeof ptr))@ptr = out
 		set i += 1
 	end
 
@@ -47,7 +47,7 @@ begin
 	begin
 		if i % 2 == 0
 		begin
-			free[(Test + (i*sizeof ptr):ptr)@ptr]
+			free[(Test + (i*sizeof ptr))@ptr]
 		end
 		set i += 1
 	end
@@ -57,7 +57,7 @@ begin
 	begin
 		if i % 2 != 0
 		begin
-			free[(Test + (i*sizeof ptr):ptr)@ptr]
+			free[(Test + (i*sizeof ptr))@ptr]
 		end
 		set i -= 1
 	end
@@ -79,7 +79,7 @@ begin
 end
 
 proc alloc[] ptr
-var curr, position:ptr
+var curr:ptr, position:i64
 begin
 	if Head@ptr == NULL
 	begin
@@ -89,27 +89,27 @@ begin
 	set curr = Head@ptr
 	set Head@ptr = (Head@ptr)@ptr # get the next one
 
-	set position = (curr - Pool) / (ChunkSize@ptr)
+	set position = (curr:i64 - Pool:i64) / (ChunkSize@i64)
 	set (ByteMap + position)@i8 = FULL
 
 	return curr
 end
 
 proc free[p:ptr]
-var position:ptr
+var position:i64
 begin
-	if p < Pool or p > (Pool + (sizeof Pool):ptr)
+	if p < Pool or p > (Pool + (sizeof Pool))
 	begin
 		fatal[ERR_BOUNDS, sizeof ERR_BOUNDS]
 	end
 
-	if (p-Pool):i64 % ChunkSize@i64 != 0
+	if (p-Pool:i64):i64 % ChunkSize@i64 != 0
 	begin
 		fatal[ERR_ALIGN, sizeof ERR_ALIGN]
 	end
 
 	set p@ptr = NULL
-	set position = (p - Pool) / (ChunkSize@ptr)
+	set position = (p:i64 - Pool:i64) / (ChunkSize@i64)
 	set (ByteMap + position)@i8 = EMPTY
 
 	if Head@ptr == NULL
@@ -129,11 +129,11 @@ begin
 	put_char['[']
 	while i < (sizeof Pool)/(ChunkSize@i64)
 	begin
-		if (ByteMap+i:ptr)@i8 == EMPTY
+		if (ByteMap+i)@i8 == EMPTY
 		begin
 			put_char[' ']
 		end
-		if (ByteMap+i:ptr)@i8 == FULL
+		if (ByteMap+i)@i8 == FULL
 		begin
 			put_char['X']
 		end
@@ -149,10 +149,10 @@ begin
 	set i = 0
 	while i < size
 	begin
-		set (start+i:ptr)@ptr = start + (i+chunksize):ptr
+		set (start+i)@ptr = start + (i+chunksize)
 		set i += chunksize
 	end
 	set i -= chunksize
-	set (start+i:ptr)@ptr = NULL
-	set Tail@ptr = (start+i:ptr)
+	set (start+i)@ptr = NULL
+	set Tail@ptr = (start+i)
 end

@@ -196,7 +196,7 @@ func IsBool(t *Type) bool {
 	return IsBasic(t) && t.Basic == Bool
 }
 
-func IsNumber(t *Type) bool {
+func IsInteger(t *Type) bool {
 	if !IsBasic(t) {
 		return false
 	}
@@ -208,11 +208,10 @@ func IsNumber(t *Type) bool {
 		b == U8 ||
 		b == U16 ||
 		b == U32 ||
-		b == U64 ||
-		b == Ptr
+		b == U64
 }
 
-func IsInt(t *Type) bool {
+func IsSigned(t *Type) bool {
 	if !IsBasic(t) {
 		return false
 	}
@@ -223,7 +222,7 @@ func IsInt(t *Type) bool {
 		b == I64
 }
 
-func IsUint(t *Type) bool {
+func IsUnsigned(t *Type) bool {
 	if !IsBasic(t) {
 		return false
 	}

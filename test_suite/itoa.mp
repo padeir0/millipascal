@@ -44,7 +44,7 @@ begin
 	set i = 0
 	while i < size1
 	begin
-		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8 begin
+		if (p1 + i)@i8 != (p2 + i)@i8 begin
 			return false
 		end
 		set i += 1
@@ -59,7 +59,7 @@ proc itoa[n:i64] ptr, i64
 var p:ptr, signal:i8
 begin
 	set signal = 0ss
-	set p = itoa_buff + (sizeof itoa_buff):ptr - 1p # end of buffer
+	set p = itoa_buff - 1 + sizeof itoa_buff # end of buffer
 
 	if n == 0 begin
 		set itoa_buff@i8 = '0'
@@ -74,15 +74,15 @@ begin
 	while n > 0 begin
 		set p@i8 = (n % 10):i8 + '0'
 		set n /= 10;
-		set p -= 1p
+		set p -= 1
 	end
 
 	if signal == '-' begin
 		set p@i8 = signal
 	end else begin
-		set p += 1p;
+		set p += 1;
 	end
 
-	return p, (sizeof itoa_buff)-(p-itoa_buff):i64 
+	return p, (sizeof itoa_buff)-(p:i64-itoa_buff:i64) 
 end
 

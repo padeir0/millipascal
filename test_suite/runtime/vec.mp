@@ -45,10 +45,10 @@ end
 
 const META_SIZE = 32
 
-const M_ITEMSIZE_OFFSET = 0p  # i32
-const M_EQPROC_OFFSET = 8p    # proc[ptr, ptr]bool
-const M_COPYPROC_OFFSET = 16p # proc[ptr, ptr]
-const M_FREEPROC_OFFSET = 24p # proc[ptr]
+const M_ITEMSIZE_OFFSET = 0  # i32
+const M_EQPROC_OFFSET = 8    # proc[ptr, ptr]bool
+const M_COPYPROC_OFFSET = 16 # proc[ptr, ptr]
+const M_FREEPROC_OFFSET = 24 # proc[ptr]
 
 proc set_meta[
     meta:ptr,
@@ -72,10 +72,10 @@ end
 
 const VEC_HEADER_SIZE = 24
 
-const VH_PTR_OFFSET = 0p   # ptr
-const VH_LEN_OFFSET = 8p   # i32
-const VH_CAP_OFFSET = 12p  # i32
-const VH_META_OFFSET = 16p # ptr
+const VH_PTR_OFFSET = 0   # ptr
+const VH_LEN_OFFSET = 8   # i32
+const VH_CAP_OFFSET = 12  # i32
+const VH_META_OFFSET = 16 # ptr
 
 data ERR_INVALID_CAP "error: capacity is smaller than length\n"
 
@@ -136,7 +136,7 @@ var i:i64
 begin
     set i = 0
     while i < len begin
-        free_item[ array+(itemSize:ptr*i:ptr) ]
+        free_item[ array+(itemSize*i) ]
         set i += 1
     end
 end
@@ -234,7 +234,7 @@ begin
     set meta = (vec+VH_META_OFFSET)@ptr
     set itemSize = (meta+M_ITEMSIZE_OFFSET)@i32
 
-    return array+(itemSize:ptr*index:ptr)
+    return array+(itemSize:i64*index)
 end
 
 data ERR_INCOMPATIBLE_META "vectors have incompatible metadata\n"
@@ -269,7 +269,7 @@ begin
     set bArray = (vecB+VH_PTR_OFFSET)@ptr
 
     copy_array[destArray, aArray, lenA, itemSize:i64, copy]
-    copy_array[destArray+(lenA*itemSize):ptr, bArray, lenB, itemSize:i64, copy]
+    copy_array[destArray+(lenA*itemSize), bArray, lenB, itemSize:i64, copy]
 
     return vecRes
 end
@@ -369,7 +369,7 @@ begin
     set vecOut   = new_vec[meta, length:i32, length:i32]
     set arrayOut = (vecOut+VH_PTR_OFFSET)@ptr
     
-    copy_array[arrayOut, array+(start*itemSize):ptr, length, itemSize, copy]
+    copy_array[arrayOut, array+(start*itemSize), length, itemSize, copy]
     
     return vecOut
 end
@@ -456,8 +456,8 @@ var i:i64,
 begin
     set i = 0
     while i < len begin
-        set a = sourceArray+(itemSize:ptr*i:ptr)
-        set b = destArray+(itemSize:ptr*i:ptr)
+        set a = sourceArray+(itemSize*i)
+        set b = destArray+(itemSize*i)
 
         copy[b, a]
 

@@ -6,7 +6,7 @@ begin
 	set a = 0;
 	set p = hello;
 	while a < sizeof hello begin
-		set (p+a:ptr)@i8 = 'A'
+		set (p+a)@i8 = 'A'
 		set a += 1;
 	end
 	write[hello, sizeof hello]

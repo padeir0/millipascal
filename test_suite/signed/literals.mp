@@ -72,17 +72,17 @@ begin
 	end
 
 	set e = 0b0111111111111111111111111111111111111111111111111111111111111111p
-	if e+1p != ~9223372036854775808p
+	if e+1 != (1u << 63u):ptr
 	begin
 		exit 1ss
 	end
 	set e = 0x7FFFFFFFFFFFFFFFp;
-	if e+1p != ~9223372036854775808p
+	if e+1 != (1u << 63u):ptr
 	begin
 		exit 1ss
 	end
 	set e = 9223372036854775807p;
-	if e+1p != ~9223372036854775808p
+	if e+1 != (1u << 63u):ptr
 	begin
 		exit 1ss
 	end

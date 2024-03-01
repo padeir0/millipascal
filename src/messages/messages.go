@@ -108,8 +108,8 @@ func ErrorMismatchedAssignment(M *ir.Module, assignee *ir.Node) *Error {
 	return NewSemanticError(M, et.MismatchedTypeInAssign, assignee, "mismatched number of expressions in assignment")
 }
 
-func ErrorInvalidClassForExpr(M *ir.Module, op, operand *ir.Node, descr string) *Error {
-	return NewSemanticError(M, et.InvalidClassforExpr, op, "invalid type for operator "+op.Text+" has "+operand.T.String()+", expected "+descr)
+func ErrorInvalidTypeForExpr(M *ir.Module, op, operand *ir.Node, descr string) *Error {
+	return NewSemanticError(M, et.InvalidTypeForExpr, op, "invalid type for operator "+op.Text+" has "+operand.T.String()+", expected "+descr)
 }
 
 func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *Error {

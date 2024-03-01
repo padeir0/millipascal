@@ -390,12 +390,12 @@ proc test_all[
     tester:proc[ptr, i64]bool
 ] begin
     test_n[amount, meta, test_push, setter, tester]
-    # test_n[amount, meta, test_iter_len, setter, tester]
-    # test_n[amount, meta, test_pop,      setter, tester]
-    # test_n[amount, meta, test_concat,   setter, tester]
-    # test_n[amount, meta, test_copy1_eq, setter, tester]
-    # test_n[amount, meta, test_copy2_eq, setter, tester]
-    # test_n[amount, meta, test_slice,    setter, tester]
+    test_n[amount, meta, test_iter_len, setter, tester]
+    test_n[amount, meta, test_pop,      setter, tester]
+    test_n[amount, meta, test_concat,   setter, tester]
+    test_n[amount, meta, test_copy1_eq, setter, tester]
+    test_n[amount, meta, test_copy2_eq, setter, tester]
+    test_n[amount, meta, test_slice,    setter, tester]
 end
 
 proc test_n[

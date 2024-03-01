@@ -11,7 +11,7 @@ begin
 	set b1 = buff1;
 	set b2 = buff2;
 
-	set (buff1+((sizeof buff1)/2):ptr)@i8 = 'O';
+	set (buff1+(sizeof buff1)/2)@i8 = 'O';
 
 	while gen < 1024 begin
 
@@ -30,7 +30,7 @@ begin
 	set a = 0
 	while a < size
 	begin
-		set (p+a:ptr)@i8 = ' '
+		set (p+a)@i8 = ' '
 		set a += 1
 	end
 end
@@ -41,7 +41,7 @@ begin
 	set a = 1
 	while a < size -2
 	begin
-		set (b2+a:ptr)@i8 = rule110[b1, a]
+		set (b2+a)@i8 = rule110[b1, a]
 		set a += 1
 	end
 end
@@ -50,9 +50,9 @@ proc rule110[buff:ptr, index:i64] i8
 var left, curr, right:i8
 begin
 
-	set left  =  (buff + index:ptr - 1p)@i8
-	set curr  =  (buff + index:ptr)@i8
-	set right =  (buff + index:ptr + 1p)@i8
+	set left  =  (buff + index - 1)@i8
+	set curr  =  (buff + index)@i8
+	set right =  (buff + index + 1)@i8
 
 	if left == 'O' begin
 		if curr == 'O' begin
@@ -111,7 +111,7 @@ proc itoa[n:i64] ptr, i64
 var p:ptr, signal:i8
 begin
 	set signal = 0ss
-	set p = itoa_buff + (sizeof itoa_buff):ptr - 1p # end of buffer
+	set p = itoa_buff - 1 + sizeof itoa_buff # end of buffer
 
 	if n == 0 begin
 		set itoa_buff@i8 = '0'
@@ -126,14 +126,14 @@ begin
 	while n > 0 begin
 		set p@i8 = (n % 10):i8 + '0'
 		set n /= 10;
-		set p -= 1p
+		set p -= 1
 	end
 
 	if signal == '-' begin
 		set p@i8 = signal
 	end else begin
-		set p += 1p;
+		set p += 1;
 	end
 
-	return p, (sizeof itoa_buff)-(p-itoa_buff):i64 
+	return p, (sizeof itoa_buff)-(p:i64-itoa_buff:i64)
 end

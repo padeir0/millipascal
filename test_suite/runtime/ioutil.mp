@@ -113,15 +113,15 @@ begin
 		return ConvBuff, 1
 	end
 
-	set p = buff + buffSize:ptr
+	set p = buff + buffSize
 
 	while n > 0u begin
-		set p -= 1p
+		set p -= 1
 		set p@i8 = (n % 10u):i8 + '0'
 		set n /= 10u;
 	end
 
-	return p, buffSize-(p-buff):i64 
+	return p, buffSize-(p:i64-buff:i64) 
 end
 
 # do not modify the returned buffer
@@ -138,8 +138,8 @@ begin
 	set buff, buffSize = u64_to_dec[n:u64, buff, buffSize]
 
 	if sign == '~' begin
-		set (buff-1p)@i8 = sign
-		return buff-1p, buffSize+1
+		set (buff-1)@i8 = sign
+		return buff-1, buffSize+1
 	end
 	return buff, buffSize
 end
@@ -166,17 +166,17 @@ begin
 		fatal[BUFF_TOO_SMALL, sizeof BUFF_TOO_SMALL]
 	end
 	# loop unroll LOL
-	set (buff+0p)@u8 = '0':u8 + ((b && 0b1000_0000uss) != 0uss):u8
-	set (buff+1p)@u8 = '0':u8 + ((b && 0b0100_0000uss) != 0uss):u8
-	set (buff+2p)@u8 = '0':u8 + ((b && 0b0010_0000uss) != 0uss):u8
-	set (buff+3p)@u8 = '0':u8 + ((b && 0b0001_0000uss) != 0uss):u8
+	set (buff+0)@u8 = '0':u8 + ((b && 0b1000_0000uss) != 0uss):u8
+	set (buff+1)@u8 = '0':u8 + ((b && 0b0100_0000uss) != 0uss):u8
+	set (buff+2)@u8 = '0':u8 + ((b && 0b0010_0000uss) != 0uss):u8
+	set (buff+3)@u8 = '0':u8 + ((b && 0b0001_0000uss) != 0uss):u8
 
-	set (buff+4p)@i8 = '_'
+	set (buff+4)@i8 = '_'
 
-	set (buff+5p)@u8 = '0':u8 + ((b && 0b0000_1000uss) != 0uss):u8
-	set (buff+6p)@u8 = '0':u8 + ((b && 0b0000_0100uss) != 0uss):u8
-	set (buff+7p)@u8 = '0':u8 + ((b && 0b0000_0010uss) != 0uss):u8
-	set (buff+8p)@u8 = '0':u8 + ((b && 0b0000_0001uss) != 0uss):u8
+	set (buff+5)@u8 = '0':u8 + ((b && 0b0000_1000uss) != 0uss):u8
+	set (buff+6)@u8 = '0':u8 + ((b && 0b0000_0100uss) != 0uss):u8
+	set (buff+7)@u8 = '0':u8 + ((b && 0b0000_0010uss) != 0uss):u8
+	set (buff+8)@u8 = '0':u8 + ((b && 0b0000_0001uss) != 0uss):u8
 	return buff, 9
 end
 
@@ -191,11 +191,11 @@ begin
 		if i >= buffSize begin
 			fatal[BUFF_TOO_SMALL, sizeof BUFF_TOO_SMALL]
 		end
-		set (buff+i:ptr)@u8 = '0':u8 + ((b && mask) != 0us):u8
+		set (buff+i)@u8 = '0':u8 + ((b && mask) != 0us):u8
 
 		if j == 3 begin
 			set i += 1
-			set (buff+i:ptr)@i8 = '_'
+			set (buff+i)@i8 = '_'
 		end
 
 		set mask = mask >> 1us

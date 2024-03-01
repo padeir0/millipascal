@@ -26,29 +26,29 @@ begin
     if p@u8 && 0b1000_0000uss == 0uss begin # ascii
         return (p@u8 && LOWEST_7_BITS):i32, 1
     end elseif p@u8 && 0b1110_0000uss == 0b1100_0000uss begin # 2 byte sequence
-        if (p+1p)@u8 && TOP_2_BITS != TOP_BIT begin
+        if (p+1)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
         end
         return ((p@u8 && LOWEST_5_BITS):i32 << 6l) ||
-               ((p+1p)@u8 && LOWEST_6_BITS):i32, 2
+               ((p+1)@u8 && LOWEST_6_BITS):i32, 2
     end elseif p@u8 && 0b1111_0000uss == 0b1110_0000uss begin # 3 byte sequence
-        if (p+1p)@u8 && TOP_2_BITS != TOP_BIT or
-           (p+2p)@u8 && TOP_2_BITS != TOP_BIT begin
+        if (p+1)@u8 && TOP_2_BITS != TOP_BIT or
+           (p+2)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
         end
         return ((p@u8 && LOWEST_4_BITS):i32 << 12l) ||
-               (((p+1p)@u8 && LOWEST_6_BITS):i32 << 6l) ||
-               ((p+2p)@u8 && LOWEST_6_BITS):i32, 3
+               (((p+1)@u8 && LOWEST_6_BITS):i32 << 6l) ||
+               ((p+2)@u8 && LOWEST_6_BITS):i32, 3
     end elseif p@u8 && 0b1111_1000uss == 0b1111_0000uss begin # 4 byte sequence
-        if (p+1p)@u8 && TOP_2_BITS != TOP_BIT or
-           (p+2p)@u8 && TOP_2_BITS != TOP_BIT or
-           (p+3p)@u8 && TOP_2_BITS != TOP_BIT begin
+        if (p+1)@u8 && TOP_2_BITS != TOP_BIT or
+           (p+2)@u8 && TOP_2_BITS != TOP_BIT or
+           (p+3)@u8 && TOP_2_BITS != TOP_BIT begin
             return ~1l, 0
         end
         return ((p@u8 && LOWEST_4_BITS):i32 << 18l) ||
-               (((p+1p)@u8 && LOWEST_6_BITS):i32 << 12l) ||
-               (((p+2p)@u8 && LOWEST_6_BITS):i32 << 6l) ||
-               ((p+3p)@u8 && LOWEST_6_BITS):i32, 4
+               (((p+1)@u8 && LOWEST_6_BITS):i32 << 12l) ||
+               (((p+2)@u8 && LOWEST_6_BITS):i32 << 6l) ||
+               ((p+3)@u8 && LOWEST_6_BITS):i32, 4
     end
     fatal[ERR_OUT_OF_RANGE, sizeof ERR_OUT_OF_RANGE]
     return ~1l, 0
@@ -75,23 +75,23 @@ begin
         set p@u8 = (rune && 0b0111_1111l):u8
         return 1
     end elseif RANGE_S_2 <= rune and rune <= RANGE_E_2 begin # 2 byte sequence
-        set (p+1p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+1)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
         set (p)@u8 = (rune && LOWEST_5_BITS:i32):u8 || 0b1100_0000uss
         return 2
     end elseif RANGE_S_3 <= rune and rune <= RANGE_E_3 begin # 3 byte sequence
-        set (p+2p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+2)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
-        set (p+1p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+1)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
         set (p)@u8 = (rune && LOWEST_4_BITS:i32):u8 || 0b1110_0000uss
         return 3
     end elseif RANGE_S_4 <= rune and rune <= RANGE_E_4 begin # 4 byte sequence
-        set (p+3p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+3)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
-        set (p+2p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+2)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
-        set (p+1p)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
+        set (p+1)@u8 = (rune && LOWEST_6_BITS:i32):u8 || 0b1000_0000uss
         set rune = rune >> 6l
         set (p)@u8 = (rune && LOWEST_3_BITS:i32):u8 || 0b1111_0000uss
         return 4

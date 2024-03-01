@@ -113,7 +113,7 @@ begin
     while i <= (runeEnd-runeStart) and
           p + rune_size[runeStart+i] <= buffSize
     begin
-        set runeSize = utf8_encode[runeStart + i, buff+p:ptr]
+        set runeSize = utf8_encode[runeStart + i, buff+p]
         set p += runeSize
         set i += 1l
     end

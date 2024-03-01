@@ -13,7 +13,7 @@ begin
 	set a = 0
 	while a < size
 	begin
-		set (p+a:ptr)@i8 = transform[ (p+a:ptr)@i8 ]
+		set (p+a)@i8 = transform[ (p+a)@i8 ]
 		set a += 1
 	end
 end
@@ -30,7 +30,7 @@ begin
 	set i = 0
 	while i < size
 	begin
-		set (p+i:ptr)@i64 = 0
+		set (p+i)@i64 = 0
 		set i += 8
 	end
 end
@@ -41,7 +41,7 @@ begin
 	set a = 0
 	while a < size
 	begin
-		set (p+a:ptr)@i8 = b
+		set (p+a)@i8 = b
 		set a += 1
 	end
 end
@@ -57,7 +57,7 @@ begin
 	set i = 0
 	while i < size1
 	begin
-		if (p1 + i:ptr)@i8 != (p2 + i:ptr)@i8
+		if (p1 + i)@i8 != (p2 + i)@i8
 		begin
 			return false
 		end
@@ -73,7 +73,7 @@ begin
 	set i = 0
 	while i < smallest
 	begin
-		set (dest + i:ptr)@i8 = (source + i:ptr)@i8
+		set (dest + i)@i8 = (source + i)@i8
 		set i += 1
 	end
 end

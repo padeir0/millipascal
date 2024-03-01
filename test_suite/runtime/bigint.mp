@@ -55,7 +55,7 @@ const DIGITS_PER_INT = 9
 # we can do this because there's a 4 byte padding in the object header
 # that we're allowed to use for other stuff
 
-const ARRAY_NEG_OFFSET = 1p
+const ARRAY_NEG_OFFSET = 1
 
 # BigInt Header (positive offset)
 #  ├── 4 bytes, offset 0: capacity
@@ -64,9 +64,9 @@ const ARRAY_NEG_OFFSET = 1p
 
 const BINT_HEADERSIZE = 16
 
-const BINT_CAP_OFFSET = 0p
-const BINT_LEN_OFFSET = 4p
-const BINT_PTR_OFFSET = 8p
+const BINT_CAP_OFFSET = 0
+const BINT_LEN_OFFSET = 4
+const BINT_PTR_OFFSET = 8
 
 # pointer in second word
 const BINT_BITMAP = 0b01000000_00000000_00000000_00000000ul
@@ -105,17 +105,17 @@ begin
     set first = true
     if neg begin
         set block@i8 = '~'
-        set block += 1p
+        set block += 1
         set size += 1
     end
     while 0 <= i begin
-        set currDigit = array + (i*sizeof i32):ptr
-        if (block - buff):i64 >= buffSize-DIGITS_PER_INT begin
+        set currDigit = array + i*sizeof i32
+        if (block:i64 - buff:i64) >= buffSize-DIGITS_PER_INT begin
             fatal[ERR_STR_OVERFLOW, sizeof ERR_STR_OVERFLOW]
         end
         put_i32[currDigit@i32, block, first]
         set first = false
-        set block += DIGITS_PER_INT:ptr
+        set block += DIGITS_PER_INT
         set size += DIGITS_PER_INT
         set i -= 1
     end
@@ -129,23 +129,23 @@ begin
 	begin
         set i = 0
         while i <= 9 begin
-    		set (digits + i:ptr)@i8 = '0'
+    		set (digits + i)@i8 = '0'
             set i += 1
         end
         return;
 	end
-	set p = digits + DIGITS_PER_INT:ptr - 1p # end of buffer
+	set p = digits + DIGITS_PER_INT - 1 # end of buffer
 	while n > 0l begin
 		set p@i8 = (n % 10l):i8 + '0'
 		set n /= 10l;
-		set p -= 1p
+		set p -= 1
 	end
 
     # padding
     if not first begin
         while p >= digits begin
     		set p@i8 = '0'
-            set p -= 1p
+            set p -= 1
         end
     end
 end
@@ -290,7 +290,7 @@ begin
         set (bint+BINT_PTR_OFFSET)@ptr = new_array
         set array = new_array
     end
-    set (array+(len:i64*sizeof i32):ptr)@i32 = digit
+    set (array+(len:i64*sizeof i32))@i32 = digit
     set (bint+BINT_LEN_OFFSET)@i32 = len + 1l
 end
 
@@ -350,7 +350,7 @@ var i:i64
 begin
     set i = 0
     while i < size begin
-        set (dest+(i*sizeof i32):ptr)@i32 = (source+(i*sizeof i32):ptr)@i32
+        set (dest+i*sizeof i32)@i32 = (source+i*sizeof i32)@i32
         set i += 1
     end
 end
@@ -361,11 +361,11 @@ begin
     set arraySlot = bint+BINT_PTR_OFFSET
     set len = (bint+BINT_LEN_OFFSET)@i32:i64
     set i = len-1
-    set currDigit = arraySlot@ptr+(i*sizeof i32):ptr
+    set currDigit = arraySlot@ptr+i*sizeof i32
     while currDigit@i32 == 0l and 0 <= i begin
         set len -= 1
         set i -= 1
-        set currDigit = arraySlot@ptr+(i*sizeof i32):ptr
+        set currDigit = arraySlot@ptr+i*sizeof i32
     end
 
     set (bint+BINT_LEN_OFFSET)@i32 = len:i32
@@ -406,7 +406,7 @@ begin
 
     while 0 <= i begin
         abs_mult_base[iIDD]
-        abs_add_digit[iIDD, (arrayA+(i*sizeof i32):ptr)@i32, iIDD]
+        abs_add_digit[iIDD, (arrayA+i*sizeof i32)@i32, iIDD]
 
         # find quotient digit
         if abs_comp[iIDD, iB] == MORE begin
@@ -506,7 +506,7 @@ begin
     set i = lenA-1
     while 0 <= i begin
         set idd *= BASE:i64
-        set idd += (arrayA+(i*sizeof i32):ptr)@i32:i64
+        set idd += (arrayA+i*sizeof i32)@i32:i64
 
         set q = idd / b64
         set idd -= q*b64
@@ -569,7 +569,7 @@ begin
 
     set i = 0
     while i < lenA begin
-        set currDigitA = arrayA+(i*sizeof i32):ptr
+        set currDigitA = arrayA+i*sizeof i32
         set j = 0
         set carry = 0l
         while j < lenB or carry > 0l begin
@@ -577,8 +577,8 @@ begin
                 push_digit[iC, 0l]
                 set lenC += 1
             end
-            set currDigitB = arrayB+(j*sizeof i32):ptr
-            set currDigitC = arraySlotC@ptr+((i+j)*sizeof i32):ptr
+            set currDigitB = arrayB+j*sizeof i32
+            set currDigitC = arraySlotC@ptr+(i+j)*sizeof i32
             if j < lenB begin
                 set res = currDigitC@i32:i64 + carry:i64 + currDigitA@i32:i64*currDigitB@i32:i64
             end else begin
@@ -604,7 +604,7 @@ begin
     set array = (bint+BINT_PTR_OFFSET)@ptr
     set i = len-1
     while 0 < i begin
-        set (array+(i*sizeof i32):ptr)@i32 = (array+((i-1)*sizeof i32):ptr)@i32
+        set (array+i*sizeof i32)@i32 = (array+(i-1)*sizeof i32)@i32
         set i -= 1
     end
     set array@i32 = 0l # zeroes the first one
@@ -635,8 +635,8 @@ begin
             push_digit[iC, 0l]
             set lenC += 1
         end
-        set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
-        set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+        set currDigitA = arraySlotA@ptr+i*sizeof i32
+        set currDigitC = arraySlotC@ptr+i*sizeof i32
 
         set res = carry:i64
         if i < lenA begin
@@ -692,9 +692,9 @@ begin
             push_digit[iC, 0l]
             set lenC += 1
         end
-        set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
-        set currDigitB = arraySlotB@ptr+(i*sizeof i32):ptr
-        set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+        set currDigitA = arraySlotA@ptr+i*sizeof i32
+        set currDigitB = arraySlotB@ptr+i*sizeof i32
+        set currDigitC = arraySlotC@ptr+i*sizeof i32
 
         set res = ~carry
         if i < lenA begin
@@ -752,8 +752,8 @@ begin
         set lenC += 1
     end
 
-    set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
-    set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+    set currDigitA = arraySlotA@ptr+i*sizeof i32
+    set currDigitC = arraySlotC@ptr+i*sizeof i32
 
     set currDigitC@i32 = currDigitA@i32 - digit
 
@@ -768,8 +768,8 @@ begin
             push_digit[iC, 0l]
             set lenC += 1
         end
-        set currDigitA = arraySlotA@ptr+(i*sizeof i32):ptr
-        set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+        set currDigitA = arraySlotA@ptr+i*sizeof i32
+        set currDigitC = arraySlotC@ptr+i*sizeof i32
 
         if i < lenA begin
             set res = currDigitA@i32
@@ -832,8 +832,8 @@ begin
 
     set i = lenA-1 # we go backwards (MSD -> LSD)
     while 0 <= i begin
-        set currDigitA = arrayA+(i*sizeof i32):ptr
-        set currDigitB = arrayB+(i*sizeof i32):ptr
+        set currDigitA = arrayA+i*sizeof i32
+        set currDigitB = arrayB+i*sizeof i32
         
         if currDigitB@i32 < currDigitA@i32 begin
             return MORE
@@ -899,13 +899,13 @@ begin
             push_digit[iC, 0l]
             set lenC += 1
         end
-        set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+        set currDigitC = arraySlotC@ptr+i*sizeof i32
         set res = carry
         if i < lenA begin
-            set res += (arraySlotA@ptr+(i*sizeof i32):ptr)@i32
+            set res += (arraySlotA@ptr+i*sizeof i32)@i32
         end
         if i < lenB begin
-            set res += (arraySlotB@ptr+(i*sizeof i32):ptr)@i32
+            set res += (arraySlotB@ptr+i*sizeof i32)@i32
         end
         set currDigitC@i32 = res
         if BASE <= currDigitC@i32 begin
@@ -939,12 +939,12 @@ begin
         push_digit[iC, 0l]
         set lenC += 1
     end
-    set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+    set currDigitC = arraySlotC@ptr+i*sizeof i32
 
     set carry = 0l
     set res = digit
     if i < lenA begin
-         set res += (arraySlotA@ptr + (i*sizeof i32):ptr)@i32
+         set res += (arraySlotA@ptr + i*sizeof i32)@i32
     end
     set currDigitC@i32 = res
 
@@ -959,10 +959,10 @@ begin
             push_digit[iC, 0l]
             set lenC += 1
         end
-        set currDigitC = arraySlotC@ptr+(i*sizeof i32):ptr
+        set currDigitC = arraySlotC@ptr+i*sizeof i32
         set res = carry
         if i < lenA begin
-            set res += (arraySlotA@ptr + (i*sizeof i32):ptr)@i32
+            set res += (arraySlotA@ptr + i*sizeof i32)@i32
         end
         set currDigitC@i32 = res
         if BASE <= currDigitC@i32 begin

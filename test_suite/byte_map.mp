@@ -7,13 +7,13 @@ begin
 end
 
 proc byte_map[b:ptr, bsize:i64, op:proc[i8]i8]
-var i:ptr
+var i:i64
 begin
-	set i = 0p
-	while i < bsize:ptr
+	set i = 0
+	while i < bsize
 	begin
 		set (b+i)@i8 = op[(b+i)@i8]
-		set i += 1p
+		set i += 1
 	end
 end
 

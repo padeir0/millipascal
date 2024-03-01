@@ -20,11 +20,11 @@ end
 data Test [MAX_RUNE_SIZE]
 
 proc test[testRune, upperRune:i32]
-var i:i32, p:ptr, rune:i32,
+var i:i32, p:i64, rune:i32,
     e_size, d_size:i64
 begin
     set i = 0l
-    set p = 0p
+    set p = 0
     while i < (upperRune-testRune) begin
         clear_bytes[Test, sizeof Test]
         set e_size = utf8_encode[testRune + i, Test]
@@ -38,11 +38,11 @@ begin
         if rune != testRune + i begin
             put_u8[Test@u8]
             put_char[' ']
-            put_u8[(Test+1p)@u8]
+            put_u8[(Test+1)@u8]
             put_char[' ']
-            put_u8[(Test+2p)@u8]
+            put_u8[(Test+2)@u8]
             put_char[' ']
-            put_u8[(Test+3p)@u8]
+            put_u8[(Test+3)@u8]
             put_ln[]
             exit 2ss
         end

@@ -11,16 +11,16 @@ data a {:i64 0xF, 0xFF, ~0xFFF, ~0xFFFF}
 
 proc test_a
 begin
-    if (a + (0*sizeof i64):ptr)@i64 != 0xF begin
+    if (a + 0*sizeof i64)@i64 != 0xF begin
         exit 1ss
     end
-    if (a + (1*sizeof i64):ptr)@i64 != 0xFF begin
+    if (a + 1*sizeof i64)@i64 != 0xFF begin
         exit 2ss
     end
-    if (a + (2*sizeof i64):ptr)@i64 != ~0xFFF begin
+    if (a + 2*sizeof i64)@i64 != ~0xFFF begin
         exit 3ss
     end
-    if (a + (3*sizeof i64):ptr)@i64 != ~0xFFFF begin
+    if (a + 3*sizeof i64)@i64 != ~0xFFFF begin
         exit 4ss
     end
 
@@ -33,13 +33,13 @@ data b {:i32 0xAl, ~0xAAl, 0xAAAl}
 
 proc test_b
 begin
-    if (b + (0*sizeof i32):ptr)@i32 != 0xAl begin
+    if (b + 0*sizeof i32)@i32 != 0xAl begin
         exit 6ss
     end
-    if (b + (1*sizeof i32):ptr)@i32 != ~0xAAl begin
+    if (b + 1*sizeof i32)@i32 != ~0xAAl begin
         exit 7ss
     end
-    if (b + (2*sizeof i32):ptr)@i32 != 0xAAAl begin
+    if (b + 2*sizeof i32)@i32 != 0xAAAl begin
         exit 8ss
     end
 
@@ -52,13 +52,13 @@ data c {:i16 0xAs, ~0xAAs, 0xAAAs}
 
 proc test_c
 begin
-    if (c + (0*sizeof i16):ptr)@i16 != 0xAs begin
+    if (c + 0*sizeof i16)@i16 != 0xAs begin
         exit 10ss
     end
-    if (c + (1*sizeof i16):ptr)@i16 != ~0xAAs begin
+    if (c + 1*sizeof i16)@i16 != ~0xAAs begin
         exit 11ss
     end
-    if (c + (2*sizeof i16):ptr)@i16 != 0xAAAs begin
+    if (c + 2*sizeof i16)@i16 != 0xAAAs begin
         exit 12ss
     end
 
@@ -71,13 +71,13 @@ data d {:i8 0xAss, ~0xAss, 0x7Fss}
 
 proc test_d
 begin
-    if (d + (0*sizeof i8):ptr)@i8 != 0xAss begin
+    if (d + 0*sizeof i8)@i8 != 0xAss begin
         exit 14ss
     end
-    if (d + (1*sizeof i8):ptr)@i8 != ~0xAss begin
+    if (d + 1*sizeof i8)@i8 != ~0xAss begin
         exit 15ss
     end
-    if (d + (2*sizeof i8):ptr)@i8 != 0x7Fss begin
+    if (d + 2*sizeof i8)@i8 != 0x7Fss begin
         exit 16ss
     end
 
@@ -90,13 +90,13 @@ data e {:u8 0xAuss, 0xFuss, 0x7Fuss}
 
 proc test_e
 begin
-    if (e + (0*sizeof u8):ptr)@u8 != 0xAuss begin
+    if (e + 0*sizeof u8)@u8 != 0xAuss begin
         exit 18ss
     end
-    if (e + (1*sizeof u8):ptr)@u8 != 0xFuss begin
+    if (e + 1*sizeof u8)@u8 != 0xFuss begin
         exit 19ss
     end
-    if (e + (2*sizeof u8):ptr)@u8 != 0x7Fuss begin
+    if (e + 2*sizeof u8)@u8 != 0x7Fuss begin
         exit 20ss
     end
 
