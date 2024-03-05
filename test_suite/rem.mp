@@ -1,12 +1,12 @@
 proc main
 var a, b:i64
 begin
-    set a = ~7
-    set b = 7
+    set a = ~7;
+    set b = 7;
     if a%5 != ~2 begin
-        exit 1ss
+        exit 1ss;
     end
     if b%5 != 2 begin
-        exit 2ss
+        exit 2ss;
     end
 end

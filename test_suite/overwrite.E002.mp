@@ -4,5 +4,5 @@ end
 
 proc main
 begin
-    write[]
+    write[];
 end

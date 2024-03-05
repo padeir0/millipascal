@@ -21,12 +21,12 @@ import
 
 proc main
 begin
-    init[]
-    test_simple[]
-    test_pop_rune['A':i32, 'z':i32]
-    test_pop_rune[0x3050l, 0x3150l]
-    test_pop_rune[0x56E0l, 0x57E0l]
-    test_dup[]
+    init[];
+    test_simple[];
+    test_pop_rune['A':i32, 'z':i32];
+    test_pop_rune[0x3050l, 0x3150l];
+    test_pop_rune[0x56E0l, 0x57E0l];
+    test_dup[];
 end
 
 data PHRASE0 "My name is Ozymandias"
@@ -36,36 +36,36 @@ proc test_simple
 var a, b, c:ptr,
     f1, f2, f3, f4:ptr
 begin
-    set a = new_str[]
-    set_str[a, PHRASE0, sizeof PHRASE0]
-    set b = new_str[]
-    set_str[b, PHRASE1, sizeof PHRASE1]
+    set a = new_str[];
+    set_str[a, PHRASE0, sizeof[PHRASE0]];
+    set b = new_str[];
+    set_str[b, PHRASE1, sizeof[PHRASE1]];
 
-    set f1 = pop[a, 12]
-    set f2 = peek[a, 1]
-    set f3 = concat[f1, f2]
-    set f4 = pop[a, 2]
-    set c = concat[f3, f4]
+    set f1 = pop[a, 12];
+    set f2 = peek[a, 1];
+    set f3 = concat[f1, f2];
+    set f4 = pop[a, 2];
+    set c = concat[f3, f4];
 
     if not eq_str[b, c] or hash[b] != hash[c] begin
-        exit 1ss
+        exit 1ss;
     end
 
-    free_str[a]
-    free_str[b]
+    free_str[a];
+    free_str[b];
 
-    _free_buff[c] # concat allocates
-    free_str[c]
+    _free_buff[c]; # concat allocates
+    free_str[c];
 
-    free_str[f1]
-    free_str[f2]
+    free_str[f1];
+    free_str[f2];
 
-    _free_buff[f3] # concat allocates
-    free_str[f3]
+    _free_buff[f3]; # concat allocates
+    free_str[f3];
 
-    free_str[f4]
+    free_str[f4];
 
-    validate_init[]
+    validate_init[];
 end
 
 data Buff [64]
@@ -73,32 +73,32 @@ data Buff [64]
 proc test_pop_rune[runeStart, runeEnd:i32]
 var a:ptr, size:i64, r, i:i32
 begin
-    set a = new_str[]
-    set size = fill_buff[Buff, sizeof Buff, runeStart, runeEnd]
-    set_str[a, Buff, size]
+    set a = new_str[];
+    set size = fill_buff[Buff, sizeof[Buff], runeStart, runeEnd];
+    set_str[a, Buff, size];
 
-    set r = pop_rune[a]
-    set i = 0l
+    set r = pop_rune[a];
+    set i = 0l;
     while r != ~1l begin
         if r != runeStart+i begin
-            exit 2ss
+            exit 2ss;
         end
-        set r = pop_rune[a]
-        set i += 1l
+        set r = pop_rune[a];
+        set i += 1l;
     end
 
-    free_str[a]
-    validate_init[]
+    free_str[a];
+    validate_init[];
 end
 
 proc test_dup
 var a, b:ptr
 begin
-    set a = new_str[]
-    set_str[a, PHRASE0, sizeof PHRASE0]
-    set b = dup_str[a]
+    set a = new_str[];
+    set_str[a, PHRASE0, sizeof[PHRASE0]];
+    set b = dup_str[a];
     if not eq_str[a, b] or hash[a] != hash[b] begin
-        exit 3ss
+        exit 3ss;
     end
 end
 
@@ -108,14 +108,14 @@ proc fill_buff[buff:ptr, buffSize:i64, runeStart, runeEnd:i32] i64
 var i:i32,
     p, runeSize:i64
 begin
-    set i = 0l
-    set p = 0
+    set i = 0l;
+    set p = 0;
     while i <= (runeEnd-runeStart) and
           p + rune_size[runeStart+i] <= buffSize
     begin
-        set runeSize = utf8_encode[runeStart + i, buff+p]
-        set p += runeSize
-        set i += 1l
+        set runeSize = utf8_encode[runeStart + i, buff+p];
+        set p += runeSize;
+        set i += 1l;
     end
-    return p
+    return p;
 end

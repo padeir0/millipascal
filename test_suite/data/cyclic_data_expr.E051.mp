@@ -1,4 +1,4 @@
-const a = sizeof m
+const a = sizeof[m]
 
 data m [a]
 

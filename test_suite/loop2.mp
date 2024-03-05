@@ -9,5 +9,5 @@ begin
 		set a += 1ss;
 	end
 
-	set hello@i8 = a:i8
+	set hello@i8 = a:i8;
 end

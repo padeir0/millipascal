@@ -10,12 +10,12 @@ begin
 	set a -= 1ul;
 	if a != 0ul
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 
 	set a -= 1ul;
 	if a != 4294967295ul
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 end

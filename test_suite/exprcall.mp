@@ -3,7 +3,7 @@ var result:i64
 begin
 	set result = square[5] + 1;
 	if result != 26 begin
-		exit 1ss
+		exit 1ss;
 	end
 end
 

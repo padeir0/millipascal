@@ -9,5 +9,5 @@ const h = a
 
 proc main
 begin
-    exit 1ss
+    exit 1ss;
 end

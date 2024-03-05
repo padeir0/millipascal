@@ -8,15 +8,15 @@ const d = globalconsts::i64min + globalconsts::i64max
 proc main
 begin
     if a != ~1 begin
-        exit 1ss
+        exit 1ss;
     end
     if b != ~1 begin
-        exit 2ss
+        exit 2ss;
     end
     if c != ~1 begin
-        exit 3ss
+        exit 3ss;
     end
     if d != ~1 begin
-        exit 4ss
+        exit 4ss;
     end
 end

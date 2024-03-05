@@ -1,7 +1,7 @@
 proc main
 begin
 	if fact[5] != 120 begin
-		exit 1ss
+		exit 1ss;
 	end
 end
 
@@ -10,5 +10,5 @@ begin
 	if n == 0 begin
 		return 1;
 	end
-	return n * fact[n-1]
+	return n * fact[n-1];
 end

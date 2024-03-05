@@ -4,9 +4,9 @@ const b = false
 proc main
 begin
     if a != true begin
-        exit 1ss
+        exit 1ss;
     end
     if b != false begin
-        exit 2ss
+        exit 2ss;
     end
 end

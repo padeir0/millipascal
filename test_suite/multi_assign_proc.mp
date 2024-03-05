@@ -1,19 +1,19 @@
 proc main
 var a, b, c:i64
 begin
-	set a, b, c = P[]
+	set a, b, c = P[];
 	if a != 1 begin
-		exit 1ss
+		exit 1ss;
 	end
 	if b != 2 begin
-		exit 2ss
+		exit 2ss;
 	end
 	if c != 3 begin
-		exit 3ss
+		exit 3ss;
 	end
 end
 
 proc P[] i64, i64, i64
 begin
-	return 1, 2, 3
+	return 1, 2, 3;
 end

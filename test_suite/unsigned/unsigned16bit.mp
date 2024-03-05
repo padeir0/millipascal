@@ -10,12 +10,12 @@ begin
 	set a -= 1us;
 	if a != 0us
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 
 	set a -= 1us;
 	if a != 65535us
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 end

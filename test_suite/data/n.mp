@@ -1,13 +1,13 @@
 import m
 
-const a = sizeof m::M
+const a = sizeof[m::M]
 
 proc main
 begin
-    if sizeof m::M != 100 begin
-        exit 1ss
+    if sizeof[m::M] != 100 begin
+        exit 1ss;
     end
     if a != 100 begin
-        exit 2ss
+        exit 2ss;
     end 
 end

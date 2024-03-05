@@ -5,6 +5,6 @@ const c = a
 proc main
 begin
     if a != b or b != c begin
-        exit 1ss
+        exit 1ss;
     end
 end

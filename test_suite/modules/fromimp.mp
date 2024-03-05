@@ -4,6 +4,6 @@ proc main
 begin
 	if Pi[] + Tau[] + Phi[] != 11
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 end

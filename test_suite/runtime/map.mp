@@ -10,32 +10,32 @@
 # of the array.
 
 const begin
-    METADATA_SIZE = 40
+    METADATA_SIZE = 40;
 
-    M_KEYSIZE_OFFSET = 0
-    M_VALSIZE_OFFSET = 4
-    M_HASHPROC_OFFSET = 8
-    M_EQPROC_OFFSET = 16
-    M_COPYPROC_OFFSET = 24
-    M_FREEPROC_OFFSET = 32
+    M_KEYSIZE_OFFSET = 0;
+    M_VALSIZE_OFFSET = 4;
+    M_HASHPROC_OFFSET = 8;
+    M_EQPROC_OFFSET = 16;
+    M_COPYPROC_OFFSET = 24;
+    M_FREEPROC_OFFSET = 32;
 end 
 
 proc set_meta[
     meta:ptr,
     keySize:i32,
     valSize:i32,
-    hashProc:proc[ptr]i64,
-    eqProc:proc[ptr,ptr]bool,
+    hashProc:proc[ptr][i64],
+    eqProc:proc[ptr,ptr][bool],
     copyProc:proc[ptr,ptr][],
     freeProc:proc[ptr][]
 ]
 begin
-    set (meta+M_KEYSIZE_OFFSET)@i32 = keySize
-    set (meta+M_VALSIZE_OFFSET)@i32 = valSize
-    set (meta+M_HASHPROC_OFFSET)@proc[ptr]i64 = hashProc
-    set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr]bool = eqProc
-    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr][] = copyProc
-    set (meta+M_FREEPROC_OFFSET)@proc[ptr][] = freeProc
+    set (meta+M_KEYSIZE_OFFSET)@i32 = keySize;
+    set (meta+M_VALSIZE_OFFSET)@i32 = valSize;
+    set (meta+M_HASHPROC_OFFSET)@proc[ptr][i64] = hashProc;
+    set (meta+M_EQPROC_OFFSET)@proc[ptr,ptr][bool] = eqProc;
+    set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr][] = copyProc;
+    set (meta+M_FREEPROC_OFFSET)@proc[ptr][] = freeProc;
 end
 
 proc main

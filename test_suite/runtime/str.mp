@@ -53,45 +53,45 @@ const STR_BITMAP = 0b10000000_00000000_00000000_00000000ul
 proc new_str[] ptr
 var array, header:ptr
 begin
-    set header = alloc_b[STR_HEADER_SIZE, 0uss, 0us, STR_BITMAP]
+    set header = alloc_b[STR_HEADER_SIZE, 0uss, 0us, STR_BITMAP];
     if header == NULL begin
-        oom[]
+        oom[];
     end
-    set (header+STR_PTR_OFFSET)@ptr = NULL
-    set (header+STR_START_OFFSET)@i32 = 0l
-    set (header+STR_SIZE_OFFSET)@i32 = 0l
+    set (header+STR_PTR_OFFSET)@ptr = NULL;
+    set (header+STR_START_OFFSET)@i32 = 0l;
+    set (header+STR_SIZE_OFFSET)@i32 = 0l;
 
-    return header
+    return header;
 end
 
 # we do not free the underlying array,
 # since it may be shared. let the gc handle this.
 proc free_str[str:ptr]
 begin
-    free[str]
+    free[str];
 end
 
 proc _free_buff[str:ptr]
 begin
-    free[(str+STR_PTR_OFFSET)@ptr]
+    free[(str+STR_PTR_OFFSET)@ptr];
 end
 
 proc set_str[str, mem:ptr, mem_size:i64]
 var array, header:ptr
 begin
-    set (str+STR_PTR_OFFSET)@ptr = mem
-    set (str+STR_START_OFFSET)@i32 = 0l
-    set (str+STR_SIZE_OFFSET)@i32 = mem_size:i32
+    set (str+STR_PTR_OFFSET)@ptr = mem;
+    set (str+STR_START_OFFSET)@i32 = 0l;
+    set (str+STR_SIZE_OFFSET)@i32 = mem_size:i32;
 end
 
 proc put_str[str:ptr]
 var array:ptr, start, size:i32
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
-    write[(array+start), size:i64]
+    write[(array+start), size:i64];
 end
 
 data NULL_STR "NULL"
@@ -99,12 +99,13 @@ data NULL_STR "NULL"
 proc put_str_debug[str:ptr]
 begin
     if str == NULL begin
-        write[NULL_STR, sizeof NULL_STR]
-        return
+        write[NULL_STR, sizeof[NULL_STR]];
+        return;
     end
-    put_char['"']
-    put_str[str]
-    put_char['"']
+
+    put_char['\"'];
+    put_str[str];
+    put_char['\"'];
 end
 
 # allocates a new str; copies A and B into it
@@ -114,39 +115,39 @@ var outStr:ptr,
     sizeA, sizeB, sizeOut, startA, startB:i32,
     arrayOut, arrayA, arrayB:ptr
 begin
-    set startA = (strA+STR_START_OFFSET)@i32
-    set startB = (strB+STR_START_OFFSET)@i32
+    set startA = (strA+STR_START_OFFSET)@i32;
+    set startB = (strB+STR_START_OFFSET)@i32;
 
-    set sizeA = (strA+STR_SIZE_OFFSET)@i32
-    set sizeB = (strB+STR_SIZE_OFFSET)@i32
+    set sizeA = (strA+STR_SIZE_OFFSET)@i32;
+    set sizeB = (strB+STR_SIZE_OFFSET)@i32;
 
-    set arrayA = (strA+STR_PTR_OFFSET)@ptr
-    set arrayB = (strB+STR_PTR_OFFSET)@ptr
+    set arrayA = (strA+STR_PTR_OFFSET)@ptr;
+    set arrayB = (strB+STR_PTR_OFFSET)@ptr;
 
-    set sizeOut = sizeA + sizeB
-    set outStr = new_str[]
+    set sizeOut = sizeA + sizeB;
+    set outStr = new_str[];
 
     if sizeOut > 0l begin
-        set arrayOut = alloc_f[sizeOut:i64]
+        set arrayOut = alloc_f[sizeOut:i64];
         if arrayOut == NULL begin
-            oom[]
+            oom[];
         end
     end else begin
-        set arrayOut = NULL
+        set arrayOut = NULL;
     end
     
     if arrayA != NULL begin # empty string is NULL
-        copy[arrayOut, (arrayA+startA), sizeA:i64]
+        copy[arrayOut, (arrayA+startA), sizeA:i64];
     end
     if arrayB != NULL begin
-        copy[arrayOut+sizeA, (arrayB+startB), sizeB:i64]
+        copy[arrayOut+sizeA, (arrayB+startB), sizeB:i64];
     end
 
-    set (outStr+STR_PTR_OFFSET)@ptr = arrayOut
-    set (outStr+STR_START_OFFSET)@i32 = 0l
-    set (outStr+STR_SIZE_OFFSET)@i32 = sizeOut
+    set (outStr+STR_PTR_OFFSET)@ptr = arrayOut;
+    set (outStr+STR_START_OFFSET)@i32 = 0l;
+    set (outStr+STR_SIZE_OFFSET)@i32 = sizeOut;
 
-    return outStr
+    return outStr;
 end
 
 proc eq_str[strA, strB:ptr] bool
@@ -154,50 +155,50 @@ var sizeA, sizeB, startA, startB:i32,
     arrayA, arrayB:ptr,
     i:i32
 begin
-    set startA = (strA+STR_START_OFFSET)@i32
-    set startB = (strB+STR_START_OFFSET)@i32
+    set startA = (strA+STR_START_OFFSET)@i32;
+    set startB = (strB+STR_START_OFFSET)@i32;
 
-    set arrayA = (strA+STR_PTR_OFFSET)@ptr
-    set arrayB = (strB+STR_PTR_OFFSET)@ptr
+    set arrayA = (strA+STR_PTR_OFFSET)@ptr;
+    set arrayB = (strB+STR_PTR_OFFSET)@ptr;
 
-    set sizeA = (strA+STR_SIZE_OFFSET)@i32
-    set sizeB = (strB+STR_SIZE_OFFSET)@i32
+    set sizeA = (strA+STR_SIZE_OFFSET)@i32;
+    set sizeB = (strB+STR_SIZE_OFFSET)@i32;
 
     if sizeA != sizeB begin
-        return false
+        return false;
     end
 
     # empty strigns fall here too
     if arrayA == arrayB and
        sizeA == sizeB and
        startA == startB begin
-        return true
+        return true;
     end
 
-    set i = 0l
+    set i = 0l;
     while i < sizeA begin
         if (arrayA+i+startA)@i8 !=
            (arrayB+i+startB)@i8 begin
-            return false
+            return false;
         end
-        set i += 1l
+        set i += 1l;
     end
-    return true
+    return true;
 end
 
 proc copy_str[strDest, strSource:ptr]
 begin
-    set (strDest+STR_START_OFFSET)@i32 = (strSource+STR_START_OFFSET)@i32
-    set (strDest+STR_PTR_OFFSET)@i32 = (strSource+STR_PTR_OFFSET)@i32
-    set (strDest+STR_SIZE_OFFSET)@i32 = (strSource+STR_SIZE_OFFSET)@i32
+    set (strDest+STR_START_OFFSET)@i32 = (strSource+STR_START_OFFSET)@i32;
+    set (strDest+STR_PTR_OFFSET)@i32 = (strSource+STR_PTR_OFFSET)@i32;
+    set (strDest+STR_SIZE_OFFSET)@i32 = (strSource+STR_SIZE_OFFSET)@i32;
 end
 
 proc dup_str[strSource:ptr] ptr
 var strDest:ptr
 begin
-    set strDest = new_str[]
-    copy_str[strDest, strSource]
-    return strDest
+    set strDest = new_str[];
+    copy_str[strDest, strSource];
+    return strDest;
 end
 
 proc peek_rune[str:ptr] i32
@@ -205,17 +206,17 @@ var array:ptr,
     start, size, rune:i32,
     runeSize:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
     if size == 0l or array == NULL begin
-        return ~1l
+        return ~1l;
     end
 
-    set rune, runeSize = utf8_decode[array+start]
+    set rune, runeSize = utf8_decode[array+start];
 
-    return rune
+    return rune;
 end
 
 # peek allocates a new header only,
@@ -228,51 +229,51 @@ var array:ptr, size:i32,
     rune:i32,
     runeSize, i:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set old_start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set old_start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
     if size == 0l or array == NULL begin
-        return NULL
+        return NULL;
     end
 
-    set i = 0
-    set new_start = old_start
+    set i = 0;
+    set new_start = old_start;
     while i < length begin
         if size <= 0l begin
-            return NULL
+            return NULL;
         end
-        set rune, runeSize = utf8_decode[array+new_start]
-        set size -= runeSize:i32
-        set new_start += runeSize:i32
-        set i += 1
+        set rune, runeSize = utf8_decode[array+new_start];
+        set size -= runeSize:i32;
+        set new_start += runeSize:i32;
+        set i += 1;
     end
 
-    set outStr = new_str[]
-    set (outStr+STR_PTR_OFFSET)@ptr = array
-    set (outStr+STR_START_OFFSET)@i32 = old_start
-    set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start
-    return outStr
+    set outStr = new_str[];
+    set (outStr+STR_PTR_OFFSET)@ptr = array;
+    set (outStr+STR_START_OFFSET)@i32 = old_start;
+    set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start;
+    return outStr;
 end
 
 proc pop_rune[str:ptr] i32
 var array:ptr, start, size:i32,
     rune:i32, runeSize:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
     if size == 0l or array == NULL begin
-        return ~1l
+        return ~1l;
     end
 
-    set rune, runeSize = utf8_decode[array+start]
+    set rune, runeSize = utf8_decode[array+start];
 
-    set (str+STR_START_OFFSET)@i32 += runeSize:i32
-    set (str+STR_SIZE_OFFSET)@i32 -= runeSize:i32
+    set (str+STR_START_OFFSET)@i32 += runeSize:i32;
+    set (str+STR_SIZE_OFFSET)@i32 -= runeSize:i32;
 
-    return rune
+    return rune;
 end
 
 # pop allocates a new header,
@@ -285,34 +286,34 @@ var array:ptr, size:i32,
     outStr:ptr,
     rune:i32, runeSize, i:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set old_start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set old_start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
     if size == 0l or array == NULL begin
-        return NULL
+        return NULL;
     end
 
-    set i = 0
-    set new_start = old_start
+    set i = 0;
+    set new_start = old_start;
     while i < length begin
         if size <= 0l begin
-            return NULL
+            return NULL;
         end
-        set rune, runeSize = utf8_decode[array+new_start]
-        set size -= runeSize:i32
-        set new_start += runeSize:i32
-        set i += 1
+        set rune, runeSize = utf8_decode[array+new_start];
+        set size -= runeSize:i32;
+        set new_start += runeSize:i32;
+        set i += 1;
     end
 
-    set (str+STR_START_OFFSET)@i32 = new_start
-    set (str+STR_SIZE_OFFSET)@i32 = size
+    set (str+STR_START_OFFSET)@i32 = new_start;
+    set (str+STR_SIZE_OFFSET)@i32 = size;
 
-    set outStr = new_str[]
-    set (outStr+STR_PTR_OFFSET)@ptr = array
-    set (outStr+STR_START_OFFSET)@i32 = old_start
-    set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start
-    return outStr
+    set outStr = new_str[];
+    set (outStr+STR_PTR_OFFSET)@ptr = array;
+    set (outStr+STR_START_OFFSET)@i32 = old_start;
+    set (outStr+STR_SIZE_OFFSET)@i32 = new_start-old_start;
+    return outStr;
 end
 
 # Murmur Hash
@@ -320,19 +321,19 @@ proc hash[str:ptr] i64
 var array:ptr, start, size:i32,
     i:i32, out:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
-    set out = 0xCAFEBABE
-    set i = 0l
+    set out = 0xCAFEBABE;
+    set i = 0l;
     while i < size begin
-        set out = (out |^ (array+(start+i))@i8:i64) * 0x5bd1e995
-        set out = out |^ (out >> 15)
-        set i += 1l
+        set out = (out |^ (array+(start+i))@i8:i64) * 0x5bd1e995;
+        set out = out |^ (out >> 15);
+        set i += 1l;
     end
 
-    return out
+    return out;
 end
 
 # scans the entire string and counts
@@ -341,23 +342,23 @@ proc length[str:ptr] i64
 var array:ptr, size, start:i32,
     rune:i32, runeSize, i:i64
 begin
-    set array = (str+STR_PTR_OFFSET)@ptr
-    set start = (str+STR_START_OFFSET)@i32
-    set size = (str+STR_SIZE_OFFSET)@i32
+    set array = (str+STR_PTR_OFFSET)@ptr;
+    set start = (str+STR_START_OFFSET)@i32;
+    set size = (str+STR_SIZE_OFFSET)@i32;
 
     if size == 0l or array == NULL begin
-        return 0 # empty string
+        return 0; # empty string
     end
 
-    set i = 0
+    set i = 0;
     while 0l < size begin
-        set rune, runeSize = utf8_decode[array+start]
-        set size -= runeSize:i32
-        set start += runeSize:i32
-        set i += 1
+        set rune, runeSize = utf8_decode[array+start];
+        set size -= runeSize:i32;
+        set start += runeSize:i32;
+        set i += 1;
     end
 
-    return i
+    return i;
 end
 
 ################################# INTERNAL UTILITARIES
@@ -365,10 +366,10 @@ end
 proc copy[dest, source:ptr, source_size:i64]
 var i:i64
 begin
-	set i = 0
+	set i = 0;
 	while i < source_size
 	begin
-		set (dest + i)@i8 = (source + i)@i8
-		set i += 1
+		set (dest + i)@i8 = (source + i)@i8;
+		set i += 1;
 	end
 end

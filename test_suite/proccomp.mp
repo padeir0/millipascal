@@ -1,26 +1,26 @@
 proc main
 var a:proc[][]
 begin
-    set a = F
+    set a = F;
 
     if a != F begin
-        exit 1ss
+        exit 1ss;
     end
 
     if not(a == F) begin
-        exit 2ss
+        exit 2ss;
     end
 
     if a == G begin
-        exit 3ss
+        exit 3ss;
     end
 
     if not (a != G) begin
-        exit 4ss
+        exit 4ss;
     end
 
     if G == F begin
-        exit 5ss
+        exit 5ss;
     end
 end
 

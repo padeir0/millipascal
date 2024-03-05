@@ -5,6 +5,6 @@ end
 proc F[] i64
 begin
 	if true begin
-		return 1
+		return 1;
 	end
 end

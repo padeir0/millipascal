@@ -3,7 +3,7 @@ data b "B"
 data nl "\n"
 proc newline[]
 begin
-	write[nl, sizeof nl]
+	write[nl, sizeof[nl]];
 end
 
 proc main
@@ -12,11 +12,11 @@ begin
 	set b1 = a;
 	set b2 = b;
 
-	set sw = b1
-	set b1 = b2
-	set b2 = sw
+	set sw = b1;
+	set b1 = b2;
+	set b2 = sw;
 
 	if b1 == a or b2 == b begin
-		exit 1ss
+		exit 1ss;
 	end
 end

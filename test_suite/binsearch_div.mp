@@ -9,17 +9,17 @@
 proc main
 var x, y, q:i64,
 begin
-    set x = 1
+    set x = 1;
     while x < HIGHEST begin
-        set y = 1
+        set y = 1;
         while y < HIGHEST begin
-            set q = Search[x, y]
+            set q = Search[x, y];
             if q != x/y begin
-                exit 1ss
+                exit 1ss;
             end
-            set y += 1
+            set y += 1;
         end
-        set x += 1
+        set x += 1;
     end
 end
 
@@ -35,24 +35,24 @@ const MAXITER = 12 # binary search has O(log_2) so log_2 (2048) = 11
 proc Search[x, y:i64] i64
 var high, low, guess, res, i:i64
 begin
-    set low = LOWEST
-    set high = HIGHEST
-    set guess = (low+high)>>1 # divide by 2 using right shifts
+    set low = LOWEST;
+    set high = HIGHEST;
+    set guess = (low+high)>>1; # divide by 2 using right shifts
 
-    set i = 0
-    set res = Test[x, y, guess]
+    set i = 0;
+    set res = Test[x, y, guess];
     while res != EQ and i < MAXITER begin
         if res == HIGH begin
-            set high = guess
+            set high = guess;
         end elseif res == LOW begin
-            set low = guess
+            set low = guess;
         end
-        set guess = (low+high)>>1
-        set res = Test[x, y, guess]
-        set i += 1
+        set guess = (low+high)>>1;
+        set res = Test[x, y, guess];
+        set i += 1;
     end
 
-    return guess
+    return guess;
 end
 
 data unreachable "unreachable!\n"
@@ -62,17 +62,17 @@ begin
     if (guess*y == x) or
        (guess*y < x and (guess+1)*y > x)
     begin
-        return EQ
+        return EQ;
     end
     if guess*y > x begin
-        return HIGH
+        return HIGH;
     end
     if guess*y < x begin
-        return LOW
+        return LOW;
     end
 
-    write[unreachable, sizeof unreachable]
-    exit 2ss
+    write[unreachable, sizeof[unreachable]];
+    exit 2ss;
 end
 
 
@@ -83,16 +83,16 @@ data E "eq\n"
 proc put_res[res:i64]
 begin
     if res == EQ begin
-        write[E, sizeof E]
-        return
+        write[E, sizeof[E]];
+        return;
     end elseif res == HIGH begin
-        write[H, sizeof H]
-        return
+        write[H, sizeof[H]];
+        return;
     end elseif res == LOW begin
-        write[L, sizeof L]
-        return
+        write[L, sizeof[L]];
+        return;
     end
 
-    write[unreachable, sizeof unreachable]
-    exit 3ss
+    write[unreachable, sizeof[unreachable]];
+    exit 3ss;
 end

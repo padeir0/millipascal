@@ -3,17 +3,17 @@ data second "second"
 
 proc main
 begin
-	if not equals[first, sizeof first, first, sizeof first]
+	if not equals[first, sizeof[first], first, sizeof[first]]
 	begin
-		exit 1ss
+		exit 1ss;
 	end
-	if not equals[second, sizeof second, second, sizeof second]
+	if not equals[second, sizeof[second], second, sizeof[second]]
 	begin
-		exit 1ss
+		exit 1ss;
 	end
-	if equals[first, sizeof first, second, sizeof second]
+	if equals[first, sizeof[first], second, sizeof[second]]
 	begin
-		exit 1ss
+		exit 1ss;
 	end
 end
 
@@ -22,18 +22,18 @@ var i:i64
 begin
 	if size1 != size2
 	begin
-		return false
+		return false;
 	end
 
-	set i = 0
+	set i = 0;
 	while i < size1
 	begin
 		if (p1 + i)@i8 != (p2 + i)@i8
 		begin
-			return false
+			return false;
 		end
-		set i += 1
+		set i += 1;
 	end
-	return true
+	return true;
 end
 
