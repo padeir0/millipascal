@@ -212,7 +212,7 @@ data R:POINT {
     2, 2,
     3, 3,
 }
-data S:POINT [50*sizeof^[POINT]]
+data S:POINT [50]
 ```
 
 The types are as follows:
@@ -267,7 +267,7 @@ end
 #### NOTE 4
 
 A struct can be used to type a blob if,
-and only if it is *well-behaved* (see note 8).
+and only if it is *well-behaved*.
 If there is padding, the compiler should
 pad it with zeroes.
 
@@ -304,7 +304,7 @@ whatever struct `U` may be.
 
 #### NOTE 6
 
-`sizeof^` can be used in a struct if it is *well-behaved* (see note 8)
+`sizeof^` can be used in a struct if it is *well-behaved*
 or if struct size is set explicitly.
 
 #### NOTE 7
@@ -323,6 +323,19 @@ And then, we can iterate an array,
 which gives us `array.[i]->Previous`,
 `array.[i]->Current` and `array.[i]->Next`
 to look at any given moment.
+
+#### NOTE 8
+
+The size of the data declaration should be based of the underlying type,
+for example:
+
+```
+data Ints:ptr^i64 [64]
+```
+
+Should allocate space for 64 `i64` to fit. Then `sizeof[Ints]`
+should yield the size in bytes, while `sizeof^[Ints]` should
+yield 64, ie, `sizeof^[Ints] == sizeof[Ints]/sizeof[i64]`.
 
 #### WELL-BEHAVED STRUCTS
 
