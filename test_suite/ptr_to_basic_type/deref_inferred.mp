@@ -1,10 +1,10 @@
 
 proc main
 begin
-    test_i64[]
-    test_i32[]
-    test_i16[]
-    test_i8[]
+    test_i64[];
+    test_i32[];
+    test_i16[];
+    test_i8[];
 end
 
 data Mi64:ptr^i64 []

@@ -89,10 +89,8 @@ MultipleType := 'begin' {SingleType ';'} 'end'.
 
 Procedure := 'proc' id [Annotatted|Direct] [Vars] Block.
 
-Annotatted := Annot [AArgs [Rets]].
-AArgs := '[' [ADeclList] ']'.
-ADeclList := ADecl {',' ADecl} [','].
-ADecl := id [Annot].
+Annotatted := Annot [AArgs].
+AArgs := '[' [idList] ']'.
 
 Direct := DArgs [Rets].
 DArgs := '[' [DeclList] ']'.
