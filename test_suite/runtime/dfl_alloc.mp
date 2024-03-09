@@ -491,8 +491,8 @@ end
 
 proc init
 begin
-	clear_words[Heap, sizeof[Heap]]
-	clear_bytes[ByteMap, sizeof[ByteMap]]
+	clear_words[Heap, sizeof[Heap]];
+	clear_bytes[ByteMap, sizeof[ByteMap]];
 
 	set Head@ptr = Heap;
 	set Tail@ptr = Heap;

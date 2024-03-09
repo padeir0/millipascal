@@ -37,7 +37,8 @@ keywords :=
     'bool'   | 'ptr'    | 'true'   | 'false'  |
     'exit'   | 'import' | 'from'   | 'export' |
     'const'  | 'sizeof' | 'return' | 'set'    |
-    'attr'   | 'as'     | 'is'     | 'all'.
+    'attr'   | 'as'     | 'is'     | 'all'    |
+    'type'   | 'void'.
 
 ponctuation :=
     ','  | ':'  | '('  | ')'  | '['  | ']' |
@@ -104,8 +105,8 @@ Decl := IdList Annot.
 Annot := ':' Type.
 
 Type := (basicType | ProcType | Name) ['^' Layout].
-ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
-ProcTypeRet := '[' [TypeList] ']'.
+ProcType := 'proc' ProcTTList ProcTTList.
+ProcTTList := '[' [TypeList] ']'.
 
 Layout := Type | Struct.
 Struct := 'begin' [Size] {Field ';'} 'end'.

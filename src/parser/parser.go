@@ -24,14 +24,14 @@ func Parse(filename string, s string) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// Module := {Coupling} {Symbol}.
+// Module := {Coupling} {AttrSymbol}.
 func module(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "module")
 	coupl, err := repeat(s, coupling)
 	if err != nil {
 		return nil, err
 	}
-	symb, err := repeat(s, symbol)
+	symb, err := repeat(s, attrSymbol)
 	if err != nil {
 		return nil, err
 	}
@@ -57,21 +57,21 @@ func coupling(s *Lexer) (*mod.Node, *Error) {
 	return nil, nil
 }
 
-// Import := 'import' IdList.
+// Import := 'import' Items.
 func _import(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.IMPORT)
 	if err != nil {
 		return nil, err
 	}
-	list, err := repeatCommaList(s, ident)
+	listNode, err := items(s)
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves(list)
+	kw.AddLeaf(listNode)
 	return kw, nil
 }
 
-// FromImport := 'from' id 'import' IdList.
+// FromImport := 'from' id 'import' Items.
 func _fromImport(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.FROM)
 	if err != nil {
@@ -87,28 +87,90 @@ func _fromImport(s *Lexer) (*mod.Node, *Error) {
 		return nil, err
 	}
 
-	list, err := repeatCommaList(s, ident)
+	listNode, err := items(s)
 	if err != nil {
 		return nil, err
 	}
-	listNode := &mod.Node{Lex: lex.IDLIST}
-	listNode.SetLeaves(list)
 	kw.SetLeaves([]*mod.Node{id, listNode})
 	return kw, nil
 }
 
-// Export := 'export' IdList.
+// Export := 'export' Items.
 func _export(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.EXPORT)
 	if err != nil {
 		return nil, err
 	}
-	list, err := repeatCommaList(s, ident)
+	leaf, err := items(s)
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves(list)
+	kw.AddLeaf(leaf)
 	return kw, nil
+}
+
+// Items := (AliasList | 'all')
+func items(s *Lexer) (*mod.Node, *Error) {
+	if s.Word.Lex == lex.ALL {
+		return consume(s)
+	} else {
+		list, err := repeatCommaList(s, alias)
+		if err != nil {
+			return nil, err
+		}
+		listNode := &mod.Node{Lex: lex.ALIASLIST}
+		listNode.SetLeaves(list)
+		return listNode, nil
+	}
+}
+
+// AliasList := Alias {',' Alias} [','].
+// Items := (AliasList | 'all')
+func alias(s *Lexer) (*mod.Node, *Error) {
+	if s.Word.Lex == lex.IDENTIFIER {
+		id, err := consume(s)
+		if err != nil {
+			return nil, err
+		}
+		if s.Word.Lex == lex.AS {
+			kw, err := consume(s)
+			if err != nil {
+				return nil, err
+			}
+			id2, err := expect(s, lex.IDENTIFIER)
+			if err != nil {
+				return nil, err
+			}
+			kw.SetLeaves([]*mod.Node{id, id2})
+			return kw, nil
+		}
+		return id, nil
+	}
+	return nil, nil
+}
+
+func attrSymbol(s *Lexer) (*mod.Node, *Error) {
+	if s.Word.Lex == lex.ATTR {
+		attr, err := consume(s)
+		if err != nil {
+			return nil, err
+		}
+		list, err := repeatCommaList(s, ident)
+		if err != nil {
+			return nil, err
+		}
+		listNode := &mod.Node{Lex: lex.IDLIST}
+		listNode.SetLeaves(list)
+		attr.AddLeaf(listNode)
+
+		sy, err := symbol(s)
+		if err != nil {
+			return nil, err
+		}
+		attr.AddLeaf(sy)
+		return attr, nil
+	}
+	return symbol(s)
 }
 
 // Symbol := Procedure | Data | Const.
@@ -123,10 +185,88 @@ func symbol(s *Lexer) (*mod.Node, *Error) {
 		n, err = dataDef(s)
 	case lex.CONST:
 		n, err = constDef(s)
+	case lex.TYPE:
+		n, err = typeDef(s)
 	default:
 		return nil, nil
 	}
 	return n, err
+}
+
+// TypeDef := 'type' (SingleType|MultipleType).
+func typeDef(s *Lexer) (*mod.Node, *Error) {
+	kw, err := expect(s, lex.TYPE)
+	if err != nil {
+		return nil, err
+	}
+
+	err = check(s, lex.BEGIN, lex.IDENTIFIER)
+	if err != nil {
+		return nil, err
+	}
+	var leaf *mod.Node
+	if s.Word.Lex == lex.BEGIN {
+		leaf, err = multipleType(s)
+	} else if s.Word.Lex == lex.IDENTIFIER {
+		leaf, err = singleType(s)
+	}
+	if err != nil {
+		return nil, err
+	}
+	kw.AddLeaf(leaf)
+	return kw, nil
+}
+
+// SingleType := id ('as'|'is') Type.
+func singleType(s *Lexer) (*mod.Node, *Error) {
+	if s.Word.Lex != lex.IDENTIFIER {
+		return nil, nil
+	}
+	id, err := consume(s)
+	if err != nil {
+		return nil, err
+	}
+	kw, err := expect(s, lex.AS, lex.IS)
+	if err != nil {
+		return nil, err
+	}
+	tp, err := expectProd(s, _type, "type")
+	if err != nil {
+		return nil, err
+	}
+	kw.SetLeaves([]*mod.Node{id, tp})
+	return kw, nil
+}
+
+// SingleType ';'.
+func singleTypeSemicolon(s *Lexer) (*mod.Node, *Error) {
+	n, err := singleType(s)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, nil
+	}
+	_, err = expect(s, lex.SEMICOLON)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// MultipleType := 'begin' {SingleType ';'} 'end'.
+func multipleType(s *Lexer) (*mod.Node, *Error) {
+	kw, err := expect(s, lex.BEGIN)
+	if err != nil {
+		return nil, err
+	}
+	typeDefs, err := repeat(s, singleTypeSemicolon)
+	_, err = expect(s, lex.END)
+	if err != nil {
+		return nil, err
+	}
+	kw.SetLeaves(typeDefs)
+	return kw, nil
 }
 
 // Const := 'const' (SingleConst|MultipleConst).
@@ -180,7 +320,7 @@ func singleConst(s *Lexer) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// MultipleConst := 'begin' {SingleConst [';']} 'end'.
+// MultipleConst := 'begin' {SingleConst ';'} 'end'.
 func multipleConst(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lex.BEGIN)
 	if err != nil {
@@ -198,12 +338,20 @@ func multipleConst(s *Lexer) (*mod.Node, *Error) {
 	return kw, nil
 }
 
+// SingleConst ';'.
 func singleConstSemicolon(s *Lexer) (*mod.Node, *Error) {
 	n, err := singleConst(s)
 	if err != nil {
 		return nil, err
 	}
-	return n, optSemicolon(s)
+	if n == nil {
+		return nil, nil
+	}
+	_, err = expect(s, lex.SEMICOLON)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 // Data := 'data' (SingleData|MultipleData).
@@ -248,16 +396,23 @@ func multipleData(s *Lexer) (*mod.Node, *Error) {
 	return kw, nil
 }
 
-// SingleData [';']
+// SingleData ';'
 func singleDataSemicolon(s *Lexer) (*mod.Node, *Error) {
 	sg, err := singleData(s)
 	if err != nil {
 		return nil, err
 	}
-	return sg, optSemicolon(s)
+	if sg == nil {
+		return nil, nil
+	}
+	_, err = expect(s, lex.SEMICOLON)
+	if err != nil {
+		return nil, err
+	}
+	return sg, nil
 }
 
-// SingleData := id (DExpr|string|Blob).
+// SingleData :=  id [Annot] (DExpr|string|Blob).
 func singleData(s *Lexer) (*mod.Node, *Error) {
 	if s.Word.Lex != lex.IDENTIFIER {
 		return nil, nil
@@ -265,6 +420,14 @@ func singleData(s *Lexer) (*mod.Node, *Error) {
 	id, err := consume(s)
 	if err != nil {
 		return nil, err
+	}
+
+	var ann *mod.Node
+	if s.Word.Lex == lex.COLON {
+		ann, err = annot(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = check(s, lex.LEFTBRACKET, lex.STRING_LIT, lex.LEFTBRACE)
@@ -293,22 +456,15 @@ func singleData(s *Lexer) (*mod.Node, *Error) {
 	sg := &mod.Node{
 		Lex: lex.SINGLE,
 	}
-	sg.SetLeaves([]*mod.Node{id, definition})
+	sg.SetLeaves([]*mod.Node{id, ann, definition})
 	return sg, nil
 }
 
-// Blob := '{' [Annot] ExprList '}'.
+// Blob := '{' ExprList '}'.
 func blob(s *Lexer) (*mod.Node, *Error) {
 	_, err := expect(s, lex.LEFTBRACE)
 	if err != nil {
 		return nil, err
-	}
-	var ann *mod.Node
-	if s.Word.Lex == lex.COLON {
-		ann, err = annot(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	n, err := exprList(s)
 	if err != nil {
@@ -320,12 +476,12 @@ func blob(s *Lexer) (*mod.Node, *Error) {
 	}
 	sg := &mod.Node{
 		Lex:    lex.BLOB,
-		Leaves: []*mod.Node{ann, n},
+		Leaves: n.Leaves,
 	}
 	return sg, nil
 }
 
-// DExpr := '[' Expr ']'.
+// DExpr := '[' [Expr] ']'.
 func dExpr(s *Lexer) (*mod.Node, *Error) {
 	_, err := expect(s, lex.LEFTBRACKET)
 	if err != nil {
@@ -342,19 +498,31 @@ func dExpr(s *Lexer) (*mod.Node, *Error) {
 	return expr, nil
 }
 
-// Procedure := 'proc' id [Args [Rets]] [Vars] Block 'proc'.
+// Procedure := 'proc' id [Annotatted|Direct] [Vars] Block.
+// Annotatted := Annot [AArgs].
+// Direct := DArgs [Rets].
 func procDef(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "Procedure")
 	kw, err := expect(s, lex.PROC)
 	if err != nil {
 		return nil, err
 	}
-	var id, args, rets, vars *mod.Node
+	var id, ann, args, rets, vars *mod.Node
 	id, err = expect(s, lex.IDENTIFIER)
 	if err != nil {
 		return nil, err
 	}
-	if s.Word.Lex == lex.LEFTBRACKET {
+	switch s.Word.Lex {
+	case lex.COLON:
+		ann, err = annot(s)
+		if err != nil {
+			return nil, err
+		}
+		args, err = aArgs(s)
+		if err != nil {
+			return nil, err
+		}
+	case lex.LEFTBRACKET:
 		args, err = procArgs(s)
 		if err != nil {
 			return nil, err
@@ -374,8 +542,36 @@ func procDef(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves([]*mod.Node{id, args, rets, vars, body})
+	kw.SetLeaves([]*mod.Node{id, ann, args, rets, vars, body})
 	return kw, nil
+}
+
+// AArgs := '[' [idList] ']'.
+func aArgs(s *Lexer) (*mod.Node, *Error) {
+	Track(s, "aArgs")
+	if s.Word.Lex != lex.LEFTBRACKET {
+		return nil, nil
+	}
+	_, err := consume(s)
+	if err != nil {
+		return nil, err
+	}
+	list, err := repeatCommaList(s, ident)
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lex.RIGHTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	if list != nil {
+		n := &mod.Node{
+			Lex:    lex.IDLIST,
+			Leaves: list,
+		}
+		return n, nil
+	}
+	return nil, nil
 }
 
 // Args := '[' [DeclList] ']'.
@@ -437,78 +633,59 @@ func obligatoryTypeList(s *Lexer) (*mod.Node, *Error) {
 	return n, nil
 }
 
-// _type := basic | ProcType | TName.
+// Type := (basicType | ProcType | Name) ['^' Layout].
 func _type(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "type")
+	var n *mod.Node
+	var err *Error
 	switch s.Word.Lex {
 	case lex.I16, lex.I8, lex.I32, lex.I64,
-		lex.U16, lex.U8, lex.U32, lex.U64, lex.BOOL, lex.PTR:
-		return consume(s)
+		lex.U16, lex.U8, lex.U32, lex.U64, lex.BOOL, lex.PTR,
+		lex.VOID:
+		n, err = consume(s)
 	case lex.PROC:
-		return procType(s)
+		n, err = procType(s)
 	case lex.IDENTIFIER:
-		return tname(s)
+		n, err = name(s)
+	default:
+		return nil, nil
 	}
-	return nil, nil
-}
-
-// TName := Name ['.' id].
-func tname(s *Lexer) (*mod.Node, *Error) {
-	n, err := name(s)
 	if err != nil {
 		return nil, err
 	}
-	if s.Word.Lex == lex.DOT {
-		dot, err := consume(s)
+	if s.Word.Lex == lex.CARET {
+		caret, err := consume(s)
 		if err != nil {
 			return nil, err
 		}
-		id, err := expect(s, lex.IDENTIFIER)
-		if err != nil {
-			return nil, err
-		}
-		dot.SetLeaves([]*mod.Node{n, id})
-		return dot, nil
+		lay, err := layout(s)
+		caret.SetLeaves([]*mod.Node{n, lay})
+		return caret, nil
 	}
 	return n, nil
 }
 
-// ProcType := 'proc' '[' [TypeList] ']' ProcTypeRet.
-// ProcTypeRet := '[' [TypeList] ']' | Type.
+// ProcType := 'proc' ProcTTList ProcTTList.
 func procType(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "procType")
 	keyword, err := expect(s, lex.PROC)
 	if err != nil {
 		return nil, err
 	}
-	args, err := procTypeTypeList(s)
+	args, err := procTTList(s)
 	if err != nil {
 		return nil, err
 	}
-	var rets *mod.Node
-	if s.Word.Lex == lex.LEFTBRACKET {
-		rets, err = procTypeTypeList(s)
-		if err != nil {
-			return nil, err
-		}
-	} else { // sorry
-		t, err := _type(s)
-		if err != nil {
-			return nil, err
-		}
-		if t == nil {
-			rets = nil
-		} else {
-			rets = &mod.Node{Lex: lex.TYPELIST}
-			rets.AddLeaf(t)
-		}
+	rets, err := procTTList(s)
+	if err != nil {
+		return nil, err
 	}
 	keyword.SetLeaves([]*mod.Node{args, rets})
-	Track(s, "help")
 	return keyword, err
 }
 
-func procTypeTypeList(s *Lexer) (*mod.Node, *Error) {
+// ProcTTList := '[' [TypeList] ']'.
+func procTTList(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "procTypeTypeList")
 	var tps *mod.Node
 	_, err := expect(s, lex.LEFTBRACKET)
@@ -526,6 +703,128 @@ func procTypeTypeList(s *Lexer) (*mod.Node, *Error) {
 		return nil, err
 	}
 	return tps, nil
+}
+
+// Layout := Type | Struct.
+func layout(s *Lexer) (*mod.Node, *Error) {
+	if s.Word.Lex == lex.BEGIN {
+		return _struct(s)
+	}
+	n, err := expectProd(s, _type, "type")
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// Struct := 'begin' [Size] {Field ';'} 'end'.
+func _struct(s *Lexer) (*mod.Node, *Error) {
+	n, err := expect(s, lex.BEGIN)
+	if err != nil {
+		return nil, err
+	}
+	var _size *mod.Node
+	if s.Word.Lex == lex.LEFTBRACKET {
+		_size, err = size(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	fields, err := repeat(s, fieldSemicolon)
+	if err != nil {
+		return nil, err
+	}
+	fieldList := &mod.Node{
+		Lex:    lex.FIELDLIST,
+		Leaves: fields,
+	}
+	_, err = expect(s, lex.END)
+	if err != nil {
+		return nil, err
+	}
+	n.SetLeaves([]*mod.Node{_size, fieldList})
+	return n, nil
+}
+
+// Size := '[' Expr ']'.
+func size(s *Lexer) (*mod.Node, *Error) {
+	_, err := expect(s, lex.LEFTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	exp, err := expectProd(s, expr, "expression")
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lex.RIGHTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	return exp, nil
+}
+
+// Field ';'.
+func fieldSemicolon(s *Lexer) (*mod.Node, *Error) {
+	n, err := field(s)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, nil
+	}
+	_, err = expect(s, lex.SEMICOLON)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// Field := IdList Annot [Offset].
+func field(s *Lexer) (*mod.Node, *Error) {
+	ids, err := repeatCommaList(s, ident)
+	if err != nil {
+		return nil, err
+	}
+	if ids == nil {
+		return nil, nil
+	}
+	ann, err := annot(s)
+	if err != nil {
+		return nil, err
+	}
+	var _offset *mod.Node
+	if s.Word.Lex == lex.LEFTBRACE {
+		_offset, err = offset(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	idList := &mod.Node{
+		Lex:    lex.IDLIST,
+		Leaves: ids,
+	}
+	field := &mod.Node{
+		Lex:    lex.FIELD,
+		Leaves: []*mod.Node{idList, ann, _offset},
+	}
+	return field, nil
+}
+
+// Offset := '{' Expr '}'.
+func offset(s *Lexer) (*mod.Node, *Error) {
+	_, err := expect(s, lex.LEFTBRACE)
+	if err != nil {
+		return nil, err
+	}
+	exp, err := expectProd(s, expr, "expression")
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lex.RIGHTBRACE)
+	if err != nil {
+		return nil, err
+	}
+	return exp, nil
 }
 
 // Vars := 'var' DeclList.
@@ -583,31 +882,49 @@ func ident(s *Lexer) (*mod.Node, *Error) {
 }
 
 /*
-Code := If
-      | While
-      | Return
-      | Set
-      | Exit
-      | Expr.
+Statement := If [';']
+      | While [';']
+      | Return ';'
+      | Set ';'
+      | Exit ';'
+      | Expr ';'.
 */
-func code(s *Lexer) (*mod.Node, *Error) {
+func statement(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "code")
+	var n *mod.Node
+	var err *Error
+	semicolon := true
 	switch s.Word.Lex {
 	case lex.EOF:
 		return nil, nil
 	case lex.IF:
-		return _if(s)
+		n, err = _if(s)
+		semicolon = false
 	case lex.WHILE:
-		return _while(s)
+		n, err = _while(s)
+		semicolon = false
 	case lex.RETURN:
-		return _return(s)
+		n, err = _return(s)
 	case lex.SET:
-		return _set(s)
+		n, err = _set(s)
 	case lex.EXIT:
-		return _exit(s)
+		n, err = _exit(s)
 	default:
-		return expr(s)
+		n, err = expr(s)
+		if n == nil && err == nil {
+			return nil, nil
+		}
 	}
+	if err != nil {
+		return nil, err
+	}
+	if semicolon {
+		_, err := expect(s, lex.SEMICOLON)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return n, nil
 }
 
 // Set := 'set' ExprList '=' Expr.
@@ -662,18 +979,25 @@ func _return(s *Lexer) (*mod.Node, *Error) {
 	return kw, err
 }
 
-// Exit := 'exit' Expr.
+// Exit := 'exit' ['?'] Expr.
 func _exit(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "exit")
 	kw, err := consume(s)
 	if err != nil {
 		return nil, err
 	}
+	var mark *mod.Node
+	if s.Word.Lex == lex.QUESTION {
+		mark, err = consume(s)
+		if err != nil {
+			return nil, err
+		}
+	}
 	exp, err := expectProd(s, expr, "expression")
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves([]*mod.Node{exp})
+	kw.SetLeaves([]*mod.Node{mark, exp})
 	return kw, err
 }
 
@@ -757,9 +1081,11 @@ func unarySuffix(s *Lexer) (*mod.Node, *Error) {
 }
 
 /*
-Suffix  := Conversion
-	| Deref
-	| Call.
+Suffix := Conversion
+    | Deref
+    | Call
+    | DotAccess
+    | ArrowAccess.
 */
 func suffix(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "suffix")
@@ -773,36 +1099,59 @@ func suffix(s *Lexer) (*mod.Node, *Error) {
 	case lex.DOT:
 		return dotAccess(s)
 	case lex.ARROW:
-		return dotAccess(s)
+		return arrowAccess(s)
 	}
 	return nil, nil
 }
 
-// DotAccess := '.' id.
+// DotAccess := '.' (id|Call).
 func dotAccess(s *Lexer) (*mod.Node, *Error) {
-	dot, err := expect(s, lex.DOT)
+	if s.Word.Lex != lex.DOT { // we use it in sizeof production too
+		return nil, nil
+	}
+	dot, err := consume(s)
 	if err != nil {
 		return nil, err
 	}
-	id, err := expect(s, lex.IDENTIFIER)
+	err = check(s, lex.LEFTBRACKET, lex.IDENTIFIER)
 	if err != nil {
 		return nil, err
 	}
-	dot.AddLeaf(id)
+	var field *mod.Node
+	switch s.Word.Lex {
+	case lex.IDENTIFIER:
+		field, err = consume(s)
+	case lex.LEFTBRACKET:
+		field, err = call(s)
+	}
+	if err != nil {
+		return nil, err
+	}
+	dot.AddLeaf(field)
 	return dot, err
 }
 
-// ArrowAccess := '->' id.
+// ArrowAccess := '->' (id|Call).
 func arrowAccess(s *Lexer) (*mod.Node, *Error) {
 	dot, err := expect(s, lex.ARROW)
 	if err != nil {
 		return nil, err
 	}
-	id, err := expect(s, lex.IDENTIFIER)
+	err = check(s, lex.LEFTBRACKET, lex.IDENTIFIER)
 	if err != nil {
 		return nil, err
 	}
-	dot.AddLeaf(id)
+	var field *mod.Node
+	switch s.Word.Lex {
+	case lex.IDENTIFIER:
+		field, err = consume(s)
+	case lex.LEFTBRACKET:
+		field, err = call(s)
+	}
+	if err != nil {
+		return nil, err
+	}
+	dot.AddLeaf(field)
 	return dot, err
 }
 
@@ -901,22 +1250,50 @@ func factor(s *Lexer) (*mod.Node, *Error) {
 		}
 		return n, nil
 	case lex.SIZEOF:
-		kw, err := consume(s)
-		if err != nil {
-			return nil, err
-		}
-		t, err := expectProd(s, _type, "type")
-		if err != nil {
-			return nil, err
-		}
-		kw.AddLeaf(t)
-		return kw, nil
+		return sizeof(s)
 	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
 		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT,
 		lex.CHAR_LIT, lex.TRUE, lex.FALSE, lex.PTR_LIT:
 		return consume(s)
 	}
 	return nil, nil
+}
+
+// Sizeof := 'sizeof' ['^'] '[' Type {DotAccess} ']'.
+func sizeof(s *Lexer) (*mod.Node, *Error) {
+	kw, err := expect(s, lex.SIZEOF)
+	if err != nil {
+		return nil, err
+	}
+	var caret *mod.Node
+	if s.Word.Lex == lex.CARET {
+		caret, err = consume(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	_, err = expect(s, lex.LEFTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	t, err := expectProd(s, _type, "type")
+	if err != nil {
+		return nil, err
+	}
+	dots, err := repeat(s, dotAccess)
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lex.RIGHTBRACKET)
+	if err != nil {
+		return nil, err
+	}
+	var accesses *mod.Node
+	if dots != nil {
+		accesses = &mod.Node{Leaves: dots}
+	}
+	kw.SetLeaves([]*mod.Node{caret, t, accesses})
+	return kw, nil
 }
 
 func name(s *Lexer) (*mod.Node, *Error) {
@@ -939,14 +1316,14 @@ func name(s *Lexer) (*mod.Node, *Error) {
 	return id, nil
 }
 
-// Block := 'begin' {CodeSemicolon} 'end'.
+// Block := 'begin' {Statement} 'end'.
 func block(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "block")
 	begin, err := expect(s, lex.BEGIN)
 	if err != nil {
 		return nil, err
 	}
-	leaves, err := repeat(s, codeSemicolon)
+	leaves, err := repeat(s, statement)
 	if err != nil {
 		return nil, err
 	}
@@ -963,26 +1340,6 @@ func block(s *Lexer) (*mod.Node, *Error) {
 	}
 	bl.SetLeaves(leaves)
 	return bl, nil
-}
-
-// CodeSemicolon := Code [';'].
-func codeSemicolon(s *Lexer) (*mod.Node, *Error) {
-	Track(s, "CodeSemicolon")
-	n, err := code(s)
-	if err != nil {
-		return nil, err
-	}
-	return n, optSemicolon(s)
-}
-
-func optSemicolon(s *Lexer) *Error {
-	if s.Word.Lex == lex.SEMICOLON {
-		_, err := consume(s)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // If := 'if' Expr Block [Else] 'if'.
@@ -1128,9 +1485,10 @@ func andOp(n *mod.Node) bool {
 	return n.Lex == lex.AND
 }
 
+// Prefix := 'not' | '~' | '!' | '@'.
 func prefixOp(st *Lexer) (*mod.Node, *Error) {
 	switch st.Word.Lex {
-	case lex.NOT, lex.NEG, lex.BITWISENOT:
+	case lex.NOT, lex.NEG, lex.BITWISENOT, lex.AT:
 		return consume(st)
 	}
 	return nil, nil

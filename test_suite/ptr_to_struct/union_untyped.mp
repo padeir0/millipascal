@@ -1,7 +1,7 @@
 type Base is ptr^begin
     [sizeof[i8] + sizeof[i64]]
     tag:i8        {0};
-    contents:void {tag+sizeof[tag]}
+    contents:void {tag+sizeof[tag]};
 end
 
 const begin

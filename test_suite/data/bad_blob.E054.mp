@@ -1,4 +1,4 @@
-data bad {:i64
+data bad {
     1ss, 2ss, 3ss, 4ss
 }
 

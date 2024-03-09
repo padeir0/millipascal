@@ -39,6 +39,8 @@ const (
 	MOREEQ
 	MORE
 	DIFFERENT
+	CARET
+	QUESTION
 
 	LEFTPAREN
 	RIGHTPAREN
@@ -86,6 +88,11 @@ const (
 	EXPORT
 	SIZEOF
 	CONST
+	ATTR
+	AS
+	IS
+	ALL
+	TYPE
 
 	I8
 	I16
@@ -97,6 +104,7 @@ const (
 	U64
 	BOOL
 	PTR
+	VOID
 
 	// special
 	BLOCK
@@ -105,6 +113,8 @@ const (
 	PROCDECLS
 	TYPELIST
 	IDLIST
+	ALIASLIST
+	FIELDLIST
 	TERMLIST
 	ARRAYACCESS
 	CALL
@@ -112,6 +122,7 @@ const (
 	ELSEIFCHAIN
 	SINGLE
 	BLOB
+	FIELD
 
 	EOF
 )
@@ -161,6 +172,7 @@ var tktostr = map[LexKind]string{
 	DOUBLECOLON:           "DOUBLECOLON",
 	ASSIGNMENT:            "ASSIGNMENT",
 	COMMA:                 "COMMA",
+	SEMICOLON:             "SEMICOLON",
 	DOT:                   "DOT",
 	ARROW:                 "ARROW",
 	BITWISEAND:            "BITWISEAND",
@@ -169,6 +181,8 @@ var tktostr = map[LexKind]string{
 	BITWISENOT:            "BITWISENOT",
 	SHIFTLEFT:             "SHIFTLEFT",
 	SHIFTRIGHT:            "SHIFTRIGHT",
+	CARET:                 "CARET",
+	QUESTION:              "QUESTION",
 
 	// keyword: "keyword"
 	VAR:    "VARS",
@@ -193,6 +207,11 @@ var tktostr = map[LexKind]string{
 	EXPORT: "EXPORT",
 	SIZEOF: "SIZEOF",
 	CONST:  "CONST",
+	ATTR:   "ATTR",
+	AS:     "AS",
+	IS:     "IS",
+	ALL:    "ALL",
+	TYPE:   "TYPE",
 
 	I8:   "I8",
 	I16:  "I16",
@@ -204,6 +223,7 @@ var tktostr = map[LexKind]string{
 	U64:  "I64",
 	BOOL: "BOOL",
 	PTR:  "PTR",
+	VOID: "VOID",
 
 	// special
 	BLOCK:       "BLOCK",
@@ -211,6 +231,8 @@ var tktostr = map[LexKind]string{
 	PROCDECLS:   "PARAMS",
 	TYPELIST:    "TYPELIST",
 	IDLIST:      "IDLIST",
+	ALIASLIST:   "ALIASLIST",
+	FIELDLIST:   "FIELDLIST",
 	ARRAYACCESS: "ARRAYACCESS",
 	COUPLINGS:   "COUPLINGS",
 	CALL:        "CALL",
@@ -218,6 +240,7 @@ var tktostr = map[LexKind]string{
 	ELSEIFCHAIN: "ELSEIFCHAIN",
 	SINGLE:      "SINGLE",
 	BLOB:        "BLOB",
+	FIELD:       "FIELD",
 
 	EOF: "EOF",
 }
@@ -274,6 +297,7 @@ var Tktosrc = map[LexKind]string{
 	COLON:                 ":",
 	DOUBLECOLON:           "::",
 	COMMA:                 ",",
+	SEMICOLON:             ";",
 	LESS:                  "<",
 	LESSEQ:                "<=",
 	EQUALS:                "==",
@@ -289,6 +313,8 @@ var Tktosrc = map[LexKind]string{
 	BITWISENOT:            "!",
 	SHIFTLEFT:             "<<",
 	SHIFTRIGHT:            ">>",
+	CARET:                 "^",
+	QUESTION:              "?",
 
 	VAR:    "vars",
 	TRUE:   "true",
@@ -316,17 +342,25 @@ var Tktosrc = map[LexKind]string{
 	U64:    "u64",
 	PTR:    "ptr",
 	BOOL:   "bool",
+	VOID:   "void",
 	EXIT:   "exit",
 	IMPORT: "import",
 	FROM:   "from",
 	EXPORT: "export",
 	SIZEOF: "sizeof",
 	CONST:  "const",
+	ATTR:   "attr",
+	AS:     "as",
+	IS:     "is",
+	ALL:    "all",
+	TYPE:   "type",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
 	PROCDECLS:   "parameters",
 	IDLIST:      "id list",
+	ALIASLIST:   "alias list",
+	FIELDLIST:   "field list",
 	TYPELIST:    "type list",
 	ARRAYACCESS: "array access",
 	COUPLINGS:   "module coupling",
@@ -335,6 +369,7 @@ var Tktosrc = map[LexKind]string{
 	ELSEIFCHAIN: "else if chain",
 	SINGLE:      "single",
 	BLOB:        "blob",
+	FIELD:       "field",
 
 	EOF: "EOF",
 }

@@ -3,7 +3,7 @@ type A is ptr^begin
 end
 
 type B is ptr^begin
-    A,B,C,D:i32
+    A,B,C,D:i32;
 end
 
 proc main

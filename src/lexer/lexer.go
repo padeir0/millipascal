@@ -346,6 +346,9 @@ func any(st *Lexer) (*ir.Node, *Error) {
 	case '@':
 		nextRune(st)
 		tp = T.AT
+	case '^':
+		nextRune(st)
+		tp = T.CARET
 	case '~':
 		nextRune(st)
 		tp = T.NEG
@@ -521,6 +524,12 @@ func identifier(st *Lexer) *ir.Node {
 	selected := st.Selected()
 	tp := T.IDENTIFIER
 	switch selected {
+	case "proc":
+		tp = T.PROC
+	case "data":
+		tp = T.DATA
+	case "const":
+		tp = T.CONST
 	case "var":
 		tp = T.VAR
 	case "true":
@@ -543,10 +552,6 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.RETURN
 	case "elseif":
 		tp = T.ELSEIF
-	case "proc":
-		tp = T.PROC
-	case "data":
-		tp = T.DATA
 	case "begin":
 		tp = T.BEGIN
 	case "end":
@@ -561,8 +566,14 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.FROM
 	case "export":
 		tp = T.EXPORT
-	case "const":
-		tp = T.CONST
+	case "as":
+		tp = T.AS
+	case "is":
+		tp = T.IS
+	case "all":
+		tp = T.ALL
+	case "type":
+		tp = T.TYPE
 	case "sizeof":
 		tp = T.SIZEOF
 	case "i8":
@@ -585,6 +596,8 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.BOOL
 	case "ptr":
 		tp = T.PTR
+	case "void":
+		tp = T.VOID
 	}
 	return genNode(st, tp)
 }
