@@ -67,10 +67,6 @@ data begin
 	OBJ_TOO_BIG "object is too big, max of 255 words\n";
 end
 
-proc main
-begin
-end
-
 # size é em bytes, não em words
 proc alloc_f[size:i64] ptr
 var out:ptr, alloc_size:i64

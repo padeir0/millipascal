@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-func ErrorNameAlreadyDefined(M *ir.Module, newName *ir.Node) *Error {
-	return NewSemanticError(M, et.NameAlreadyDefined, newName, "name already exists")
+func ErrorNameAlreadyDefined(M *ir.Module, newName *ir.Node, text string) *Error {
+	return NewSemanticError(M, et.NameAlreadyDefined, newName, "name '"+text+"' already exists")
 }
 
 func ErrorDuplicatedExport(M *ir.Module, n *ir.Node) *Error {
@@ -218,4 +218,8 @@ func DoesntMatchBlobAnnot(M *ir.Module, assignee *ir.Node, t *T.Type) *Error {
 
 func ErrorBadType(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.BadType, n, "not a type")
+}
+
+func CantImportAll(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.CantImportAll, n, "you can't import all modules in existence")
 }

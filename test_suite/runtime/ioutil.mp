@@ -7,10 +7,6 @@ export
     write_line,
     fatal, debug, oom
 
-proc main
-begin
-end
-
 data DEBUG_MSG "debug: "
 data Debug [sizeof[i64]] # inits as zero
 

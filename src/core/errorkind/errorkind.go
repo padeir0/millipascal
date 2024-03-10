@@ -60,6 +60,7 @@ const (
 	ValueOutOfBounds
 	DoesntMatchBlobAnnot
 	BadType
+	CantImportAll
 )
 
 func (et ErrorKind) String() string {
@@ -123,4 +124,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	ValueOutOfBounds:               "E053",
 	DoesntMatchBlobAnnot:           "E054",
 	BadType:                        "E055",
+	CantImportAll:                  "E056",
 }

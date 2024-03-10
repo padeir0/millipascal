@@ -17,7 +17,7 @@ func Check(M *mod.Module) *Error {
 		return err
 	}
 	M.ResetVisited()
-	return checkMain(M) // only for first module
+	return nil // only for first module
 }
 
 func checkModule(M *mod.Module) *Error {
@@ -39,7 +39,7 @@ func checkModule(M *mod.Module) *Error {
 
 	for _, sy := range M.Globals {
 		if sy.T == ST.Proc && !sy.External {
-			err := checkBlock(M, sy.Proc, sy.N.Leaves[4])
+			err := checkBlock(M, sy.Proc, sy.N.Leaves[5])
 			if err != nil {
 				return err
 			}
@@ -60,7 +60,7 @@ func checkSymbolsTpl(M *mod.Module) *Error {
 	return nil
 }
 
-func checkMain(M *mod.Module) *Error {
+func CheckMain(M *mod.Module) *Error {
 	p, ok := M.Globals["main"]
 	if !ok {
 		return msg.ProgramWithoutEntry(M)
@@ -125,30 +125,12 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 	case lk.STRING_LIT:
 		dt.DataType = T.T_I8
 	case lk.BLOB:
-		blob := sy.N.Leaves[1]
-		annot := blob.Leaves[0]
-		contents := blob.Leaves[1]
-		var err *Error
-		if annot != nil {
-			annotT := annot.Leaves[0]
-			t, err := getType(M, sy, annot.Leaves[0])
-			if err != nil {
-				return err
-			}
-			annotT.T = t
-			dt.DataType = annotT.T
-			err = checkBlob(M, sy, contents, annotT.T)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = checkBlob(M, sy, contents, T.T_I64)
-			if err != nil {
-				return err
-			}
+		err := checkBlob(M, sy, dt.Init, sy.Data.DataType)
+		if err != nil {
+			return err
 		}
 	default:
-		expr := sy.N.Leaves[1]
+		expr := sy.N.Leaves[2]
 		dt.DataType = T.T_I8
 		err := checkExpr(M, nil, expr)
 		if err != nil {
@@ -158,23 +140,64 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
+// TODO: checkBlob
 func checkBlob(M *mod.Module, sy *mod.Symbol, contents *mod.Node, t *T.Type) *Error {
-	for _, leaf := range contents.Leaves {
-		err := checkExpr(M, nil, leaf)
+	return nil
+}
+
+func checkProc(M *mod.Module, proc *mod.Proc) *Error {
+	annot := proc.N.Leaves[1]
+	if annot == nil {
+		return checkDirectProc(M, proc)
+	} else {
+		return checkAnnotProc(M, proc)
+	}
+}
+
+func checkAnnotProc(M *mod.Module, proc *mod.Proc) *Error {
+	annot := proc.N.Leaves[1]
+	nArgs := proc.N.Leaves[2]
+	nRets := proc.N.Leaves[3]
+	nVars := proc.N.Leaves[4]
+
+	if nRets != nil {
+		panic("invalid: explicit returns in annotatted procedure")
+	}
+	procT, err := getType(M, nil, annot.Leaves[0])
+	if err != nil {
+		return err
+	}
+	for i, t := range procT.Proc.Args {
+		id := nArgs.Leaves[i]
+		d := &mod.Symbol{
+			Name: id.Text,
+			N:    id,
+			T:    ST.Arg,
+			Type: t,
+		}
+		err := verifyIfDefined(M, proc, d)
 		if err != nil {
 			return err
 		}
-		if !leaf.T.Equals(t) {
-			return msg.DoesntMatchBlobAnnot(M, leaf, t)
+		id.T = d.Type
+		proc.ArgMap[d.Name] = mod.PositionalSymbol{
+			Position: i, Symbol: d,
+		}
+		proc.Args = append(proc.Args, d)
+	}
+	if nVars != nil {
+		err := checkProcVars(M, proc, nVars)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func checkProc(M *mod.Module, proc *mod.Proc) *Error {
-	nArgs := proc.N.Leaves[1]
-	nRets := proc.N.Leaves[2]
-	nVars := proc.N.Leaves[3]
+func checkDirectProc(M *mod.Module, proc *mod.Proc) *Error {
+	nArgs := proc.N.Leaves[2]
+	nRets := proc.N.Leaves[3]
+	nVars := proc.N.Leaves[4]
 	var err *Error
 	var args, rets []*T.Type
 
@@ -282,7 +305,7 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 func verifyIfDefined(M *mod.Module, proc *mod.Proc, d *mod.Symbol) *Error {
 	l := getVarOrArg(proc, d.Name)
 	if l != nil {
-		return msg.ErrorNameAlreadyDefined(M, d.N)
+		return msg.ErrorNameAlreadyDefined(M, d.N, d.Name)
 	}
 	return nil
 }
@@ -357,31 +380,8 @@ func getProcType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 
 func getIDType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 	switch n.Lex {
-	case lk.IDENTIFIER: // name in scope
-		if sy == nil { // not inside a struct
-			name := n.Text
-			source := M.GetSymbol(name)
-			if source == nil {
-				return nil, msg.ErrorNameNotDefined(M, n)
-			}
-			if source.T != ST.Struct {
-				return nil, msg.ErrorBadType(M, n)
-			}
-			return source.Type, nil
-		}
-		if sy.T == ST.Struct {
-			// TODO: check if identifier exists in fields of struct
-		}
-	case lk.DOUBLECOLON: // accessing a name in module
-		moduleName := n.Leaves[0].Text
-		symbolName := n.Leaves[1].Text
-		source := M.GetExternalSymbol(moduleName, symbolName)
-		if source == nil {
-			return nil, msg.ErrorNameNotDefined(M, n)
-		}
-		if source.T != ST.Struct {
-			return nil, msg.ErrorBadType(M, n)
-		}
+	case lk.IDENTIFIER:
+	case lk.DOUBLECOLON:
 	}
 	panic("unreachable")
 }
@@ -528,7 +528,7 @@ func checkReturn(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 }
 
 func checkExit(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	exp := n.Leaves[0]
+	exp := n.Leaves[1]
 	err := checkExpr(M, proc, exp)
 	if err != nil {
 		return err
@@ -720,7 +720,7 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 }
 
 func checkSizeof(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	thing := n.Leaves[0]
+	thing := n.Leaves[1]
 	// special cases of sizeof: data declarations, struct fields
 	switch thing.Lex {
 	case lk.DOT: // struct fields

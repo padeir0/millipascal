@@ -136,7 +136,7 @@ func evalConst(m *mod.Module, sy *mod.Symbol) *Error {
 }
 
 func evalData(m *mod.Module, sy *mod.Symbol) *Error {
-	arg := sy.N.Leaves[1]
+	arg := sy.N.Leaves[2]
 	switch arg.Lex {
 	case lk.STRING_LIT:
 		size := stringSize(arg.Text)
@@ -156,7 +156,6 @@ func evalData(m *mod.Module, sy *mod.Symbol) *Error {
 }
 
 func evalBlob(m *mod.Module, sy *mod.Symbol, n *mod.Node) *Error {
-	annot := n.Leaves[0].Leaves[0]
 	blob := n.Leaves[1]
 
 	nums := make([]*big.Int, len(blob.Leaves))
@@ -168,7 +167,7 @@ func evalBlob(m *mod.Module, sy *mod.Symbol, n *mod.Node) *Error {
 		nums[i] = num
 	}
 	sy.Data.Nums = nums
-	sy.Data.Size = big.NewInt(int64(annot.T.Size() * len(nums)))
+	sy.Data.Size = big.NewInt(int64(sy.Data.DataType.Size() * len(nums)))
 	return nil
 }
 
@@ -352,17 +351,10 @@ func getIDValue(M *mod.Module, n *mod.Node) *big.Int {
 	return sy.Const.Value
 }
 
+// TODO: deal with STRUCT.FIELDS
 func getSizeof(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
-	op := n.Leaves[0]
+	op := n.Leaves[1]
 	switch op.Lex {
-	case lk.DOT: // struct fields
-		left := n.Leaves[0]
-		// right := n.Leaves[1]
-		switch left.Lex {
-		case lk.IDENTIFIER: // struct
-		case lk.DOUBLECOLON: // external struct
-		}
-		panic("unimplemented")
 	case lk.IDENTIFIER: // data declaration
 		sy := M.GetSymbol(op.Text)
 		return sy.Data.Size, nil

@@ -37,10 +37,6 @@ export
     sub,  sub_i32,
     neg,
 
-proc main
-begin
-end
-
 data ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n"
 data ERR_SET_INVALID_I32 "setting bigint to invalid i32\n"
 data ERR_DIVISION_BY_ZERO "division by zero\n"

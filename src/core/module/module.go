@@ -131,7 +131,7 @@ func (M *Module) GetSymbol(name string) *Symbol {
 		if !ok {
 			panic("use of unknown dependency")
 		}
-		sy, ok := dep.M.Exported[name]
+		sy, ok := dep.M.Exported[sy.Name]
 		if !ok {
 			panic("use of non-exported name")
 		}

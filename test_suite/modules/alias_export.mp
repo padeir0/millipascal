@@ -4,7 +4,3 @@ export
 
 const FIVE = 5
 const SEVEN = 7
-
-proc main
-begin
-end

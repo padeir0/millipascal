@@ -344,7 +344,7 @@ begin
 	set a = 3uss;
 	set b = 7us;
 	set c = 15ul;
-	set d = 3ul;
+	set d = 3u;
 
 	if a:ptr != 3p begin
 		exit 85ss;

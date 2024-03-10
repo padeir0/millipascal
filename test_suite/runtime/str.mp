@@ -42,10 +42,6 @@ const STR_PTR_OFFSET = 0   # ptr
 const STR_START_OFFSET = 8 # i32
 const STR_SIZE_OFFSET = 12  # i32
 
-proc main
-begin
-end
-
 # pointer in the first word
 const STR_BITMAP = 0b10000000_00000000_00000000_00000000ul
 

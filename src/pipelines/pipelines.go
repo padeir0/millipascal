@@ -91,6 +91,11 @@ func Pir(file string) (*pir.Program, *Error) {
 		return nil, err
 	}
 
+	err = typechecker.CheckMain(m)
+	if err != nil {
+		return nil, err
+	}
+
 	p, err := linearization.Generate(m)
 	if err != nil {
 		return nil, err

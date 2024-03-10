@@ -37,7 +37,3 @@ begin
     set (meta+M_COPYPROC_OFFSET)@proc[ptr,ptr][] = copyProc;
     set (meta+M_FREEPROC_OFFSET)@proc[ptr][] = freeProc;
 end
-
-proc main
-begin
-end

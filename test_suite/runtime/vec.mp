@@ -29,10 +29,6 @@ export
     clear,
     META_SIZE
 
-proc main
-begin
-end
-
 # each metadata object has 32 bytes, separated in the following layout:
 #   - 4 bytes: size of each item (in bytes)
 #   - 4 bytes padding

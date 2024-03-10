@@ -91,7 +91,15 @@ func Test(file string, st Stage, timeout time.Duration) TestResult {
 				Message: err.Message,
 			}
 		}
-		return compareError(file, err, expectedErr)
+		// if a module doesn't have entry point, it is a lib
+		if err.Code != et.NoEntryPoint {
+			return compareError(file, err, expectedErr)
+		} else {
+			return TestResult{
+				File: file,
+				Ok:   true,
+			}
+		}
 	}
 
 	if outfile != "" {

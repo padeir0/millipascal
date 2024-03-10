@@ -1,7 +1,3 @@
-proc main
-begin
-end
-
 proc rule110[buff:ptr, index:i64] i8
 var left:i8, curr:i8, right:i8
 begin

@@ -6,10 +6,6 @@ export
     rune_size,
     MAX_RUNE_SIZE
 
-proc main
-begin
-end
-
 const MAX_RUNE_SIZE = 4
 
 const LOWEST_7_BITS = 0b0111_1111uss

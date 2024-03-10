@@ -157,7 +157,7 @@ func genProc(c *context, M *mod.Module, proc *mod.Proc) *Error {
 	c.PirProc.Start = startID
 	c.CurrBlock = start
 
-	body := proc.N.Leaves[4]
+	body := proc.N.Leaves[5]
 	genBlock(M, c, body)
 	if !pir.ProperlyTerminates(c.PirProc) {
 		if proc.DoesReturnSomething() {
@@ -286,7 +286,7 @@ func genReturn(M *mod.Module, c *context, return_ *mod.Node) {
 }
 
 func genExit(M *mod.Module, c *context, exit_ *mod.Node) {
-	ret := exit_.Leaves[0]
+	ret := exit_.Leaves[1]
 	op := genExpr(M, c, ret)
 	c.CurrBlock.Exit(op)
 }
@@ -516,8 +516,7 @@ func genDeref(M *mod.Module, c *context, memAccess *mod.Node) pir.Operand {
 func genExternalID(c *context, M *mod.Module, dcolon *mod.Node) pir.Operand {
 	mod := dcolon.Leaves[0].Text
 	id := dcolon.Leaves[1].Text
-	otherM := M.Dependencies[mod].M
-	sy := otherM.Exported[id]
+	sy := M.GetExternalSymbol(mod, id)
 	return globalToOperand(c, M, sy)
 }
 
@@ -538,18 +537,15 @@ func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 			ID:    int64(posSy.Position),
 		}
 	}
-	global, ok := M.Globals[id.Text]
-	if ok {
+	global := M.GetSymbol(id.Text)
+	if global != nil {
 		return globalToOperand(c, M, global)
 	}
 	panic("genExprID: global not found")
 }
 
 func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand {
-	if global.External {
-		global = M.GetSymbol(global.Name)
-	}
-	i := int64(c.symbolMap[global.ModuleName+"_"+global.Name])
+	i := int64(c.GetSymbolID(global.ModuleName, global.Name))
 	switch global.T {
 	case ST.Builtin:
 		return pir.Operand{
@@ -581,7 +577,7 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand 
 }
 
 func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
-	op := sizeof.Leaves[0]
+	op := sizeof.Leaves[1]
 	switch op.Lex {
 	case lk.IDENTIFIER:
 		// TODO: if inside a struct, this identifier might be a field whithin scope
