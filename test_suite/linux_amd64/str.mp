@@ -1,6 +1,8 @@
 # utf-8 string representation
 # _NEEDS_ garbage collection, since the underlying array
 # _WILL_ be referenced by multiple string headers.
+from io import write
+
 from
     ioutil
 import

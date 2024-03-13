@@ -1,3 +1,4 @@
+from io import write
 from intutil import min
 export map_buff, set_buff, comp, copy, clear_bytes, clear_words
 

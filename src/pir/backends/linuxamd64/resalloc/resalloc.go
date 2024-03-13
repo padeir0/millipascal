@@ -364,27 +364,16 @@ func Allocate(P *pir.Program, numRegs int) *mir.Program {
 	// a few procedures will crash. Must keep the index
 	// consistent.
 	for i, sy := range P.Symbols {
-		if sy.Builtin {
-			output.Symbols[i] = allocBuiltin(sy)
-		} else {
-			if sy.Proc != nil {
-				proc := allocProc(P, sy.Proc, numRegs)
-				output.Symbols[i] = &mir.Symbol{Proc: proc}
-			}
-			if sy.Mem != nil {
-				mem := hirToMirMem(sy.Mem)
-				output.Symbols[i] = &mir.Symbol{Mem: mem}
-			}
+		if sy.Proc != nil {
+			proc := allocProc(P, sy.Proc, numRegs)
+			output.Symbols[i] = &mir.Symbol{Proc: proc}
+		}
+		if sy.Mem != nil {
+			mem := hirToMirMem(sy.Mem)
+			output.Symbols[i] = &mir.Symbol{Mem: mem}
 		}
 	}
 	return output
-}
-
-func allocBuiltin(sy *pir.Symbol) *mir.Symbol {
-	return &mir.Symbol{
-		Proc:    &mir.Procedure{Label: sy.Proc.Label},
-		Builtin: true,
-	}
 }
 
 func allocProc(Program *pir.Program, proc *pir.Procedure, numRegs int) *mir.Procedure {

@@ -1,3 +1,5 @@
+from io import write
+
 from utf8
 import utf8_encode, MAX_RUNE_SIZE
 

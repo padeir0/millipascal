@@ -1,10 +1,5 @@
 data a "A"
 data b "B"
-data nl "\n"
-proc newline[]
-begin
-	write[nl, sizeof[nl]];
-end
 
 proc main
 var b1:ptr, b2:ptr, sw:ptr

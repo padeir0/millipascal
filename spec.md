@@ -38,7 +38,7 @@ keywords :=
     'exit'   | 'import' | 'from'   | 'export' |
     'const'  | 'sizeof' | 'return' | 'set'    |
     'attr'   | 'as'     | 'is'     | 'all'    |
-    'type'   | 'void'.
+    'type'   | 'void'   | 'asm'.
 
 ponctuation :=
     ','  | ':'  | '('  | ')'  | '['  | ']' |
@@ -51,8 +51,6 @@ ponctuation :=
 basicType :=
     'i8' | 'i16' | 'i32' | 'i64' | 'ptr' | 'bool' |
     'u8' | 'u16' | 'u32' | 'u64' | 'void'.
-
-
 
 Module := {Coupling} {AttSymbol}.
 
@@ -88,7 +86,7 @@ TypeDef := 'type' (SingleType|MultipleType).
 SingleType := id ('as'|'is') Type.
 MultipleType := 'begin' {SingleType ';'} 'end'.
 
-Procedure := 'proc' id [Annotatted|Direct] [Vars] Block.
+Procedure := 'proc' id [Annotatted|Direct] [Vars] (Asm|Block).
 
 Annotatted := Annot [AArgs].
 AArgs := '[' [idList] ']'.
@@ -113,6 +111,17 @@ Struct := 'begin' [Size] {Field ';'} 'end'.
 Size := '[' Expr ']'.
 Field := IdList Annot [Offset].
 Offset := '{' Expr '}'.
+
+Asm := 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
+ClobberSet := '[' idList ']'.
+AsmLine := Label | Instruction.
+Label := '.' id ':'.
+Instruction := InstrName [OpList] ';'.
+InstrName := id.
+OpList := Op {',' Op} ','.
+Op := Name | Addressing | ConstOp | Literal.
+Addressing := '[' OpList ']' ['@' id].
+ConstOp := '{' Expr '}'.
 
 Block := 'begin' {Statement} 'end'.
 
@@ -220,8 +229,6 @@ The types are as follows:
 
 It's important that `R` is a `POINT`, since this allows the
 syntax `R.[i]` as described in the following sections.
-Further improvements should address
-syntax sugar for array-like structures.
 
 These `data` declarations can be acessed like so:
 
@@ -571,7 +578,99 @@ end
 
 We should also allow `sizeof[Y]` like above if we're inside a struct.
 
-#### TODO
+#### Assembly Support
 
-Can we make the syntax of annotations in structs be more 
-coherent with the rest of the language?
+The user may write assembly procedures, that will be executed
+as a normal procedure, but will be constrained in several ways.
+ - It is not possible to call other procedures inside assembly procedures,
+as that would expose Millipascal's ABI.
+ - It is not possible to inline an assembly procedure in any way.
+ - The compiler will not optimize assembly procedures, and will only
+perform direct translation of instructions and operands, except for
+pseudo-instructions. It must treat the assembly code as a black box,
+and only check what it knows.
+
+The design goal of assembly procedures is to wrap syscalls and allow
+the user to write hot-path code directly in assembly, for example,
+to do manual vectorization, or to be very meticulous about performance.
+
+Wrapping individual instructions _is not_ the design goal, if the compiler
+can't optimize the code well enough, let the user write the whole thing in assembly.
+
+Example:
+
+```
+const SYS_WRITE 1;
+const STDOUT 1;
+
+proc write[p:ptr, size:i64] i64
+asm begin
+.start:
+    _load rdx, size; # pseudo instructions that abstract the ABI
+    _load rsi, p;
+    mov rdi, STDOUT;
+    mov rax, SYS_WRITE; # constants are evaluated and inserted as immediates
+    syscall;
+
+    _ret rax; # pseudo instruction that returns from the function, passing an argument
+end
+```
+
+It should also be possible to use locals, globals and addressing modes:
+
+```
+const INT_MIN = ~(1<<63);
+
+data array:ptr^i64 [64]
+
+proc MIN[] i64
+var min:i64
+asm [r9, r10, r11, r12, r13, rax] # clobber set
+begin
+.start:
+    _load r9, array;
+    _load r10, {sizeof[array]};
+    mov r11, 0
+    _store min, INT_MIN;
+.loop_check:
+    cmp r11, r10;
+    jge exit;
+.loop_body:
+    mov r12, [r9, r11]@qword;
+    _load r13, min;
+    cmp r12, r13;
+    jl loop_set_min; # execution continues as normal asm, falling into the next block
+.loop_end:
+    add r11, {sizeof[i64]};
+    jmp loop_check;
+.loop_set_min:
+    _store min, r12;
+    jmp loop_end;
+.exit:
+    _load rax, min;
+    _ret rax;
+end
+```
+
+The previous example did not need to use a local variable at all, but is
+illustrative of how you'd do it.
+
+Addressing modes should be `[register, immediate]` or `[register, register]`,
+which should compute `(register+immediate)` and `(register+register)`, respectively.
+
+Whenever you'd need to use an expression, you'll need to encase it in `{}`. Expressions
+must be evaluated at compile time.
+
+The compiler must insert a `jmp glbl_exit` after the code emitted by an asm procedure,
+in case the user forgets to properly terminate the procedure. `glbl_exit` should
+look like:
+
+```
+glbl_exit:
+    xor rdi, rdi;
+    mov rdi, 101;
+    mov rax, SYS_EXIT;
+    syscall;
+```
+
+Where `101` will be a reserved exit code. Maybe a message is useful too.

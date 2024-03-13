@@ -3,9 +3,8 @@ package Type
 import "strings"
 
 type Type struct {
-	Basic   BasicType
-	Special SpecialType
-	Proc    *ProcType
+	Basic BasicType
+	Proc  *ProcType
 }
 
 func (t *Type) String() string {
@@ -33,12 +32,8 @@ func (t *Type) String() string {
 		return "bool"
 	case Ptr:
 		return "ptr"
-	}
-	switch t.Special {
-	case MultiRet:
-		return "MultiRet"
 	case Void:
-		return "Void"
+		return "void"
 	}
 	if t.Proc != nil {
 		return t.Proc.String()
@@ -133,8 +128,7 @@ var T_U16 = &Type{Basic: U16}
 var T_U8 = &Type{Basic: U8}
 var T_Bool = &Type{Basic: Bool}
 var T_Ptr = &Type{Basic: Ptr}
-var T_Void = &Type{Special: Void}
-var T_MultiRet = &Type{Special: MultiRet}
+var T_Void = &Type{Basic: Void}
 var T_MainProc = &Type{Proc: &ProcType{Args: []*Type{}, Rets: []*Type{}}}
 
 type BasicType int
@@ -152,14 +146,6 @@ const (
 	U32
 	U64
 	Ptr
-)
-
-type SpecialType int
-
-const (
-	InvalidSpecialType SpecialType = iota
-
-	MultiRet
 	Void
 )
 
@@ -167,17 +153,12 @@ func IsInvalid(t *Type) bool {
 	if t == nil {
 		return false
 	}
-	return t.Special == InvalidSpecialType &&
-		t.Basic == InvalidBasicType &&
+	return t.Basic == InvalidBasicType &&
 		t.Proc == nil
 }
 
 func IsVoid(tt *Type) bool {
-	return tt.Special == Void
-}
-
-func IsMultiRet(tt *Type) bool {
-	return tt.Special == MultiRet
+	return tt.Basic == Void
 }
 
 func IsBasic(tt *Type) bool {

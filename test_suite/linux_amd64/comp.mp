@@ -1,3 +1,5 @@
+from io import write
+
 data hello "Hello, World!\n"
 
 proc main

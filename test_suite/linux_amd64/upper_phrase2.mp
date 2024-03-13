@@ -1,3 +1,4 @@
+from io import write
 data hello "Hello\n"
 
 proc main

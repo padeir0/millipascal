@@ -15,7 +15,7 @@ import (
 
 func Check(P *mir.Program) *Error {
 	for _, sy := range P.Symbols {
-		if sy.Proc != nil && !sy.Builtin {
+		if sy.Proc != nil {
 			s := newState(P)
 			s.proc = sy.Proc
 			s.proc.ResetBlocks()

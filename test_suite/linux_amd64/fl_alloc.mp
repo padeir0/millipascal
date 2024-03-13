@@ -1,3 +1,4 @@
+from io import write
 from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, fatal, debug, oom
 from constants import WORD, NULL, FULL, EMPTY

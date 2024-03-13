@@ -6,6 +6,8 @@
 #     q*y <= x
 #     (q+1)*y > x
 
+from io import write
+
 proc main
 var x, y, q:i64,
 begin

@@ -14,6 +14,7 @@
 #     procedures that have "abs" prefix deal only with numbers >= 0,
 #     while exported procedures will deal only with whole integers.
 
+from io import write
 from constants import NULL, WORD
 from buffutil import set_buff, copy
 from ioutil import fatal, put_int, put_char, put_bool, oom

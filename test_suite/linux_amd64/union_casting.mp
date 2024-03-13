@@ -1,3 +1,5 @@
+from io import write
+
 type Node is ptr^begin [sizeof[i8] + 2*sizeof[Node]]
     T:i32         {0};
     Contents:void {T+sizeof[T]};

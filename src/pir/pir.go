@@ -21,12 +21,6 @@ type Program struct {
 	Symbols []*Symbol
 }
 
-func (this *Program) AddBuiltin(p *Procedure) int {
-	index := len(this.Symbols)
-	this.Symbols = append(this.Symbols, &Symbol{Proc: p, Builtin: true})
-	return index
-}
-
 func (this *Program) AddProc(p *Procedure) int {
 	index := len(this.Symbols)
 	this.Symbols = append(this.Symbols, &Symbol{Proc: p})
@@ -55,15 +49,11 @@ func NewProgram() *Program {
 }
 
 type Symbol struct {
-	Proc    *Procedure
-	Mem     *DataDecl
-	Builtin bool
+	Proc *Procedure
+	Mem  *DataDecl
 }
 
 func (this *Symbol) String() string {
-	if this.Builtin {
-		return this.Proc.Label + ": " + "builtin"
-	}
 	if this.Proc != nil {
 		return this.Proc.String()
 	}

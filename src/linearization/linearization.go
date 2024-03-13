@@ -116,10 +116,6 @@ func declAll(c *context, M *mod.Module) {
 				m := newPirMem(c, M.Name, sy.Data)
 				i := c.Program.AddMem(m)
 				c.symbolMap[m.Label] = pir.SymbolID(i)
-			} else if sy.T == ST.Builtin {
-				p := newBuiltin(sy)
-				i := c.Program.AddBuiltin(p)
-				c.symbolMap[p.Label] = pir.SymbolID(i)
 			}
 		}
 	}
@@ -547,12 +543,6 @@ func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand {
 	i := int64(c.GetSymbolID(global.ModuleName, global.Name))
 	switch global.T {
-	case ST.Builtin:
-		return pir.Operand{
-			Class: pirc.Global,
-			Type:  global.Type,
-			ID:    i,
-		}
 	case ST.Proc:
 		return pir.Operand{
 			Class: pirc.Global,
@@ -716,17 +706,6 @@ func lexToUnaryOp(op lk.LexKind) IT.InstrKind {
 		return IT.Not
 	}
 	panic("lexToUnaryOp: unexpected unaryOp")
-}
-
-func newBuiltin(sy *mod.Symbol) *pir.Procedure {
-	rets := sy.Type.Proc.Rets
-	args := sy.Type.Proc.Args
-	return &pir.Procedure{
-		Label: "_" + sy.Name,
-		Vars:  nil,
-		Rets:  rets,
-		Args:  args,
-	}
 }
 
 func newPirProc(modName string, P *mod.Proc) *pir.Procedure {

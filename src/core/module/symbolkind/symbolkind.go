@@ -8,8 +8,6 @@ func (s SymbolKind) String() string {
 		return "proc"
 	case Data:
 		return "data"
-	case Builtin:
-		return "builtin"
 	case Var:
 		return "var"
 	case Arg:
@@ -28,7 +26,6 @@ const (
 	Invalid SymbolKind = iota
 
 	Proc
-	Builtin
 	Data
 	Const
 	Var

@@ -4,7 +4,7 @@ import (
 	. "mpc/core"
 	lex "mpc/core/module/lexkind"
 	ST "mpc/core/module/symbolkind"
-	T "mpc/pir/types"
+	T "mpc/core/module/types"
 
 	"fmt"
 	"strings"
@@ -12,12 +12,21 @@ import (
 	"math/big"
 )
 
+type TypeInfo struct {
+	MultiRet bool
+	ID       T.TypeID
+}
+
+func (this TypeInfo) String() string {
+	return fmt.Sprintf("[%v, %v]", this.MultiRet, this.ID)
+}
+
 type Node struct {
 	Text   string
 	Lex    lex.LexKind
 	Leaves []*Node
 
-	T *T.Type
+	TInfo TypeInfo
 
 	Value *big.Int // for int literals
 
@@ -48,7 +57,7 @@ func ast(n *Node, i int) string {
 	output := fmt.Sprintf("{%s, '%s':%s, %s",
 		lex.FmtLexKind(n.Lex),
 		n.Text,
-		n.T.String(),
+		n.TInfo.String(),
 		rng,
 	)
 	output += "}"
@@ -153,16 +162,16 @@ func (M *Module) GetExternalSymbol(module string, name string) *Symbol {
 }
 
 type Symbol struct {
-	T        ST.SymbolKind
-	Name     string
-	N        *Node
-	External bool
-
-	Type       *T.Type
-	Proc       *Proc
-	Data       *Data
-	Const      *Const
+	T          ST.SymbolKind
 	ModuleName string
+	Name       string
+	N          *Node
+	External   bool
+
+	Proc  *Proc
+	Data  *Data
+	Const *Const
+	Type  *TypeDef
 
 	Refs    map[string]*Symbol
 	Visited bool
@@ -203,8 +212,8 @@ type Proc struct {
 	ArgMap map[string]PositionalSymbol
 	Vars   map[string]PositionalSymbol
 	Args   []*Symbol
-	Rets   []*T.Type
-	T      *T.Type
+	Rets   []T.TypeID
+	Type   T.TypeID
 
 	N *Node
 }
@@ -241,7 +250,7 @@ type Data struct {
 	Name     string
 	Size     *big.Int
 	Init     *Node
-	DataType *T.Type
+	DataType T.TypeID
 
 	Contents string
 
@@ -260,4 +269,9 @@ type Data struct {
 type Const struct {
 	Value  *big.Int
 	Symbol *Symbol
+	Type   T.TypeID
+}
+
+type TypeDef struct {
+	Type T.TypeID
 }

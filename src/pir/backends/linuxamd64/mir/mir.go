@@ -70,15 +70,11 @@ func (this *Program) String() string {
 }
 
 type Symbol struct {
-	Proc    *Procedure
-	Mem     *DataDecl
-	Builtin bool
+	Proc *Procedure
+	Mem  *DataDecl
 }
 
 func (this *Symbol) String() string {
-	if this.Builtin {
-		return this.Proc.Label + ": " + "builtin"
-	}
 	if this.Proc != nil {
 		return this.Proc.String()
 	}

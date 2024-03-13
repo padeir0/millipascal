@@ -93,6 +93,7 @@ const (
 	IS
 	ALL
 	TYPE
+	ASM
 
 	I8
 	I16
@@ -107,146 +108,32 @@ const (
 	VOID
 
 	// special
-	BLOCK
-	SYMBOLS
-	COUPLINGS
-	PROCDECLS
 	TYPELIST
 	IDLIST
 	ALIASLIST
 	FIELDLIST
+	EXPRLIST
+	OPLIST
+
+	BLOCK
+	SYMBOLS
+	COUPLINGS
+	PROCDECLS
 	TERMLIST
 	ARRAYACCESS
 	CALL
-	EXPRLIST
 	ELSEIFCHAIN
 	SINGLE
 	BLOB
 	FIELD
+	ASMLINES
+	INSTR
 
 	EOF
 )
 
-var tktostr = map[LexKind]string{
-	UNDEFINED: "\033[0;31m?\033[0m",
-
-	IDENTIFIER: "IDENTIFIER",
-	I64_LIT:    "I64_LIT",
-	I32_LIT:    "I32_LIT",
-	I16_LIT:    "I16_LIT",
-	I8_LIT:     "I8_LIT",
-	U64_LIT:    "U64_LIT",
-	U32_LIT:    "U32_LIT",
-	U16_LIT:    "U16_LIT",
-	U8_LIT:     "U8_LIT",
-	PTR_LIT:    "PTR_LIT",
-	STRING_LIT: "STRING_LIT",
-	CHAR_LIT:   "CHAR_LIT",
-
-	// symbols:
-	PLUS:                  "PLUS",
-	MINUS:                 "MINUS",
-	NEG:                   "NEG",
-	AT:                    "AT",
-	DIVISION:              "DIVISION",
-	MULTIPLICATION:        "MULTIPLICATION",
-	REMAINDER:             "REMAINDER",
-	PLUS_ASSIGN:           "PLUS_ASSIGN",
-	MINUS_ASSIGN:          "MINUS_ASSIGN",
-	DIVISION_ASSIGN:       "DIVISION_ASSIGN",
-	MULTIPLICATION_ASSIGN: "MULTIPLICATION_ASSIGN",
-	REMAINDER_ASSIGN:      "REMAINDER_ASSIGN",
-	LESS:                  "LESS",
-	LESSEQ:                "LESSEQ",
-	EQUALS:                "EQUALS",
-	MOREEQ:                "MOREEQ",
-	MORE:                  "MORE",
-	DIFFERENT:             "DIFFERENT",
-	LEFTPAREN:             "LEFTPAREN",
-	RIGHTPAREN:            "RIGHTPAREN",
-	LEFTBRACE:             "LEFTBRACES",
-	RIGHTBRACE:            "RIGHTBRACES",
-	LEFTBRACKET:           "LEFTBRACKETS",
-	RIGHTBRACKET:          "RIGHTBRACKETS",
-	COLON:                 "COLON",
-	DOUBLECOLON:           "DOUBLECOLON",
-	ASSIGNMENT:            "ASSIGNMENT",
-	COMMA:                 "COMMA",
-	SEMICOLON:             "SEMICOLON",
-	DOT:                   "DOT",
-	ARROW:                 "ARROW",
-	BITWISEAND:            "BITWISEAND",
-	BITWISEOR:             "BITWISEOR",
-	BITWISEXOR:            "BITWISEXOR",
-	BITWISENOT:            "BITWISENOT",
-	SHIFTLEFT:             "SHIFTLEFT",
-	SHIFTRIGHT:            "SHIFTRIGHT",
-	CARET:                 "CARET",
-	QUESTION:              "QUESTION",
-
-	// keyword: "keyword"
-	VAR:    "VARS",
-	TRUE:   "TRUE",
-	FALSE:  "FALSE",
-	AND:    "AND",
-	OR:     "OR",
-	NOT:    "NOT",
-	IF:     "IF",
-	ELSE:   "ELSE",
-	WHILE:  "WHILE",
-	RETURN: "RETURN",
-	ELSEIF: "ELSEIF",
-	PROC:   "PROC",
-	DATA:   "DATA",
-	BEGIN:  "BEGIN",
-	END:    "END",
-	SET:    "SET",
-	EXIT:   "EXIT",
-	IMPORT: "IMPORT",
-	FROM:   "FROM",
-	EXPORT: "EXPORT",
-	SIZEOF: "SIZEOF",
-	CONST:  "CONST",
-	ATTR:   "ATTR",
-	AS:     "AS",
-	IS:     "IS",
-	ALL:    "ALL",
-	TYPE:   "TYPE",
-
-	I8:   "I8",
-	I16:  "I16",
-	I32:  "I32",
-	I64:  "I64",
-	U8:   "I8",
-	U16:  "I16",
-	U32:  "I32",
-	U64:  "I64",
-	BOOL: "BOOL",
-	PTR:  "PTR",
-	VOID: "VOID",
-
-	// special
-	BLOCK:       "BLOCK",
-	SYMBOLS:     "SYMBOLS",
-	PROCDECLS:   "PARAMS",
-	TYPELIST:    "TYPELIST",
-	IDLIST:      "IDLIST",
-	ALIASLIST:   "ALIASLIST",
-	FIELDLIST:   "FIELDLIST",
-	ARRAYACCESS: "ARRAYACCESS",
-	COUPLINGS:   "COUPLINGS",
-	CALL:        "CALL",
-	EXPRLIST:    "EXPRLIST",
-	ELSEIFCHAIN: "ELSEIFCHAIN",
-	SINGLE:      "SINGLE",
-	BLOB:        "BLOB",
-	FIELD:       "FIELD",
-
-	EOF: "EOF",
-}
-
 func FmtLexKind(t LexKind) string {
-	v, ok := tktostr[t]
+	v, ok := Tktosrc[t]
 	if ok {
 		return v
 	}
@@ -254,9 +141,9 @@ func FmtLexKind(t LexKind) string {
 }
 
 func FmtTypes(t ...LexKind) string {
-	out := tktostr[t[0]]
+	out := Tktosrc[t[0]]
 	for _, t := range t[1:] {
-		out += "," + tktostr[t]
+		out += "," + Tktosrc[t]
 	}
 	return out
 }
@@ -354,22 +241,27 @@ var Tktosrc = map[LexKind]string{
 	IS:     "is",
 	ALL:    "all",
 	TYPE:   "type",
+	ASM:    "asm",
+
+	IDLIST:    "id list",
+	ALIASLIST: "alias list",
+	FIELDLIST: "field list",
+	TYPELIST:  "type list",
+	EXPRLIST:  "expression list",
+	OPLIST:    "operand list",
 
 	BLOCK:       "block",
 	SYMBOLS:     "symbols",
 	PROCDECLS:   "parameters",
-	IDLIST:      "id list",
-	ALIASLIST:   "alias list",
-	FIELDLIST:   "field list",
-	TYPELIST:    "type list",
 	ARRAYACCESS: "array access",
 	COUPLINGS:   "module coupling",
 	CALL:        "procedure call",
-	EXPRLIST:    "expression list",
 	ELSEIFCHAIN: "else if chain",
 	SINGLE:      "single",
 	BLOB:        "blob",
 	FIELD:       "field",
+	ASMLINES:    "asm lines",
+	INSTR:       "instruction",
 
 	EOF: "EOF",
 }

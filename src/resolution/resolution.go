@@ -14,7 +14,6 @@ import (
 	"mpc/lexer"
 	msg "mpc/messages"
 	"mpc/parser"
-	T "mpc/pir/types"
 )
 
 // _fmt set to true will format every file from AST before parsing again
@@ -327,8 +326,6 @@ func resolve(M *ir.Module) *Error {
 		}
 	}
 
-	addBuiltins(M)
-
 	err := createImportedSymbols(M)
 	if err != nil {
 		return err
@@ -355,17 +352,6 @@ func resolve(M *ir.Module) *Error {
 	}
 
 	return nil
-}
-
-func addBuiltins(M *ir.Module) {
-	w := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{}}}
-	r := &T.Type{Proc: &T.ProcType{Args: []*T.Type{T.T_Ptr, T.T_I64}, Rets: []*T.Type{T.T_I64}}}
-	write := &ir.Symbol{Name: "write", T: ST.Builtin, Type: w, Proc: nil}
-	error := &ir.Symbol{Name: "error", T: ST.Builtin, Type: w, Proc: nil}
-	read := &ir.Symbol{Name: "read", T: ST.Builtin, Type: r, Proc: nil}
-	M.Globals["write"] = write
-	M.Globals["read"] = read
-	M.Globals["error"] = error
 }
 
 func createGlobals(M *ir.Module) *Error {
@@ -503,7 +489,7 @@ func checkExports(M *ir.Module) *Error {
 			items := exp.Leaves[0]
 			if items.Lex == lex.ALL {
 				for name, sy := range M.Globals {
-					if !sy.External && sy.T != ST.Builtin {
+					if !sy.External {
 						_, ok := exported[name]
 						if ok {
 							return msg.ErrorDuplicatedExport(M, items)
@@ -637,7 +623,6 @@ func setMemSymbol(M *ir.Module, n *ir.Node) *Error {
 	}
 	sy := &ir.Symbol{
 		T:          ST.Data,
-		Type:       T.T_Ptr,
 		Name:       name,
 		ModuleName: M.Name,
 		Data:       mem,

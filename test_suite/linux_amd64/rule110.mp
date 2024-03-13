@@ -1,3 +1,5 @@
+from io import write
+
 data buff1 [102]
 data buff2 [102]
 data here "here\n"

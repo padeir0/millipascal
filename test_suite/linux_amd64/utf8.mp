@@ -1,5 +1,6 @@
 # naïve utf-8 implementation
 # does not protect against encoding/decoding invalid sequences
+from io import write
 
 export
     utf8_encode, utf8_decode,

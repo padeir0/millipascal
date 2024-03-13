@@ -14,20 +14,18 @@ import (
 
 func Generate(P *mir.Program, outname string) *FasmProgram {
 	output := &fasmProgram{
-		executable: []*fasmProc{genWrite(P), genRead(P), genError(P)},
+		executable: []*fasmProc{},
 		data:       []*fasmData{},
 		entry:      genEntry(P),
 	}
 	for _, sy := range P.Symbols {
-		if !sy.Builtin {
-			if sy.Proc != nil {
-				proc := genProc(P, sy.Proc)
-				output.executable = append(output.executable, proc)
-			}
-			if sy.Mem != nil {
-				mem := genMem(sy.Mem)
-				output.data = append(output.data, mem)
-			}
+		if sy.Proc != nil {
+			proc := genProc(P, sy.Proc)
+			output.executable = append(output.executable, proc)
+		}
+		if sy.Mem != nil {
+			mem := genMem(sy.Mem)
+			output.data = append(output.data, mem)
 		}
 	}
 	if outname == "" {
@@ -279,90 +277,6 @@ var Registers = []*register{
 	{QWord: "rdi", DWord: "edi", Word: "di", Byte: "dil"},
 	{QWord: "rsi", DWord: "esi", Word: "si", Byte: "sil"},
 	{QWord: "rbx", DWord: "ebx", Word: "bx", Byte: "bl"},
-}
-
-// read[ptr, int] int
-func genRead(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
-	ptr := convertOperand(P, ptrArg, 0, 0, 0)
-	size := convertOperand(P, sizeArg, 0, 0, 0)
-	amountRead := ptr
-	return &fasmProc{
-		label: "_read",
-		blocks: []*fasmBlock{
-			{label: "_read", code: []*amd64Instr{
-				unary(Push, "rbp"),
-				bin(Mov, "rbp", "rsp"),
-
-				bin(Mov, "rdx", size),
-				bin(Mov, "rsi", ptr),
-				bin(Mov, "rdi", "0"), // STDERR
-				bin(Mov, "rax", "0"), // WRITE
-				{Instr: Syscall},
-
-				bin(Mov, amountRead, "rax"),
-
-				bin(Mov, "rsp", "rbp"),
-				unary(Pop, "rbp"),
-				{Instr: Ret},
-			}},
-		},
-	}
-}
-
-// write[ptr, int]
-func genWrite(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
-	ptr := convertOperand(P, ptrArg, 0, 0, 0)
-	size := convertOperand(P, sizeArg, 0, 0, 0)
-	return &fasmProc{
-		label: "_write",
-		blocks: []*fasmBlock{
-			{label: "_write", code: []*amd64Instr{
-				unary(Push, "rbp"),
-				bin(Mov, "rbp", "rsp"),
-
-				bin(Mov, "rdx", size),
-				bin(Mov, "rsi", ptr),
-				bin(Mov, "rdi", "1"), // STDOUT
-				bin(Mov, "rax", "1"), // WRITE
-				{Instr: Syscall},
-
-				bin(Mov, "rsp", "rbp"),
-				unary(Pop, "rbp"),
-				{Instr: Ret},
-			}},
-		},
-	}
-}
-
-// error[ptr, int]
-func genError(P *mir.Program) *fasmProc {
-	ptrArg := mir.Operand{Class: mirc.CallerInterproc, ID: 0, Type: T.T_Ptr}
-	sizeArg := mir.Operand{Class: mirc.CallerInterproc, ID: 1, Type: T.T_I64}
-	ptr := convertOperand(P, ptrArg, 0, 0, 0)
-	size := convertOperand(P, sizeArg, 0, 0, 0)
-	return &fasmProc{
-		label: "_error",
-		blocks: []*fasmBlock{
-			{label: "_error", code: []*amd64Instr{
-				unary(Push, "rbp"),
-				bin(Mov, "rbp", "rsp"),
-
-				bin(Mov, "rdx", size),
-				bin(Mov, "rsi", ptr),
-				bin(Mov, "rdi", "2"), // STDERR
-				bin(Mov, "rax", "1"), // WRITE
-				{Instr: Syscall},
-
-				bin(Mov, "rsp", "rbp"),
-				unary(Pop, "rbp"),
-				{Instr: Ret},
-			}},
-		},
-	}
 }
 
 func genMem(mem *mir.DataDecl) *fasmData {

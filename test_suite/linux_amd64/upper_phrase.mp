@@ -1,18 +1,19 @@
+from io import write
 data buff "am i uppercase yet?\n"
 
 proc main
 begin
-	byte_map[buff, sizeof[buff], upper_case];
+	byte_map[buff, sizeof[buff]];
 	write[buff, sizeof[buff]];
 end
 
-proc byte_map[b:ptr, bsize:i64, op:proc[i8][i8]]
+proc byte_map[b:ptr, bsize:i64]
 var i:i64
 begin
 	set i = 0;
 	while i < bsize
 	begin
-		set (b+i)@i8 = op[(b+i)@i8];
+		set (b+i)@i8 = upper_case[(b+i)@i8];
 		set i += 1;
 	end
 end
