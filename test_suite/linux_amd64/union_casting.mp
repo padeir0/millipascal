@@ -1,22 +1,25 @@
 from io import write
 
-type Node is ptr^begin [sizeof[i8] + 2*sizeof[Node]]
+struct Node [sizeof[i8] + 2*sizeof[Node]]
+begin
     T:i32         {0};
-    Contents:void {T+sizeof[T]};
+    Contents:void {Node.T+sizeof[Node.T]};
 end
 
-type Leaf is ptr^i64
+struct Leaf begin
+    O:i64;
+end
 
-type Unary is ptr^begin
+struct Unary begin
     Leaf:Node;
 end
 
-type Binary is ptr^begin
+struct Binary begin
     Left:Node;
     Right:Node;
 end
 
-type Multiple is ptr^begin
+struct Multiple begin
     Len:i32;
     Cap:i32;
     Array:Node;
@@ -56,7 +59,7 @@ var bin:Binary, un:Unary, leaf:Leaf
 begin
     if n->T == NUM begin
         set leaf = (n.Contents):Leaf;
-        return @leaf;
+        return leaf->O;
     end elseif n->T == NEG begin
         set un = (n.Contents):Unary;
         return ~eval[un->Leaf];
@@ -95,7 +98,7 @@ begin
         exit 1ss;
     end
     while i < mult->Len begin
-        set curr = eval[mult->Array.[i]];
+        set curr = eval[mult->Array[i]];
         if curr < min begin
             set min = curr;
         end
@@ -115,7 +118,7 @@ begin
         exit 1ss;
     end
     while i < mult->Len begin
-        set curr = eval[mult->Array.[i]];
+        set curr = eval[mult->Array[i]];
         if curr > max begin
             set max = curr;
         end
@@ -139,23 +142,23 @@ data Add:Node []
 proc make_expr[] Node
 var mult:Multiple, bin:Binary, un:Unary
 begin
-    set_num[Numbers.[0], 1];
-    set_num[Numbers.[1], 2];
-    set_num[Numbers.[2], 3];
-    set_num[Numbers.[3], 5];
-    set_num[Numbers.[4], 7];
+    set_num[Numbers[0], 1];
+    set_num[Numbers[1], 2];
+    set_num[Numbers[2], 3];
+    set_num[Numbers[3], 5];
+    set_num[Numbers[4], 7];
 
     set Max->T = MAX;
     set mult = (Max.Contents):Multiple;
     set mult->Cap = 3;
     set mult->Len = 3;
-    set mult->Array = Numbers.[0];
+    set mult->Array = Numbers[0];
 
     set Min->T = MIN;
     set mult = (Min.Contents):Multiple;
     set mult->Cap = 3;
     set mult->Len = 3;
-    set mult->Array = Numbers.[2];
+    set mult->Array = Numbers[2];
 
     set Div->T = DIV;
     set bin = (Div.Contents):Binary;
@@ -164,12 +167,12 @@ begin
 
     set Mult->T = MULT;
     set bin = (Mult.Contents):Binary;
-    set bin->Left = Numbers.[1];
+    set bin->Left = Numbers[1];
     set bin->Right = Div;
 
     set Neg->T = NEG;
     set un = (Neg.Contents):Unary;
-    set un->Leaf = Numbers.[3];
+    set un->Leaf = Numbers[3];
 
     set Add->T = ADD;
     set bin = (Add.Contents):Binary;
@@ -184,5 +187,5 @@ var cont:Leaf
 begin
     set m->T = NUM;
     set cont = (m.Contents):Leaf;
-    set @cont = num;
+    set cont->O = num;
 end

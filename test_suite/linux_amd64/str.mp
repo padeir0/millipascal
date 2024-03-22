@@ -326,8 +326,8 @@ begin
     set out = 0xCAFEBABE;
     set i = 0l;
     while i < size begin
-        set out = (out |^ (array+(start+i))@i8:i64) * 0x5bd1e995;
-        set out = out |^ (out >> 15);
+        set out = (out ^ (array+(start+i))@i8:i64) * 0x5bd1e995;
+        set out = out ^ (out >> 15);
         set i += 1l;
     end
 

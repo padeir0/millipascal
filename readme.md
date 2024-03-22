@@ -38,9 +38,7 @@ begin
   write[buff, sizeof[buff]];
 end
 
-type ByteMapper as proc[i8][i8]
-
-proc byte_map[b:ptr, bsize:i64, op:ByteMapper]
+proc byte_map[b:ptr, bsize:i64, op:proc[i8][i8]]
 var i:i64
 begin
   set i = 0;
@@ -50,7 +48,7 @@ begin
   end
 end
 
-proc upper_case:ByteMapper [a]
+proc upper_case[a:i8] i8
 begin
   if a >= 'a' and a <= 'z' begin
     return a - 32ss;

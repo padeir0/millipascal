@@ -7,7 +7,7 @@ end
 
 const INT_MIN = ~(1<<63)
 
-data array:ptr^i64 {
+data array {
     1, 5, ~4, 0, 7
 }
 

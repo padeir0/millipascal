@@ -7,7 +7,7 @@ begin
     test_e[];
 end
 
-data a:ptr^i64 { 0xF, 0xFF, ~0xFFF, ~0xFFFF}
+data a { 0xF, 0xFF, ~0xFFF, ~0xFFFF}
 
 proc test_a
 begin
@@ -29,7 +29,7 @@ begin
     end
 end
 
-data b:ptr^i32 { 0xAl, ~0xAAl, 0xAAAl}
+data b { 0xAl, ~0xAAl, 0xAAAl}
 
 proc test_b
 begin
@@ -48,7 +48,7 @@ begin
     end
 end
 
-data c:ptr^i16 { 0xAs, ~0xAAs, 0xAAAs}
+data c { 0xAs, ~0xAAs, 0xAAAs}
 
 proc test_c
 begin
@@ -67,7 +67,7 @@ begin
     end
 end
 
-data d:ptr^i8 { 0xAss, ~0xAss, 0x7Fss}
+data d { 0xAss, ~0xAss, 0x7Fss}
 
 proc test_d
 begin
@@ -86,7 +86,7 @@ begin
     end
 end
 
-data e:ptr^u8 { 0xAuss, 0xFuss, 0x7Fuss}
+data e { 0xAuss, 0xFuss, 0x7Fuss}
 
 proc test_e
 begin

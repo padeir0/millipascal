@@ -1,366 +1,141 @@
-# Millipascal Core
+# Millipascal
 
-Initial subset that is able to bootstrap itself.
+## Lexical Elements
 
-Constraints:
- - ASCII based, except for comments
- - Only plain arithmetical constant evaluation, no complex procedure call stuff
+Millipascal source is UTF8 encoded, but only comments
+can carry arbitrary codepoints, source code is limited
+to ASCII. Whitespace serves only as token separators,
+and otherwise have no semantic meaning.
+
+### Identifiers
+
+Identifiers are similar to C, if not identical.
+They're simply the regex `[a-zA-Z_][a-zA-Z0-9_]*`.
 
 ```ebnf
-id := letter {letter | digit}.
+id = letterPlus {letterPlus | digit}.
+letterPlus = letter | '_'.
 letter = 'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'|'i'|'j'|
          'k'|'l'|'m'|'n'|'o'|'p'|'q'|'r'|'s'|'t'|
          'u'|'v'|'w'|'x'|'y'|'z'|'A'|'B'|'C'|'D'|
          'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'|'M'|'N'|
          'O'|'P'|'Q'|'R'|'S'|'T'|'U'|'V'|'W'|'X'|
-         'Y'|'Z'|'_'.
+         'Y'|'Z'.
 digits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'.
+```
+
+### Keywords
+
+Millipascal is a very keywordy language, most of them are used
+only once. In general, i find keywords easier to read than
+arbitrary symbols.
+Make sure the following identifiers are reserved:
+
+```
+var   proc   begin  end    while if     else   elseif
+or    and    not    data   i8    i16    i32    i64   
+u8    u16    u32    u64    bool  ptr    true   false 
+exit  import from   export const sizeof return set   
+attr  as     all    struct void  asm
+```
+
+### Operators and ponctuation
+
+Even though there are quite a few keywords, because
+there's almost no operator overloading, there are
+quite a few symbols too.
+
+```
+,   :   (   )   [   ]   {   }
+=   ==  !=  >   >=  <   <=  +
+-   *   /   %   -=  +=  *=  /=
+%=  .   @   ::  ~   &   |   !
+^   >>  <<  ->  ?   '   "   <->
+++  --
+```
+
+As usual, operators listed here are considered a single token.
+
+### Numerical Literals
+
+```ebnf
+number = decimal | hexadecimal | binary.
+decimal = digits {decDigits} [numEnding].
+hexadecimal = '0x' hexDigits {hexDigits} [numEnding].
+binary = '0b' binDigits {binDigits} [numEnding].
 decDigits = digits | '_'.
 hexDigits = digits | 'A'|'B'|'C'|'D'|'E'|'F'|'a'|'b'|'c'|'d'|'e'|'f'|'_'.
 binDigits = '0'|'1'|'_'.
 numEnding = 'p'|'s'|'ss'|'l'|'ll'|'us'|'uss'|'ul'|'ull'.
-number := decimal | hexadecimal | binary.
-decimal := digits {decDigits} [numEnding].
-hexadecimal := '0x' hexDigits {hexDigits} [numEnding].
-binary := '0b' binDigits {binDigits} [numEnding].
-
-escapes := '\\"' | '\\'' | '\\n' | '\\t' | '\\r'.
-string := '"' {ascii|escapes} '"'.
-char := '\'' (ascii|escapes) '\''.
-
-keywords :=
-    'var'    | 'proc'   | 'begin'  | 'end'    |
-    'while'  | 'if'     | 'else'   | 'elseif' |
-    'or'     | 'and'    | 'not'    | 'data'   |
-    'i8'     | 'i16'    | 'i32'    | 'i64'    |
-    'u8'     | 'u16'    | 'u32'    | 'u64'    |
-    'bool'   | 'ptr'    | 'true'   | 'false'  |
-    'exit'   | 'import' | 'from'   | 'export' |
-    'const'  | 'sizeof' | 'return' | 'set'    |
-    'attr'   | 'as'     | 'is'     | 'all'    |
-    'type'   | 'void'   | 'asm'.
-
-ponctuation :=
-    ','  | ':'  | '('  | ')'  | '['  | ']' |
-    '='  | '==' | '!=' | '>'  | '>=' | '<' |
-    '<=' | '+'  | '-'  | '*'  | '/'  | '%' |
-    '-=' | '+=' | '*=' | '/=' | '%=' | '.' |
-    '@'  | '::' | '~'  | '&&' | '||' | '!' |
-    '|^' | '>>' | '<<' | '->' | '^'.
-
-basicType :=
-    'i8' | 'i16' | 'i32' | 'i64' | 'ptr' | 'bool' |
-    'u8' | 'u16' | 'u32' | 'u64' | 'void'.
-
-Module := {Coupling} {AttSymbol}.
-
-Coupling := Import | FromImport | Export.
-
-Import := 'import' Items.
-FromImport := 'from' id 'import' Items.
-Export := 'export' Items.
-Items := (AliasList | 'all')
-AliasList := Alias {',' Alias} [','].
-Alias := id ['as' id].
-
-AttSymbol := [Attributes] Symbol.
-Attributes:= 'attr' IdList.
-IdList := id {',' id} [','].
-
-Symbol := Procedure
-    | Data
-    | Const
-    | TypeDef.
-
-Const := 'const' (SingleConst|MultipleConst).
-SingleConst := id '=' Expr.
-MultipleConst := 'begin' {SingleConst ';'} 'end'.
-
-Data := 'data' (SingleData|MultipleData).
-MultipleData := 'begin' {SingleData ';'} 'end'.
-SingleData :=  id [Annot] (DExpr|string|Blob).
-Blob := '{' ExprList '}'.
-DExpr := '[' [Expr] ']'.
-
-TypeDef := 'type' (SingleType|MultipleType).
-SingleType := id ('as'|'is') Type.
-MultipleType := 'begin' {SingleType ';'} 'end'.
-
-Procedure := 'proc' id [Annotatted|Direct] [Vars] (Asm|Block).
-
-Annotatted := Annot [AArgs].
-AArgs := '[' [idList] ']'.
-
-Direct := DArgs [Rets].
-DArgs := '[' [DeclList] ']'.
-Vars := 'var' DeclList.
-
-Rets := TypeList.
-TypeList := Type {',' Type} [','].
-
-DeclList := Decl {',' Decl} [','].
-Decl := IdList Annot.
-Annot := ':' Type.
-
-Type := (basicType | ProcType | Name) ['^' Layout].
-ProcType := 'proc' ProcTTList ProcTTList.
-ProcTTList := '[' [TypeList] ']'.
-
-Layout := Type | Struct.
-Struct := 'begin' [Size] {Field ';'} 'end'.
-Size := '[' Expr ']'.
-Field := IdList Annot [Offset].
-Offset := '{' Expr '}'.
-
-Asm := 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
-ClobberSet := '[' idList ']'.
-AsmLine := Label | Instruction.
-Label := '.' id ':'.
-Instruction := InstrName [OpList] ';'.
-InstrName := id.
-OpList := Op {',' Op} ','.
-Op := Name | Addressing | ConstOp | Literal.
-Addressing := '[' OpList ']' ['@' id].
-ConstOp := '{' Expr '}'.
-
-Block := 'begin' {Statement} 'end'.
-
-Statement := If [';']
-      | While [';']
-      | Return ';'
-      | Set ';'
-      | Exit ';'
-      | Expr ';'.
-
-While := 'while' Expr Block.
-
-If   := 'if' Expr Block {ElseIf} [Else].
-ElseIf := 'elseif' Expr Block.
-Else := 'else' Block.
-
-Set := 'set' ExprList assignOp Expr.
-assignOp := '=' | '-=' | '+=' | '/=' | '*=' | '%='.
-
-Return := 'return' [ExprList].
-Exit := 'exit' ['?'] Expr.
-
-ExprList := Expr {',' Expr} [','].
-Expr := And {'or' And}.
-And := Comp {'and' Comp}.
-Comp := Sum {compOp Sum}.
-compOp := '==' | '!=' | '>' | '>=' | '<' | '<='.
-Sum := Mult {sumOp Mult}.
-sumOp := '+' | '-' | '||' | '|^'.
-Mult := UnaryPrefix {multOp UnaryPrefix}.
-multOp := '*' | '/' | '%' | '&&' | '<<' | '>>'.
-UnaryPrefix := {Prefix} UnarySuffix.
-UnarySuffix := Factor {Suffix}.
-
-Prefix := 'not' | '~' | '!' | '@'.
-Suffix := Conversion
-    | Deref
-    | Call
-    | DotAccess
-    | ArrowAccess.
-Conversion := Annot.
-Call := '[' [ExprList] ']'.
-Deref := '@' Type.
-DotAccess := '.' (id|Call).
-ArrowAccess := '->' (id|Call).
-
-Factor := Name
-    | Literal
-    | NestedExpr
-    | Sizeof.
-NestedExpr := '(' Expr ')'.
-Literal := true | false | number | char.
-Name := id ['::' id].
-Sizeof := 'sizeof' ['^'] '[' Type {DotAccess} ']'.
 ```
 
-#### NOTE 1
+Literals can be written in three bases: decimal, hexadecimal and binary.
+Octal is not provided. Each number can end with a postfix that specifies
+a type. Underscore is ignored, and can be used to group digits.
+Literal type is defined like the following:
 
-When we do `data D:T`, `T` must be a pointer, possibly with metadata.
-What we do then, is have something like:
+ - `p`: `ptr`
+ - `s`: `i16` (short)
+ - `ss`: `i8` (shorter short)
+ - `l`: `i32` (long)
+ - `ll`: `i64` (longer long)
+ - `us`: `u16` (unsigned short)
+ - `uss`: `u8` (unsigned shorter short)
+ - `ul`: `u32` (unsigned long)
+ - `ull`: `u64` (unsigned longer long)
 
-```
-data D:ptr^i64 []
-```
+Notice that this has not much to do with how C does integers,
+that's because i don't care.
 
-Which allows us to access it with `D->[0]` or
-`@D`. Or declare something like:
+A number without postfix defaults to `i32`.
 
-```
-type T as ptr^begin X:i64; Y:i64; end
-data Origin:T []
-```
+### Comments
 
-Which allows us to access it like `Origin->X` and `Origin->Y`.
-Leaving `[]` without expression makes the compiler initialize it to
-`sizeof^[T]`.
+Comments start with `#` and end with a newline. These are not
+specified in the full grammar, and are considered whitespace.
+Parsers can completely ignore them.
 
-#### NOTE 2
+### Strings and chars
 
-There are a bunch of ways to declare space for a struct,
-considering the struct:
-
-```
-type POINT is ptr ^ begin
-    X:i64; Y:i64;
-end
-```
-
-We can have these `data` declarations:
-
-```
-data P [ sizeof[POINT] ]
-data Q:POINT []
-data R:POINT {
-    1, 1,
-    2, 2,
-    3, 3,
-}
-data S:POINT [50]
+```ebnf
+escapes = '\\"' | '\\'' | '\\n' | '\\t' | '\\r'.
+string = '"' {ascii|escapes} '"'.
+char = '\'' (ascii|escapes) '\''.
 ```
 
-The types are as follows:
- - `P` has type `ptr`
- - `Q`, `R` and `S` has type `POINT` (which is also a pointer)
+Strings and characters are ascii, no fuzz here.
+If you need to encode other UTF8 codepoints use blobs and
+number literals. These two require a little smartness
+in the lexer, because of escapes and arbitrary ascii
+values, but can be dealt easily.
 
-It's important that `R` is a `POINT`, since this allows the
-syntax `R.[i]` as described in the following sections.
+## Gramatical Elements
 
-These `data` declarations can be acessed like so:
+### Module
 
-```
-proc main
-var p:ptr, r:ptr
-begin
-    set p = P:POINT;
-    set p->X = 1;
-    set p->Y = 1;
-
-    set Q->X = 1;
-    set Q->Y = 1;
-
-    if R->X != Q->X or R->Y != Q->Y begin
-        exit 1ss;
-    end
-
-    if p->X != Q->X or p->Y != Q->Y begin
-        exit 2ss;
-    end
-end
+```ebnf
+Module = {Coupling} {AttSymbol}.
 ```
 
-We can cast `P` to `POINT` (`P:POINT`) since structures are just
-pointer related syntax-sugar.
+Each file in Millipascal is a module. Modules can be imported,
+but must be done at the top of each file. The grammar
+separates module information from symbol information,
+and makes sure the source is properly organized.
 
-#### NOTE 3
+### Coupling
 
-It is entirely possible to refer to previous struct fields when
-declaring field offsets, and it is also possible to omit the
-struct name.
+```ebnf
+Coupling = Import | FromImport | Export.
 
-```
-type UNPADDED is ptr ^ begin
-    X:i32 { 0 };
-    Y:i64 { UNPADDED.X + sizeof[i32] };
-    Z:i64 { Y + sizeof[i64] }; # UNPADDED may be omitted
-end
-```
-
-#### NOTE 4
-
-A struct can be used to type a blob if,
-and only if it is *well-behaved*.
-If there is padding, the compiler should
-pad it with zeroes.
-
-```
-type Row is ptr ^ begin
-    X:i64;
-    Y:i32;
-    Proc:proc[ptr][];
-end
-
-data Table
-{:Row
-     1,  2l,     ZeroX,
-     3,  4l,     ZeroX,
-}
+Import = 'import' Items.
+FromImport = 'from' id 'import' Items.
+Export = 'export' Items.
+Items = (AliasList | 'all').
+AliasList = Alias {',' Alias} [','].
+Alias = id ['as' id].
 ```
 
-Typechecking the table proceeds as a state machine, each item
-should correspond in order to a field in the struct, resetting
-the position after the last item is assigned.
-
-#### NOTE 5
-
-```
-type T is ptr ^ begin
-    tag:i8        {0};
-    contents:void {1};
-end
-```
-
-`T.contents` is untyped, given `a:T` then
-`a->contents` is not allowed, but allows `(a.contents):U`,
-whatever struct `U` may be.
-
-#### NOTE 6
-
-`sizeof^` can be used in a struct if it is *well-behaved*
-or if struct size is set explicitly.
-
-#### NOTE 7
-
-It's entirely possible to do this:
-
-```
-type POS is ptr ^ begin [ sizeof[i64] ]
-    Previous:i64 { ~sizeof[i64] };
-    Current:i64 { 0 };
-    Next:i64 { sizeof[i64] };
-end
-```
-
-And then, we can iterate an array,
-which gives us `array.[i]->Previous`,
-`array.[i]->Current` and `array.[i]->Next`
-to look at any given moment.
-
-#### NOTE 8
-
-The size of the data declaration should be based of the underlying type,
-for example:
-
-```
-data Ints:ptr^i64 [64]
-```
-
-Should allocate space for 64 `i64` to fit. Then `sizeof[Ints]`
-should yield the size in bytes, while `sizeof^[Ints]` should
-yield 64, ie, `sizeof^[Ints] == sizeof[Ints]/sizeof[i64]`.
-
-#### WELL-BEHAVED STRUCTS
-
-We call a struct **well-behaved** if, and only if
-the struct contains no overlapping fields, no untyped fields,
-no negative offsets and the fields fit entirely whithin struct
-size.
-
-All C structures without inner use of unions are well-behaved,
-but not all well-behaved structures are C structures. This is
-because the user is allowed to choose arbitrary padding.
-
-Attributes may be used to make the compiler pad fields to specified
-needs, maybe, for example `attr pad_c` can pad
-things to the C specification.
-
-#### ALIASES
-
-Aliases work as you expect, they work as declarations.
+Aliases work as you expect, similar to declarations.
 
 ```
 import M as N
@@ -385,292 +160,663 @@ export P as Q, R as S
 Finally, in the `export` clause, we have `P` and `R` being exposed
 externally, but they must be imported as `Q` and `S`, respectively.
 
-#### TYPE IDENTITY
+Note that modules are imported by name, and names must be identifiers,
+so file names must obey identifier restrictions, otherwise it is
+not possible to import it.
 
-Type identity is given by name and structure:
- - two named types in the same module are identical if they have equal names
- - two named types in different modules are always different
- - two unnamed types are identical if they are structurally identical
+### Symbols and Attributes
 
-Structural identity is given by the following rules:
- - Two procedure types are identical if they have the same argument types,
-layed out in the same order, and if they have the same return types, in order.
- - Two struct types are identical if they have the same size, same fields,
-each field with identical types, in order and with equal offsets from the base pointer.
+```ebnf
+AttSymbol = [Attributes] Symbol [';'].
+Attributes = 'attr' IdList.
+IdList = id {',' id} [','].
 
-Basic types are considered named types, of course.
-Consider the following types:
+Symbol = Procedure
+    | Data
+    | Const
+    | Struct.
+```
+
+Symbols may be preceded by attributes, these are simply
+identifiers that are recognized by the compiler, and can
+be used to perform conditional compilation for different targets,
+setting padding, etc.
+
+### Data
+
+```ebnf
+Data = 'data' (SingleData|MultipleData).
+MultipleData = 'begin' {SingleData ';'} 'end'.
+SingleData =  id [Annot] (DExpr|string|Blob).
+Blob = '{' ExprList '}'.
+DExpr = '[' [Expr] ']'.
+```
+
+Data defines static memory, available without interference from the operating
+system, that is, with no interference besides program loading, i guess. It can
+be reserved or declared, reserved takes an expression inside square brackets
+that define the amount to be reserved, and depends on the underlying type
+of the data definition (`data a:S [52]` will allocate `52*sizeof[S]` bytes).
+While declared can be of two other subkinds: blob and string.
+
+String data declarations encode a string into memory, computing their
+size. If `data M "abcdefgh"` is a declaration, then `sizeof[M]`
+gives the size of `M` in bytes.
+
+Blob data declarations encode arbitrary numbers and symbols into
+a section of memory, and may be optionally annotatted with structs
+so that the compiler may check whether the types are placed correctly,
+this is optional, however, you must know what you're doing.
+
+### Const
+
+```ebnf
+Const = 'const' (SingleConst|MultipleConst).
+SingleConst = id '=' Expr.
+MultipleConst = 'begin' {SingleConst ';'} 'end'.
+```
+
+Constants works basically as `define` in C, but they are evaluated
+at compile time with arbitrary precision arithmetic, when casting
+the value to the actual type, values should saturate instead of
+overflowing, that is: if `300` is assigned to an `i8`, the value
+is set to the largest `i8` value, ie, `127`, instead of overflowing.
+
+### Structs
+
+```ebnf
+Struct = 'struct' id [Size] 'begin' {Field ';'} 'end'.
+Size = '[' Expr ']'.
+Field = IdList Annot [Offset].
+Offset = '{' Expr '}'.
+```
+
+Structs create new nominal types that represent the structure of an
+object at a pointer. This is very important: structs are not first
+class, they are only additional information for pointers,
+and are not "value based", like in C. This means you can
+readily cast a `ptr` to any struct, and any struct to a `ptr`,
+and even any struct to any other struct.
+
+A struct can either be explicitly or implicitly set.
+When explicitly set, the size of the whole struct
+and the offsets of each field must be specified by the programmer
+using constant expressions.
+When implicitly set, the size and offsets must be left out,
+and the compiler computes those for you, by default, all structs
+are packed, but it should be possible to add attributes
+to change the padding requirements.
+
+Padding attributes that should be reserved are: `c_pad` and
+`align_pack`. The first computes padding just like a C struct,
+with proper internal and trailing padding, the second one allows
+the compiler to reorder fields for proper structure packing,
+without losing alignment guarantees.
+
+Inner fields of structs are not inlined, in the following
+struct, the field `List.Next` is only a pointer,
+**structs are not first class objects**.
 
 ```
-type begin
-    A is i64;
-    B is i64;
-    C as i64;
+struct List begin
+    X, Y:i64;
+    Next:List;
 end
 ```
 
-Here `A` and `B` are different, while `C` is identical to `i64`, that is,
-`C` is an alias
-
-#### OPERATIONS ON PTRS W/ METADATA
-
-Given the following struct:
+Structs behave just like constants in a sense, they specify
+offset tables and object size, and these must be verified for circularity.
+The size of a struct is a constant in itself, just like each field,
+if the field offset refers to the struct size in
+any way, shape or form, that should be considered a cycle, and
+should be reported. The following struct is misbehaving in this
+regard:
 
 ```
-type POINT is ptr ^ begin
-    X:i64;
-    Y:i64;
+const size = A.X + 8;
+struct A [size] begin
+    X:i64 {size+1};
 end
 ```
 
-We can access a field in the following ways, all of which are
-equivalent:
+Given a structure `B`, then `sizeof[B]` yields the size of the struct
+in bytes, even if it is explicit or implicit, all structs have size,
+but keep in mind that structs are sugar for `ptr`s, and fields or arrays
+may have these structs either inlined or through a layer of indirection,
+as such, the size might be `sizeof[B]` or `sizeof[ptr]`. Good practice
+is to do the following:
 
 ```
-proc zero_x[p:POINT]
-begin
-    set (p+POINT.X)@i64 = 0;
-    set p.X@i64 = 0;
-    set @p.X = 0;
-    set p->X = 0;
-end
-```
-
-This means the following:
- - `POINT.X` is a global constant of type `i32`
- - `p.X` calculates the offset `p+POINT.X` and casts it to `ptr^i64`.
- - `p->X` calculates the offset and uses the type information to make a deref
-
-As another syntax sugar, given any struct `A` defined as `ptr^i64`,
-and a value `a:A`
-then it's possible to write `a.[i]` as syntax sugar for
-`a+(i*sizeof^[A])`, such that `a.[0] == a` and `a.[1] == a + sizeof^[A]`, etc.
-Analogous to fields, the syntax `a->[i]` should be syntax sugar
-for `(a + i*sizeof^[A])@i64`.
-
-If a struct `B` is defined as:
-
-```
-type B is ptr ^ begin
-    X:i64;
-    Y:i64;
-end
-```
-
-Then given a variable `b:B`, the expression `b.[i]` computes
-`b+(i*sizeof[B])` while `b->[i]` is forbidden, since
-computing `(b+(i*sizeof[B]))@B` makes no sense. What
-`B` is saying about the pointer `b` is: "at offsets X and Y
-from a multiple of b, we can find i64 fields", ie,
-that if there is more than one structure at the pointer `b`,
-it is inlined.
-
-This means that, given a data declaration `D:A` in blob form,
-we can write `D.[i]` to access each item declared, with ease.
-
-Of course, it's also possible to combine this with field syntax:
-
-```
-set a.[0]->f1.[5]->a->b = b.[5]->f5.[7]->b->a;
-```
-
-Much to the detriment of readability :).
-
-Given a string representation like:
-
-```
-type str is ptr ^ begin
-    Cap:i32;
-    Size:i32;
-    Buff:ptr^i8;
-end
-```
-
-And a variable `s:str`, the following lines show
-the behaviour of a few expressions:
-
-```
-s.Size == s+str.Size
-s->Size == (s+str.Size)@i64
-s->Buff == (s+str.Buff)@ptr^i8
-s->Buff.[i] == ((s+str.Buff)@ptr^i8 + i*sizeof^[ptr^i8])
-s->Buff->[i] == ((s+str.Buff)@ptr^i8 + i*sizeof^[ptr^i8])@i8
-@s->Buff.[i] == s->Buff->[i]   # suffix precedes prefix
-```
-
-Note that `sizeof^[ptr^i8] == sizeof[i8]`
-
-#### SIZES OF TYPES
-
-There are two ways to find the size of things:
- - `sizeof[y]`: gives the size of a type
- - `sizeof^[y]`: gives the size of the structure
-
-Given the following types:
-
-```
-type A is ptr^begin
-    X:i64;
-    INNER:B;
-end
-type B is ptr^begin
-    X:i64; Y:i64; Z:i64;
-end
-```
-
-We have `sizeof[A] == sizeof[B] == sizeof[ptr]` but
-`sizeof^[A] == (sizeof[i64] + sizeof[B])` while
-`sizeof^[B] == 3 * sizeof[i64]`. Note that
-`sizeof[A.INNER] == sizeof[B]` and not `sizeof^[B]`.
-
-Given the following data declarations:
-
-```
-data D1 [ sizeof[A] ]
-data D2 [ sizeof[ptr] ]
-data D3:A
-```
-
-We have that `sizeof[D1] == sizeof[D2]`, while `sizeof[D3] == sizeof^[A]`.
-
-This allows us to reserve data in two ways:
-
-```
-data M1 [5 * sizeof[A]]
-data M2 [5 * sizeof^[A]]
-```
-
-In this case, `sizeof[M1] != sizeof[M2]`, and data inside `M2` would
-need to be inlined. Procedures for accessing M1 and M2 would differ:
-
-```
-proc access_M1[i:i64] A
-begin
-    return (M1 + i*sizeof[A])@A;
+struct refB begin
+    B:B;
 end
 
-proc access_M2[i:i64] A
-begin
-    return M2 + i*sizeof^[A];
-end
+data M1:B [8]
+data M2:refB [8]
 ```
 
-The first one has to find the `ptr` pointing to an `A`, and
-as such, needs a dereference,
-while the second one just finds the index of the item `A`,
-with a cast.
-Or, using the syntax sugar, we can annotate
-`M1:ptr^A` and `M2:A`, which allows you to access
-each as `M1->[i]` and `M2.[i]`, which are analogous
-to the previous procedures.
+In the above example, `sizeof[M1]` is `8 * sizeof[B]` while
+`sizeof[M2]` is `8 * sizeof[ptr]` (`sizeof[ptr] == sizeof[refB]`),
+that is, the second buffer has only pointers to these `B` objects.
 
-We should allow `sizeof[POINT.X]` to give the size of the underlying
-type of a field, such that the following becomes the canonical way
-the compiler computes the offsets:
+If multiple field names precede a type `a, b, c:i64`, then all those fields
+are of that type, a single offset can't be applied to all of them at the same time,
+`a, b, c:i64 {0}` should result in an error.
 
-```
-type POINT is ptr ^ begin
-    X:i64 {0};
-    Y:i64 {X + sizeof[POINT.X]};
-    Z:i64 {Y + sizeof[Y]};
-end
-```
+### Procedure
 
-We should also allow `sizeof[Y]` like above if we're inside a struct.
+```ebnf
+Procedure = 'proc' id Signature [Vars] (Asm|Block).
 
-#### Assembly Support
+Signature = DArgs [Rets].
+DArgs = '[' [DeclList] ']'.
+Vars = 'var' DeclList.
 
-The user may write assembly procedures, that will be executed
-as a normal procedure, but will be constrained in several ways.
- - It is not possible to call other procedures inside assembly procedures,
-as that would expose Millipascal's ABI.
- - It is not possible to inline an assembly procedure in any way.
- - The compiler will not optimize assembly procedures, and will only
-perform direct translation of instructions and operands, except for
-pseudo-instructions. It must treat the assembly code as a black box,
-and only check what it knows.
+Rets = TypeList.
+TypeList = Type {',' Type} [','].
 
-The design goal of assembly procedures is to wrap syscalls and allow
-the user to write hot-path code directly in assembly, for example,
-to do manual vectorization, or to be very meticulous about performance.
-
-Wrapping individual instructions _is not_ the design goal, if the compiler
-can't optimize the code well enough, let the user write the whole thing in assembly.
-
-Example:
-
-```
-const SYS_WRITE 1;
-const STDOUT 1;
-
-proc write[p:ptr, size:i64] i64
-asm begin
-.start:
-    _load rdx, size; # pseudo instructions that abstract the ABI
-    _load rsi, p;
-    mov rdi, STDOUT;
-    mov rax, SYS_WRITE; # constants are evaluated and inserted as immediates
-    syscall;
-
-    _ret rax; # pseudo instruction that returns from the function, passing an argument
-end
+DeclList = Decl {',' Decl} [','].
+Decl = IdList Annot.
+Annot = ':' Type.
 ```
 
-It should also be possible to use locals, globals and addressing modes:
+Procedures can have multiple returns, obviously. Variables
+are declared separatedly, together with the procedure, which
+means the language is only losely lexical scoped, there are two scopes:
+global and local. Nothing else.
+
+It is possible to write `a,b,c:i64` in a declaration,
+which means all preceding variables have that type.
+
+The body of the procedure can be of two types, one is
+in a high level language, with a handful of features,
+while the other is a low level language, architecture specific,
+that can encode specific instructions of the target machine.
+
+### Blocks
 
 ```
-const INT_MIN = ~(1<<63);
+Block = 'begin' {Statement} 'end'.
 
-data array:ptr^i64 [64]
-
-proc MIN[] i64
-var min:i64
-asm [r9, r10, r11, r12, r13, rax] # clobber set
-begin
-.start:
-    _load r9, array;
-    _load r10, {sizeof[array]};
-    mov r11, 0
-    _store min, INT_MIN;
-.loop_check:
-    cmp r11, r10;
-    jge exit;
-.loop_body:
-    mov r12, [r9, r11]@qword;
-    _load r13, min;
-    cmp r12, r13;
-    jl loop_set_min; # execution continues as normal asm, falling into the next block
-.loop_end:
-    add r11, {sizeof[i64]};
-    jmp loop_check;
-.loop_set_min:
-    _store min, r12;
-    jmp loop_end;
-.exit:
-    _load rax, min;
-    _ret rax;
-end
+Statement = If [';']
+      | While [';']
+      | DoWhile [';']
+      | Return ';'
+      | Set ';'
+      | Exit ';'
+      | Expr ';'.
 ```
 
-The previous example did not need to use a local variable at all, but is
-illustrative of how you'd do it.
+Blocks are delimited sequences of statements, most of which
+are terminated with semicolons. Millipascal does not have
+naked blocks, nested arbitrarely, that is not useful, as
+there are only two scopes (local and global) and blocks
+can't create new ones.
 
-Addressing modes should be `[register, immediate]` or `[register, register]`,
-which should compute `(register+immediate)` and `(register+register)`, respectively.
+All of these statements, except expressions, begin with a keyword.
 
-Whenever you'd need to use an expression, you'll need to encase it in `{}`. Expressions
-must be evaluated at compile time.
-
-The compiler must insert a `jmp glbl_exit` after the code emitted by an asm procedure,
-in case the user forgets to properly terminate the procedure. `glbl_exit` should
-look like:
+### If Statements
 
 ```
-glbl_exit:
-    xor rdi, rdi;
-    mov rdi, 101;
-    mov rax, SYS_EXIT;
-    syscall;
+If = 'if' Expr Block {ElseIf} [Else].
+ElseIf = 'elseif' Expr Block.
+Else = 'else' Block.
 ```
 
-Where `101` will be a reserved exit code. Maybe a message is useful too.
+If statements are the only form of selective control flow.
+They accept an expression of type `bool`, if it is `true`,
+they execute the immediate block, if not, they descend into
+the next one, if no blocks are entered, the `else` block,
+if present, is executed.
+
+### While and Do-While Statements
+
+```
+While = 'while' Expr Block.
+DoWhile = 'do' Block 'while' Expr.
+```
+
+There are only two loop constructs, only one would suffice,
+but the other is included for simmetry.
+
+While loops execute the condition expression first, if it is true, the
+block is executed and returns back to check the condition, if it is false,
+it continues to the next statement.
+
+Do-while loops execute the block first, then check the condition,
+looping back if true, continuing if false.
+
+### Return and Exit Statements
+
+```
+Return = 'return' [ExprList].
+Exit = 'exit' ['?'] [Expr].
+```
+
+There are two ways to exit early from a procedure, returning
+from the procedure or terminating the program. These are the
+only two ways to introduce exit points.
+
+You may return more than a single value from any procedure,
+as such, the return statement can take multiple expressions,
+or none, for that matter.
+
+The expression in an exit statement is the exit code of the program,
+this may be ignored by the operating system, but on linux, it is useful
+for debugging.
+
+Exit statements may optionally include a interrogation mark,
+by writting `exit?;`, the program should unwind the stack
+trace and print it before terminating, this is used mostly
+for debugging, and should be turned off in "release" builds.
+
+### Set Statements
+
+```
+Set = 'set' ExprList (Assign|IncDec).
+IncDec = '++' | '--'.
+Assign = assignOp Expr.
+assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<->'.
+```
+
+Set statements are quite complex and complexity must be justified.
+
+In it's simplest form, `set a++;` or `set a--;` simply increment
+or decrement a numerical or pointer value. In special, if `a` is a
+struct type, it is incremented of decremented by `sizeof[STRUCT]`,
+that is, in this case, `set a++` would be the same as `set a += sizeof[STRUCT]`,
+if it were allowed,
+while for numbers and raw pointers, it is the same as `set a += 1;`.
+These exist because you can't do normal pointer arithmetic with structs,
+so that `set a += 1;` would slide the struct representation one byte to the
+left, this is weird and is forbidden to avoid careless mistakes, if
+sliding is what you want, cast the struct first.
+
+If instead an assignment operator is being used, we speak of the
+values at the left hand side of the operator as LHS, and 
+the values at the right hand side as RHS. LHS always evaluates
+before the RHS, and if multiple expressions are in the LHS,
+they are evaluated from left to right.
+
+The expressions in the LHS must be *assignable* in all cases,
+the RHS must be *assignable* only in swap (`<->`) operations.
+
+We define an **assignable** expression simply by the
+top-level expression type. If the expression is a simple identifier,
+then it must be a local (be it argument or variable) to be assignable,
+if, however, the expression is a dereference, it is always assignable.
+This includes struct field dereference operations (`a->b`),
+so that `set a->b = 1;` is valid.
+
+Note that `set a[i] = j;` is invalid, as `a[i]` is a computed offset,
+if you're working with arrays, you must write `set a[i]->field = j;`,
+where `field` is the one (and maybe only) field you want to modify.
+
+The LHS is allowed to contain multiple expressions if, and only if
+the assignment operator is `=` and the RHS contains an expression
+that is multi-valued, ie, a procedure with multiple returns. If
+these conditions are not met, the compiler should yield an error.
+We allow this so that procedures can return multiple values freely.
+In case multiple expressions are allowed, types should be checked
+in order, from left to right, so that each type on the LHS
+corresponts to the same type from the multi-valued expression.
+
+Arithmetical operators ('-=', '+=', '/=', '*=' and '%=')
+are included for the sake of brevity, and because they fit
+marvelously with two and three-address instructions.
+They work the same as `set LHS = LHS <op> RHS;`,
+but the LHS is evaluated only once.
+
+Last, but not least, is the swap operator `<->`, which is
+included for brevity and performance. Swapping two values
+is a common operation, and should have built-in support.
+In this case both the LHS and RHS must be *assignable*,
+and LHS is still evaluated before the RHS.
+It may improve performance because x86_64
+allows `xchg r1, r2` to exchange two regiters,
+this would map directly to assembly without an optimization
+pass.
+
+### expressions
+
+Expressions can be statements, or can appear in other statements,
+it's allowed to be a statement so that we can evaluate procedures
+that return no values, or those who values are being
+ignored.
+
+```
+ExprList = Expr {',' Expr} [','].
+Expr = And {'or' And}.
+And = Comp {'and' Comp}.
+Comp = Sum {compOp Sum}.
+compOp = '==' | '!=' | '>' | '>=' | '<' | '<='.
+Sum = Mult {sumOp Mult}.
+sumOp = '+' | '-' | '|' | '^'.
+Mult = UnaryPrefix {multOp UnaryPrefix}.
+multOp = '*' | '/' | '%' | '&' | '<<' | '>>'.
+UnaryPrefix = {Prefix} UnarySuffix.
+UnarySuffix = Factor {Suffix}.
+
+Prefix = 'not' | '~' | '!'.
+Suffix = Conversion
+    | Deref
+    | Call
+    | DotAccess
+    | ArrowAccess.
+
+Conversion = Annot.
+Call = '[' [ExprList] ']'.
+Deref = '@' Type.
+DotAccess = '.' id.
+ArrowAccess = '->' id.
+```
+
+Expression syntax definition is ugly because we encode the precedence
+directly in the grammar, this allows us to parse it without ambiguity,
+and doesn't require any additional constructs beside standard recursive
+descent.
+
+Precedence can be viewed separatedly in a table:
+
+| Precedence | Operators                                    |
+|:----------:|:--------------------------------------------:|
+|     0      | `or`                                         |
+|     1      | `and`                                        |
+|     2      | `==`, `!=`, `>`, `>=`, `<`, `<=`,            |
+|     3      | `+`, `-`, `|`, '^'                           |
+|     4      | `*`, `/`, `%`, `&`, `<<`, `>>`               |
+|     5      | (suffix) `:`, `[]`, `.`, `->`, `@`           |
+|     6      | (prefix) `not`, `~`, `!`                     |
+
+Operations are described in the following table:
+
+| Operation  | Description                             |
+|:----------:|:---------------------------------------:|
+|    `or`    | Logical disjunction                     |
+|    `and`   | Logical conjunction                     |
+|    `not`   | Logical negation                        |
+|    `==`    | Equals                                  |
+|    `!=`    | Unequals                                |
+|    `>`     | Greater than                            |
+|    `>=`    | Greater or equals                       |
+|    `<`     | Less                                    |
+|    `<=`    | Less or equals                          |
+|    `~`     | Arithmetic Negation                     |
+|    `+`     | Addition                                |
+|    `-`     | Subtraction                             |
+|    `*`     | Multiplication                          |
+|    `/`     | Truncated Division                      |
+|    `%`     | Truncated Remainder                     |
+|    `|`     | Bitwise OR                              |
+|    `&`     | Bitwise AND                             |
+|    `!`     | Bitwise NOT                             |
+|    `^`     | Bitwise XOR                             |
+|    `<<`    | Bitwise Left Shift                      |
+|    `>>`    | Bitwise Right Shift                     |
+|    `:`     | Type Annotation or Type Cast            |
+|    `[]`    | Procedure call or struct indexing       |
+|    `.`     | struct field offset (dot access)        |
+|    `->`    | struct field derefernce (arrow access)  |
+|    `@`     | dereference                             |
+
+The following caveats are important:
+ - If `a` is a pointer, then `a+b` and `a-b` are allowed only if `b` is numerical;
+ - `or` and `and` are *not short-circuited*, and operate only on `bool` types;
+ - If `a` is of a numerical type `T`, then `a+b` is allowed only if `b` is also of type `T`,
+this applies to all other arithmetical operations;
+ - Indexing with negative values is allowed, `a[i]` computes `a + i*sizeof[STRUCT]`,
+and should accept any integer;
+ - The difference between type annotattion and cast is between a no-op and actual conversion.
+Given `a:T`, if `a` is already of type `T`, nothing is done, while if `a` is of another type,
+a cast is one;
+ - With unsigned integers casting a big integer type to a smaller integer type is allowed,
+and should truncate the value accordingly, ie, copy only the least significant bits.
+ - Dereference asks for a type `a@T`, where `T` can be any type.
+
+The following is a list of behaviours that are **implementation defined**,
+each item also includes clues as to how the program may behave, but compilers
+may choose to do as they please:
+
+ - Dereferencing a pointer that does not point to a valid object. It may segfault, or just retrieve garbage;
+ - Casting a non-procedure to a procedure and performing a call. It may segfault or execute arbitrary code;
+ - Dereferencing a type `T` from a pointer where `U` was stored. It may retrieve garbage;
+ - Casting a big signed integer to a smaller signed integer. It may truncate the bits, without preserving sign, effectively creating garbage;
+ - If `b` is zero and you perform a division or remainder, `a/b` or `a%b`. It is preferred that the program crashes with a signaling error;
+ - If `b` is negative and you perform a shift `a<<b` or `a>>b`. It may use only the lower bits of `b`;
+
+Logical operators are not short-circuited to avoid branches in expressions,
+all expressions in Millipascal are linearly executed.
+
+If `a->b`, `a@T` or `a` (local) occurs in the LHS of an assignment, then the
+value is not evaluated directly, but is represented as a sort of *lvalue*,
+and is the target of the assigment.
+
+Indexing, dot and arrow accesses behave like syntax sugar,
+given `a:T`, with `T` being a struct with a field `b:U`:
+ - `a.b` can be translated to `a+T.b`;
+ - `a->b` can be translated to `(a+T.b)@U`;
+ - `a[i]` can be translated to `a+i*sizeof[T]`;
+
+### Factors
+
+```
+Factor = Name
+    | Literal
+    | NestedExpr
+    | Sizeof.
+NestedExpr = '(' Expr ')'.
+Literal = true | false | number | char.
+Name = id ['::' id].
+Sizeof = 'sizeof' '[' Type [DotAccess] ']'.
+```
+
+Factors represent the primary elements that are manipulated in expressons.
+
+The literals `true` and `false` represent the two possible boolean values,
+and have type `bool`.
+The number literals are have their respective type according to
+the suffix, and are evaluated to the number they represent. 
+A char literal is a particular kind of number literal that is of type `i8`,
+and evaluates to the *ascii* value of that character.
+
+A "Name" represents a global, local or external name. If it is a local,
+the type of the expression is the declared type of that local, and it
+evaluates to the value contained in that local.
+If it is a global or external, it may refer to a data declaration, a struct,
+a constant or a procedure.
+ - If it refers to a data declaration the type is either `ptr` or
+the type annotatted in the data declaration, it evaluetes to the address
+of that declaration;
+ - If it refers to a procedure, the type is the inferred type of the procedure.
+The expression evaluates to the address of the procedure, allowing you to call it,
+or pass it around;
+ - If it refers to a struct, it may only be in the compound expression `STRUCT.FIELD`,
+which has type `i32` and evaluates to the offset of that field;
+ - If it refers to a constant, it will have the type inferred or annotatted in that constant,
+and if will evaluate to the value of the constant. That value is expected to be evaluated
+at compile time.
+
+Of course, if the expression occurs in the LHS of an assignment, the local identifier
+will be interpreted as something of a *lvalue*, and will be the target of the assignment,
+instead of evaluated directly.
+
+The "Sizeof" expression has different semantics based on the thing it is applied to.
+ - `sizeof[data]`: evaluates to the *byte* size of that data declaration;
+ - `sizeof[struct]`: evaluates to the *byte* size of the struct;
+ - `sizeof[struct.field]`: evaluates to the *byte* size that field takes in the struct;
+ - `sizeof[T]`: evaluates to the *byte* size of the type `T`;
+
+That is, `sizeof` always computes the *byte* size.
+
+## Full Grammar
+
+```ebnf
+id = letterPlus {letterPlus | digit}.
+letterPlus = letter | '_'.
+letter = 'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'|'i'|'j'|
+         'k'|'l'|'m'|'n'|'o'|'p'|'q'|'r'|'s'|'t'|
+         'u'|'v'|'w'|'x'|'y'|'z'|'A'|'B'|'C'|'D'|
+         'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'|'M'|'N'|
+         'O'|'P'|'Q'|'R'|'S'|'T'|'U'|'V'|'W'|'X'|
+         'Y'|'Z'.
+digits = '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'.
+
+number = decimal | hexadecimal | binary.
+decimal = digits {decDigits} [numEnding].
+hexadecimal = '0x' hexDigits {hexDigits} [numEnding].
+binary = '0b' binDigits {binDigits} [numEnding].
+decDigits = digits | '_'.
+hexDigits = digits | 'A'|'B'|'C'|'D'|'E'|'F'|'a'|'b'|'c'|'d'|'e'|'f'|'_'.
+binDigits = '0'|'1'|'_'.
+numEnding = 'p'|'s'|'ss'|'l'|'ll'|'us'|'uss'|'ul'|'ull'.
+
+escapes = '\\"' | '\\'' | '\\n' | '\\t' | '\\r'.
+string = '"' {ascii|escapes} '"'.
+char = '\'' (ascii|escapes) '\''.
+
+keywords =
+    'var'    | 'proc'   | 'begin'  | 'end'    |
+    'while'  | 'if'     | 'else'   | 'elseif' |
+    'or'     | 'and'    | 'not'    | 'data'   |
+    'i8'     | 'i16'    | 'i32'    | 'i64'    |
+    'u8'     | 'u16'    | 'u32'    | 'u64'    |
+    'bool'   | 'ptr'    | 'true'   | 'false'  |
+    'exit'   | 'import' | 'from'   | 'export' |
+    'const'  | 'sizeof' | 'return' | 'set'    |
+    'attr'   | 'as'     | 'all'    | 'struct' |
+    'void'   | 'asm'    | 'do'.
+
+ponctuation =
+    ','  | ':'   | '('  | ')'  | '['  | ']' |
+    '='  | '=='  | '!=' | '>'  | '>=' | '<' |
+    '<=' | '+'   | '-'  | '*'  | '/'  | '%' |
+    '-=' | '+='  | '*=' | '/=' | '%=' | '.' |
+    '@'  | '::'  | '~'  | '&'  |  '|' | '!' |
+    '^'  | '>>'  | '<<' | '->' | '?'  | '\''|
+    '"'  | '<->' | '++' | '--'.
+
+basicType =
+    'i8' | 'i16' | 'i32' | 'i64' | 'ptr' | 'bool' |
+    'u8' | 'u16' | 'u32' | 'u64' | 'void'.
+
+Module = {Coupling} {AttSymbol}.
+
+Coupling = Import | FromImport | Export.
+
+Import = 'import' Items.
+FromImport = 'from' id 'import' Items.
+Export = 'export' Items.
+Items = (AliasList | 'all').
+AliasList = Alias {',' Alias} [','].
+Alias = id ['as' id].
+
+AttSymbol = [Attributes] Symbol [';'].
+Attributes = 'attr' IdList.
+IdList = id {',' id} [','].
+
+Symbol = Procedure
+    | Data
+    | Const
+    | Struct.
+
+Const = 'const' (SingleConst|MultipleConst).
+SingleConst = id [Annot] '=' Expr.
+MultipleConst = 'begin' {SingleConst ';'} 'end'.
+
+Data = 'data' (SingleData|MultipleData).
+MultipleData = 'begin' {SingleData ';'} 'end'.
+SingleData =  id [Annot] (DExpr|string|Blob).
+Blob = '{' ExprList '}'.
+DExpr = '[' [Expr] ']'.
+
+Struct = 'struct' id [Size] 'begin' {Field ';'} 'end'.
+Size = '[' Expr ']'.
+Field = IdList Annot [Offset].
+Offset = '{' Expr '}'.
+
+Procedure = 'proc' id [Signature] [Vars] (Asm|Block).
+
+Signature = DArgs [Rets].
+DArgs = '[' [DeclList] ']'.
+Vars = 'var' DeclList.
+
+Rets = TypeList.
+TypeList = Type {',' Type} [','].
+
+DeclList = Decl {',' Decl} [','].
+Decl = IdList Annot.
+Annot = ':' Type.
+
+Type = basicType | ProcType | Name.
+ProcType = 'proc' ProcTTList ProcTTList.
+ProcTTList = '[' [TypeList] ']'.
+
+Asm = 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
+ClobberSet = '[' idList ']'.
+AsmLine = Label | Instruction.
+Label = '.' id ':'.
+Instruction = InstrName [OpList] ';'.
+InstrName = id.
+OpList = Op {',' Op} ','.
+Op = Name | Addressing | ConstOp | Literal.
+Addressing = '[' OpList ']' ['@' id].
+ConstOp = '{' Expr '}'.
+
+Block = 'begin' {Statement} 'end'.
+
+Statement = If [';']
+      | While [';']
+      | DoWhile [';']
+      | Return ';'
+      | Set ';'
+      | Exit ';'
+      | Expr ';'.
+
+While = 'while' Expr Block.
+DoWhile = 'do' Block 'while' Expr.
+
+If   = 'if' Expr Block {ElseIf} [Else].
+ElseIf = 'elseif' Expr Block.
+Else = 'else' Block.
+
+Set = 'set' ExprList (Assign|IncDec).
+IncDec = '++' | '--'.
+Assign = assignOp Expr.
+assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<->'.
+
+Return = 'return' [ExprList].
+Exit = 'exit' ['?'] [Expr].
+
+ExprList = Expr {',' Expr} [','].
+Expr = And {'or' And}.
+And = Comp {'and' Comp}.
+Comp = Sum {compOp Sum}.
+compOp = '==' | '!=' | '>' | '>=' | '<' | '<='.
+Sum = Mult {sumOp Mult}.
+sumOp = '+' | '-' | '|' | '^'.
+Mult = UnaryPrefix {multOp UnaryPrefix}.
+multOp = '*' | '/' | '%' | '&' | '<<' | '>>'.
+UnaryPrefix = {Prefix} UnarySuffix.
+UnarySuffix = Factor {Suffix}.
+
+Prefix = 'not' | '~' | '!'.
+Suffix = Conversion
+    | Deref
+    | Call
+    | DotAccess
+    | ArrowAccess.
+Conversion = Annot.
+Call = '[' [ExprList] ']'.
+Deref = '@' Type.
+DotAccess = '.' id.
+ArrowAccess = '->' id.
+
+Factor = Name
+    | Literal
+    | NestedExpr
+    | Sizeof.
+NestedExpr = '(' Expr ')'.
+Literal = true | false | number | char.
+Name = id ['::' id].
+Sizeof = 'sizeof' '[' Type [DotAccess] ']'.
+```
