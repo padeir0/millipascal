@@ -1,7 +1,7 @@
 struct P [sizeof[i8] + sizeof[i64]]
 begin
-    tag:i8;
-    contents:void;
+    tag:i8 {0};
+    contents:void {P.tag + sizeof[P.tag]};
 end
 
 data M:P []

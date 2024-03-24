@@ -65,9 +65,8 @@ type DataDecl struct {
 	Size     *big.Int
 	DataSize int
 
-	Data    string
-	Nums    []*big.Int
-	Symbols []SymbolID
+	Data string
+	Nums []T.DataEntry
 }
 
 func (this *DataDecl) String() string {
@@ -76,9 +75,6 @@ func (this *DataDecl) String() string {
 	}
 	if this.Nums != nil {
 		return this.Label + ": " + fmt.Sprintf("%v", this.Nums)
-	}
-	if this.Symbols != nil {
-		return this.Label + ": " + fmt.Sprintf("%v", this.Symbols)
 	}
 	return this.Label + ": " + this.Size.Text(10)
 }

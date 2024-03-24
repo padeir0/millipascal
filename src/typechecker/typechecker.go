@@ -31,7 +31,12 @@ func checkModule(M *mod.Module) *Error {
 		}
 	}
 
-	err := checkSymbolsTpl(M)
+	err := createStructTypes(M)
+	if err != nil {
+		return err
+	}
+
+	err = checkSymbolsTpl(M)
 	if err != nil {
 		return err
 	}
@@ -117,9 +122,48 @@ func createInternalStructs(M *mod.Module, strmap map[modSy]*T.Type) *Error {
 			if err != nil {
 				return err
 			}
+			wb := isWellBehaved(sy)
+			sy.Struct.Type.Struct.WellBehaved = wb
+			if !wellDefined(sy) {
+				return msg.InvalidStructDecl(M, sy.N)
+			}
 		}
 	}
 	return nil
+}
+
+func isWellBehaved(sy *mod.Global) bool {
+	size := sy.N.Leaves[1]
+	fields := sy.N.Leaves[2]
+	if size != nil {
+		return false
+	}
+	for _, field := range fields.Leaves {
+		offset := field.Leaves[2]
+		if offset != nil {
+			return false
+		}
+	}
+	t := sy.Struct.Type
+	for _, field := range t.Struct.Fields {
+		if T.IsVoid(field.Type) {
+			return false
+		}
+	}
+	return true
+}
+
+func wellDefined(sy *mod.Global) bool {
+	size := sy.N.Leaves[1]
+	fields := sy.N.Leaves[2]
+
+	for _, field := range fields.Leaves {
+		offset := field.Leaves[2]
+		if (size == nil) != (offset == nil) {
+			return false
+		}
+	}
+	return true
 }
 
 func createStructFields(M *mod.Module, strmap map[modSy]*T.Type, sy *mod.Global) *Error {
@@ -134,11 +178,12 @@ func createStructFields(M *mod.Module, strmap map[modSy]*T.Type, sy *mod.Global)
 			return err
 		}
 		for _, id := range idlist.Leaves {
-			stType.Struct.Fields[fieldIndex] = T.Field{
+			field := T.Field{
 				Name:   id.Text,
 				Type:   t,
 				Offset: nil,
 			}
+			stType.Struct.Fields = append(stType.Struct.Fields, field)
 			stType.Struct.FieldMap[id.Text] = fieldIndex
 			fieldIndex++
 		}
@@ -175,10 +220,10 @@ func checkSymbol(M *mod.Module, sf mod.SyField) *Error {
 		if err != nil {
 			return err
 		}
-		if t != nil && !t.Equals(expr.T) {
+		if t != nil && !t.Equals(expr.Type) {
 			return msg.ErrorMismatchedAssignment(M, sy.N)
 		}
-		sy.Const.Type = expr.T
+		sy.Const.Type = expr.Type
 		if !T.IsBasic(sy.Const.Type) {
 			return msg.InvalidTypeForConst(M, sy.N)
 		}
@@ -191,16 +236,20 @@ func checkSymbol(M *mod.Module, sf mod.SyField) *Error {
 
 func checkStruct(M *mod.Module, sy *mod.Global) *Error {
 	size := sy.N.Leaves[1]
-	err := checkExpr(M, nil, size)
-	if err != nil {
-		return err
+	if size != nil {
+		err := checkExpr(M, nil, size)
+		if err != nil {
+			return err
+		}
 	}
 	fields := sy.N.Leaves[2]
 	for _, field := range fields.Leaves {
 		offset := field.Leaves[2]
-		err := checkExpr(M, nil, offset)
-		if err != nil {
-			return err
+		if offset != nil {
+			err := checkExpr(M, nil, offset)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -213,8 +262,8 @@ func checkField(M *mod.Module, sf mod.SyField) *Error {
 		if err != nil {
 			return err
 		}
-		if !T.IsInteger(field.Offset.T) {
-			return msg.ExpectedInteger(M, field.Offset, field.Offset.T)
+		if !T.IsInteger(field.Offset.Type) {
+			return msg.ExpectedInteger(M, field.Offset, field.Offset.Type)
 		}
 	}
 	return nil
@@ -242,15 +291,24 @@ func checkData(M *mod.Module, sy *mod.Global) *Error {
 	var err *Error
 	dt.Type = T.T_Ptr
 	if annot != nil {
-		dt.Type, err = getType(M, annot)
+		dt.Type, err = getType(M, annot.Leaves[0])
 		if err != nil {
 			return err
 		}
 	}
+	if dt.Init == nil {
+		if annot == nil {
+			return msg.InvalidDataDecl(M, sy.N)
+		}
+		if !T.IsStruct(dt.Type) {
+			return msg.InvalidDataDecl(M, sy.N)
+		}
+		return nil
+	}
 	switch dt.Init.Lex {
 	case LxK.STRING_LIT:
 	case LxK.BLOB:
-		err = checkBlob(M, sy, dt.Init, sy.Data.Type)
+		err = checkBlob(M, sy, dt.Init)
 		if err != nil {
 			return err
 		}
@@ -264,8 +322,24 @@ func checkData(M *mod.Module, sy *mod.Global) *Error {
 	return nil
 }
 
-// TODO: checkBlob
-func checkBlob(M *mod.Module, sy *mod.Global, contents *mod.Node, t *T.Type) *Error {
+func checkBlob(M *mod.Module, sy *mod.Global, contents *mod.Node) *Error {
+	for _, item := range contents.Leaves {
+		err := checkExpr(M, nil, item)
+		if err != nil {
+			return err
+		}
+	}
+	t := sy.Data.Type
+	if T.IsStruct(t) && t.Struct.WellBehaved {
+		maxFields := len(t.Struct.Fields)
+		for i, item := range contents.Leaves {
+			currIndex := i % maxFields
+			field := t.Struct.Fields[currIndex]
+			if !field.Type.Equals(item.Type) {
+				return msg.DoesntMatchBlobAnnot(M, item, field.Type)
+			}
+		}
+	}
 	return nil
 }
 
@@ -299,7 +373,7 @@ func checkProc(M *mod.Module, proc *mod.Proc) *Error {
 	}
 	t := &T.Type{Proc: &T.ProcType{Args: args, Rets: rets}}
 	proc.Type = t
-	proc.N.T = t
+	proc.N.Type = t
 	return nil
 }
 
@@ -311,7 +385,7 @@ func getProcRets(M *mod.Module, n *mod.Node) ([]*T.Type, *Error) {
 			return nil, err
 		}
 		types = append(types, t)
-		tNode.T = t
+		tNode.Type = t
 	}
 	return types, nil
 }
@@ -336,7 +410,7 @@ func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Erro
 			if err != nil {
 				return nil, err
 			}
-			decl.T = d.T
+			decl.Type = d.T
 			tps = append(tps, d.T)
 			proc.ArgMap[d.Name] = mod.PositionalLocal{
 				Position: position, Local: d,
@@ -367,7 +441,7 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 			if err != nil {
 				return err
 			}
-			decl.T = d.T
+			decl.Type = d.T
 			proc.Vars[d.Name] = mod.PositionalLocal{
 				Position: position, Local: d,
 			}
@@ -407,6 +481,8 @@ func getType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 		return T.T_Ptr, nil
 	case LxK.BOOL:
 		return T.T_Bool, nil
+	case LxK.VOID:
+		return T.T_Void, nil
 	case LxK.PROC:
 		return getProcType(M, n)
 	case LxK.IDENTIFIER, LxK.DOUBLECOLON:
@@ -460,7 +536,7 @@ func getIDType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 		id := n.Leaves[1].Text
 		found = M.GetExternalSymbol(mod, id)
 	}
-	if found != nil {
+	if found == nil {
 		return nil, msg.ErrorNameNotDefined(M, n)
 	}
 	if found.Kind != GK.Struct {
@@ -511,7 +587,7 @@ func checkIf(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		return err
 	}
 
-	if !exp.T.Equals(T.T_Bool) {
+	if !exp.Type.Equals(T.T_Bool) {
 		return msg.ExpectedBool(M, exp)
 	}
 
@@ -591,7 +667,7 @@ func checkWhile(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		return err
 	}
 
-	if !cond.T.Equals(T.T_Bool) {
+	if !cond.Type.Equals(T.T_Bool) {
 		return msg.ExpectedBool(M, cond)
 	}
 
@@ -616,7 +692,7 @@ func checkDoWhile(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		return err
 	}
 
-	if !cond.T.Equals(T.T_Bool) {
+	if !cond.Type.Equals(T.T_Bool) {
 		return msg.ExpectedBool(M, cond)
 	}
 
@@ -636,7 +712,7 @@ func checkReturn(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if err != nil {
 			return err
 		}
-		if !ret.T.Equals(proc.Rets[i]) {
+		if !ret.Type.Equals(proc.Rets[i]) {
 			return msg.ErrorUnmatchingReturns(M, proc, ret, i)
 		}
 	}
@@ -649,10 +725,10 @@ func checkExit(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	if err != nil {
 		return err
 	}
-	if !exp.T.Equals(T.T_I8) {
+	if !exp.Type.Equals(T.T_I8) {
 		return msg.ExitMustBeI8(M, exp)
 	}
-	n.T = T.T_Void
+	n.Type = T.T_Void
 	return nil
 }
 
@@ -675,9 +751,9 @@ func checkSet(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if assignee.MultiRet {
 			return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 		}
-		if !(T.IsInteger(assignee.T) ||
-			T.IsPtr(assignee.T) ||
-			T.IsStruct(assignee.T)) {
+		if !(T.IsInteger(assignee.Type) ||
+			T.IsPtr(assignee.Type) ||
+			T.IsStruct(assignee.Type)) {
 			return msg.ErrorInvalidTypeForExpr(M, op, assignee, "numerical, pointer or struct")
 		}
 		return nil
@@ -704,23 +780,23 @@ func checkSet(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 			return err
 		}
 	} else {
-		if T.IsVoid(right.T) {
+		if T.IsVoid(right.Type) {
 			return msg.ErrorCannotUseVoid(M, right)
 		}
 		leftside := left.Leaves[0]
-		if T.IsPtr(leftside.T) {
-			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(right.T) {
-				return msg.ExpectedInteger(M, op, right.T)
+		if T.IsPtr(leftside.Type) {
+			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(right.Type) {
+				return msg.ExpectedInteger(M, op, right.Type)
 			}
-			if op.Lex == LxK.ASSIGNMENT && !T.IsPtr(right.T) {
+			if op.Lex == LxK.ASSIGNMENT && !T.IsPtr(right.Type) {
 				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
 			}
 		} else {
-			if !leftside.T.Equals(right.T) {
+			if !leftside.Type.Equals(right.Type) {
 				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
 			}
-			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(leftside.T) {
-				return msg.ExpectedInteger(M, op, left.T)
+			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(leftside.Type) {
+				return msg.ExpectedInteger(M, op, left.Type)
 			}
 		}
 	}
@@ -734,7 +810,7 @@ func checkExprList(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if err != nil {
 			return err
 		}
-		if T.IsVoid(exp.T) {
+		if T.IsVoid(exp.Type) {
 			return msg.ErrorCannotUseVoid(M, exp.Leaves[1])
 		}
 	}
@@ -754,6 +830,11 @@ func checkAssignees(M *mod.Module, proc *mod.Proc, left *mod.Node) *Error {
 			if err != nil {
 				return err
 			}
+		case LxK.ARROW:
+			err := checkArrowAccess(M, proc, assignee)
+			if err != nil {
+				return err
+			}
 		default:
 			return msg.ErrorNotAssignable(M, assignee)
 		}
@@ -764,7 +845,7 @@ func checkAssignees(M *mod.Module, proc *mod.Proc, left *mod.Node) *Error {
 func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
 	d := getLocal(proc, assignee.Text)
 	if d != nil {
-		assignee.T = d.T
+		assignee.Type = d.T
 		return nil
 	}
 	_, ok := M.Globals[assignee.Text]
@@ -793,7 +874,7 @@ func checkMultiAssignment(M *mod.Module, left *mod.Node, n *mod.Node) *Error {
 		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n.Leaves[1], left)
 	}
 	for i, assignee := range left.Leaves {
-		if !assignee.T.Equals(proc.Proc.Rets[i]) {
+		if !assignee.Type.Equals(proc.Proc.Rets[i]) {
 			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, assignee, i)
 		}
 	}
@@ -812,7 +893,7 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		LxK.U64_LIT, LxK.U32_LIT, LxK.U16_LIT, LxK.U8_LIT,
 		LxK.FALSE, LxK.TRUE, LxK.PTR_LIT, LxK.STRING_LIT,
 		LxK.CHAR_LIT:
-		n.T = termToType(n.Lex)
+		n.Type = termToType(n.Lex)
 		return nil
 	case LxK.NEG, LxK.BITWISENOT:
 		return unaryOp(M, proc, n, integer, outSame)
@@ -840,9 +921,9 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	case LxK.NOT:
 		return unaryOp(M, proc, n, _bool, outBool)
 	case LxK.DOT:
-		return dotAccess(M, proc, n)
+		return checkDotAccess(M, proc, n)
 	case LxK.ARROW:
-		return arrowAccess(M, proc, n)
+		return checkArrowAccess(M, proc, n)
 	}
 	return nil
 }
@@ -850,58 +931,41 @@ func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 func checkSizeof(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	typeOp := n.Leaves[0]
 	dot := n.Leaves[1]
-	// special cases of sizeof: data declarations, struct fields
-	if dot != nil {
-		var sy *mod.Global
-		switch typeOp.Lex {
-		case LxK.IDENTIFIER: // struct
-			sy = M.GetSymbol(typeOp.Text)
-		case LxK.DOUBLECOLON: // external struct
-			mod := typeOp.Leaves[0].Text
-			id := typeOp.Leaves[1].Text
-			sy = M.GetExternalSymbol(mod, id)
-		}
-		if sy == nil {
-			return msg.ErrorNameNotDefined(M, n)
-		}
-		if sy.Kind != GK.Struct {
-			return msg.ErrorExpectedStruct(M, n)
-		}
-		field := dot.Leaves[0]
-		_, ok := sy.Struct.FieldMap[field.Text]
-		if ok {
-			return msg.FieldNotDefined(M, n)
-		}
-		n.T = T.T_I32
-		return nil
-	}
+
+	var sy *mod.Global
 	switch typeOp.Lex {
-	case LxK.IDENTIFIER: // data declarations and structs
-		sy := M.GetSymbol(typeOp.Text)
-		if sy == nil {
-			return msg.ErrorNameNotDefined(M, n)
-		}
-		if sy.Kind != GK.Data && sy.Kind != GK.Struct {
-			return msg.ErrorInvalidSizeof(M, n)
-		}
-	case LxK.DOUBLECOLON: // external data declarations
+	case LxK.IDENTIFIER: // struct or data
+		sy = M.GetSymbol(typeOp.Text)
+	case LxK.DOUBLECOLON: // external struct or data
 		moduleName := typeOp.Leaves[0].Text
 		symbolName := typeOp.Leaves[1].Text
-		sy := M.GetExternalSymbol(moduleName, symbolName)
-		if sy == nil {
-			return msg.ErrorNameNotDefined(M, n)
-		}
-		if sy.Kind != GK.Data && sy.Kind != GK.Struct {
-			return msg.ErrorInvalidSizeof(M, n)
-		}
-	default:
+		sy = M.GetExternalSymbol(moduleName, symbolName)
+	default: // basic or proc type
 		t, err := getType(M, typeOp)
 		if err != nil {
 			return err
 		}
-		typeOp.T = t
+		typeOp.Type = t
+		n.Type = T.T_I32
+		return nil
 	}
-	n.T = T.T_I32
+	if sy == nil {
+		return msg.ErrorNameNotDefined(M, n)
+	}
+	if sy.Kind != GK.Data && sy.Kind != GK.Struct {
+		return msg.ErrorInvalidSizeof(M, n)
+	}
+	if dot != nil {
+		if sy.Kind != GK.Struct {
+			return msg.ErrorExpectedStruct(M, n)
+		}
+		id := dot.Leaves[0].Text
+		_, ok := sy.Struct.FieldMap[id]
+		if !ok {
+			return msg.FieldNotDefined(M, n)
+		}
+	}
+	n.Type = T.T_I32
 	return nil
 }
 
@@ -910,14 +974,14 @@ func conversion(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	if err != nil {
 		return err
 	}
-	n.T, err = getType(M, n.Leaves[0])
+	n.Type, err = getType(M, n.Leaves[0])
 	if err != nil {
 		return err
 	}
-	if !T.IsBasicOrProc(n.T) {
+	if !T.IsBasicOrProc(n.Type) {
 		return msg.ErrorExpectedBasicOrProc(M, n)
 	}
-	n.Leaves[0].T = n.T
+	n.Leaves[0].Type = n.Type
 	return nil
 }
 
@@ -927,14 +991,17 @@ func checkCall(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	if err != nil {
 		return err
 	}
-	if !T.IsProc(callee.T) {
-		return msg.ErrorExpectedProcedure(M, callee)
+	if T.IsProc(callee.Type) {
+		return checkCallProc(M, proc, n)
+	} else if T.IsStruct(callee.Type) {
+		return checkCallStruct(M, proc, n)
+	} else {
+		return msg.ErrorNotCallable(M, callee)
 	}
-	return checkCallProc(M, proc, n)
 }
 
 func checkCallProc(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	callee := n.Leaves[1].T.Proc
+	callee := n.Leaves[1].Type.Proc
 	exprs := n.Leaves[0]
 	if len(exprs.Leaves) != len(callee.Args) {
 		return msg.ErrorInvalidNumberOfArgs(M, callee, n)
@@ -944,18 +1011,22 @@ func checkCallProc(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if err != nil {
 			return err
 		}
-		if !param.T.Equals(callee.Args[i]) {
+		if !param.Type.Equals(callee.Args[i]) {
 			return msg.ErrorMismatchedTypeForArgument(M, param, callee.Args[i])
 		}
 	}
 	if len(callee.Rets) == 1 {
-		n.T = callee.Rets[0]
+		n.Type = callee.Rets[0]
 	} else if len(callee.Rets) == 0 {
-		n.T = T.T_Void
+		n.Type = T.T_Void
 	} else {
 		n.MultiRet = true
 	}
 	return nil
+}
+
+func checkCallStruct(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	panic("unimplemented")
 }
 
 func checkExternalID(M *mod.Module, dcolon *mod.Node) *Error {
@@ -976,8 +1047,8 @@ func checkExternalID(M *mod.Module, dcolon *mod.Node) *Error {
 		return msg.ErrorInvalidUseForStruct(M, dcolon)
 	}
 	t := getSymbolType(sy)
-	dcolon.Leaves[1].T = t
-	dcolon.T = t
+	dcolon.Leaves[1].Type = t
+	dcolon.Type = t
 	return nil
 }
 
@@ -985,7 +1056,7 @@ func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node, disallow bool) *Error 
 	if proc != nil { // means we're inside a procedure
 		local := getLocal(proc, id.Text)
 		if local != nil {
-			id.T = local.T
+			id.Type = local.T
 			return nil
 		}
 	}
@@ -994,10 +1065,7 @@ func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node, disallow bool) *Error 
 		if global.Kind == GK.Struct && disallow {
 			return msg.ErrorInvalidUseForStruct(M, id)
 		}
-		id.T = getSymbolType(global)
-		if global.External {
-			id.T = global.N.T
-		}
+		id.Type = getSymbolType(global)
 		return nil
 	}
 	return msg.ErrorNameNotDefined(M, id)
@@ -1117,29 +1185,29 @@ func checkAdd(M *mod.Module, proc *mod.Proc, op *mod.Node) *Error {
 		return err
 	}
 
-	if T.IsPtr(left.T) {
-		if !T.IsInteger(right.T) {
+	if T.IsPtr(left.Type) {
+		if !T.IsInteger(right.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
 		}
-		op.T = T.T_Ptr
+		op.Type = T.T_Ptr
 		return nil
-	} else if T.IsPtr(right.T) {
-		if !T.IsInteger(left.T) {
+	} else if T.IsPtr(right.Type) {
+		if !T.IsInteger(left.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, left, "integer")
 		}
-		op.T = T.T_Ptr
+		op.Type = T.T_Ptr
 		return nil
 	} else {
-		if !integer.Checker(left.T) {
+		if !integer.Checker(left.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, left, integer.Description)
 		}
-		if !integer.Checker(right.T) {
+		if !integer.Checker(right.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, right, integer.Description)
 		}
-		if !left.T.Equals(right.T) {
+		if !left.Type.Equals(right.Type) {
 			return msg.ErrorOperationBetweenUnequalTypes(M, op)
 		}
-		op.T = left.T
+		op.Type = left.Type
 		return nil
 	}
 }
@@ -1169,26 +1237,26 @@ func checkSub(M *mod.Module, proc *mod.Proc, op *mod.Node) *Error {
 		return err
 	}
 
-	if T.IsPtr(right.T) {
+	if T.IsPtr(right.Type) {
 		return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
 	}
-	if T.IsPtr(left.T) {
-		if !T.IsInteger(right.T) {
+	if T.IsPtr(left.Type) {
+		if !T.IsInteger(right.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
 		}
-		op.T = T.T_Ptr
+		op.Type = T.T_Ptr
 		return nil
 	} else {
-		if !integer.Checker(left.T) {
+		if !integer.Checker(left.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, left, integer.Description)
 		}
-		if !integer.Checker(right.T) {
+		if !integer.Checker(right.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, right, integer.Description)
 		}
-		if !left.T.Equals(right.T) {
+		if !left.Type.Equals(right.Type) {
 			return msg.ErrorOperationBetweenUnequalTypes(M, op)
 		}
-		op.T = left.T
+		op.Type = left.Type
 		return nil
 	}
 }
@@ -1220,19 +1288,19 @@ func binaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver)
 		return err
 	}
 
-	if !c.Checker(left.T) {
+	if !c.Checker(left.Type) {
 		return msg.ErrorInvalidTypeForExpr(M, op, left, c.Description)
 	}
 
-	if !c.Checker(right.T) {
+	if !c.Checker(right.Type) {
 		return msg.ErrorInvalidTypeForExpr(M, op, right, c.Description)
 	}
 
-	if !left.T.Equals(right.T) {
+	if !left.Type.Equals(right.Type) {
 		return msg.ErrorOperationBetweenUnequalTypes(M, op)
 	}
 
-	op.T = der(left.T, right.T)
+	op.Type = der(left.Type, right.Type)
 	return nil
 }
 
@@ -1240,11 +1308,11 @@ func checkExprType(M *mod.Module, n *mod.Node) *Error {
 	if n.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
-	if T.IsVoid(n.T) {
-		return msg.ErrorCannotUseVoid(M, n)
-	}
-	if T.IsInvalid(n.T) {
+	if T.IsInvalid(n.Type) {
 		return msg.ErrorInvalidType(M, n)
+	}
+	if T.IsVoid(n.Type) {
+		return msg.ErrorCannotUseVoid(M, n)
 	}
 	return nil
 }
@@ -1265,11 +1333,11 @@ func unaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver) 
 		return err
 	}
 
-	if !c.Checker(operand.T) {
+	if !c.Checker(operand.Type) {
 		return msg.ErrorInvalidTypeForExpr(M, op, operand, c.Description)
 	}
 
-	op.T = der(operand.T)
+	op.Type = der(operand.Type)
 	return nil
 }
 
@@ -1277,18 +1345,18 @@ func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	exp := n.Leaves[1]
 	t := n.Leaves[0]
 	var err *Error
-	t.T, err = getType(M, t)
+	t.Type, err = getType(M, t)
 	if err != nil {
 		return err
 	}
-	n.T = t.T
+	n.Type = t.Type
 
 	err = checkExpr(M, proc, exp)
 	if err != nil {
 		return err
 	}
-	if !T.IsPtr(exp.T) {
-		return msg.ErrorBadDeref(M, n, exp.T)
+	if !T.IsPtr(exp.Type) {
+		return msg.ErrorBadDeref(M, n, exp.Type)
 	}
 	return nil
 }
@@ -1299,7 +1367,7 @@ func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 //         where p is an expression of struct type
 //         and field is a valid field in the struct type.
 //         yields (p + STRUCT.field) of type pointer
-func dotAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+func checkDotAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	leftExpr := n.Leaves[1]
 	field := n.Leaves[0]
 
@@ -1323,7 +1391,7 @@ func dotAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if global.Kind == GK.Struct {
 			return checkStructField(M, global, n, field)
 		} else {
-			leftExpr.T = getSymbolType(global)
+			leftExpr.Type = getSymbolType(global)
 		}
 	default:
 		err := checkExpr(M, proc, leftExpr)
@@ -1334,17 +1402,17 @@ func dotAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 
 	if leftExpr.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
-	} else if leftExpr.T == nil {
+	} else if leftExpr.Type == nil {
 		return msg.ErrorBadType(M, n)
-	} else if !T.IsStruct(leftExpr.T) {
+	} else if !T.IsStruct(leftExpr.Type) {
 		return msg.ErrorExpectedStruct(M, n)
 	}
 
-	_, ok := leftExpr.T.Struct.Field(field.Text)
+	_, ok := leftExpr.Type.Struct.Field(field.Text)
 	if ok {
 		return msg.FieldNotDefined(M, field)
 	}
-	n.T = T.T_Ptr
+	n.Type = T.T_Ptr
 	return nil
 }
 
@@ -1353,14 +1421,14 @@ func checkStructField(M *mod.Module, sy *mod.Global, n, field *mod.Node) *Error 
 	if !ok {
 		return msg.FieldNotDefined(M, n)
 	}
-	n.T = T.T_I32
+	n.Type = T.T_I32
 	return nil
 }
 
 // p->field where p is an expression of struct type and field is a
 // valid field in the struct, yields (p + STRUCT.field)@fieldtype,
 // where fieldtype is the type specified at the struct declaration
-func arrowAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+func checkArrowAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	leftExpr := n.Leaves[1]
 	field := n.Leaves[0]
 	err := checkExpr(M, proc, leftExpr)
@@ -1369,16 +1437,16 @@ func arrowAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	}
 	if leftExpr.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
-	} else if leftExpr.T == nil {
+	} else if leftExpr.Type == nil {
 		return msg.ErrorBadType(M, n)
-	} else if !T.IsStruct(leftExpr.T) {
+	} else if !T.IsStruct(leftExpr.Type) {
 		return msg.ErrorExpectedStruct(M, n)
 	}
 
-	t := leftExpr.T.Struct.Typeof(field.Text)
+	t := leftExpr.Type.Struct.Typeof(field.Text)
 	if t == nil {
 		return msg.FieldNotDefined(M, field)
 	}
-	n.T = t
+	n.Type = t
 	return nil
 }

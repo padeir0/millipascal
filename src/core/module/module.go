@@ -18,7 +18,7 @@ type Node struct {
 	Lex    LxK.LexKind
 	Leaves []*Node
 
-	T        *T.Type
+	Type     *T.Type
 	MultiRet bool // if this is true, T == nil
 
 	Value *big.Int // for int literals
@@ -50,7 +50,7 @@ func ast(n *Node, i int) string {
 	output := fmt.Sprintf("{%s, '%s':%s, %s",
 		LxK.FmtLexKind(n.Lex),
 		n.Text,
-		n.T.String(),
+		n.Type.String(),
 		rng,
 	)
 	output += "}"
@@ -343,11 +343,11 @@ type Refs struct {
 	Symbols []SyField
 }
 
-func (this Refs) Link(s *Global) {
+func (this *Refs) Link(s *Global) {
 	this.LinkField(s, -1)
 }
 
-func (this Refs) LinkField(s *Global, field int) {
+func (this *Refs) LinkField(s *Global, field int) {
 	if this.Set == nil {
 		this.Set = map[string]Unit{}
 	}
@@ -364,7 +364,7 @@ func (this Refs) LinkField(s *Global, field int) {
 	this.Symbols = append(this.Symbols, sf)
 }
 
-func (this Refs) ResetVisited() {
+func (this *Refs) ResetVisited() {
 	for _, sf := range this.Symbols {
 		sf.Sy.ResetVisited()
 	}
@@ -378,15 +378,8 @@ type Data struct {
 
 	Contents string
 
-	// allocate two slices with the same size,
-	// each index represents a single item from
-	// the source blob:
-	//     if nums is nil, look at symbols
-	//     if symbol is also nil, panic
-	// this could have been written in Anu as:
-	//     Blob *(&Symbol|int)
-	Symbols []*Global
-	Nums    []*big.Int
+	// blob
+	Nums []T.DataEntry
 }
 
 // a constant can either be a integer or a symbol

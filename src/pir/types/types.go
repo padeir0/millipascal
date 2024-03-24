@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+type DataEntry struct {
+	Type *Type
+	Num  *big.Int
+}
+
 // Struct can only be not nil if BasicType is ptr
 // otherwise, it might as well be ignored.
 type Type struct {
@@ -200,7 +205,7 @@ const (
 
 func IsInvalid(t *Type) bool {
 	if t == nil {
-		return false
+		return true
 	}
 	return t.Basic == InvalidBasicType &&
 		t.Proc == nil
@@ -277,6 +282,8 @@ type Struct struct {
 	Fields   []Field
 	FieldMap map[string]int
 	Size     *big.Int
+
+	WellBehaved bool // whether it can be used to typecheck blobs
 }
 
 // IMPROVBOOT: move all toggle constants to a separate module

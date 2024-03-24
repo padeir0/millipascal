@@ -784,7 +784,7 @@ func ident(s *Lexer) (*mod.Node, *Error) {
 /*
 Statement = If [';']
       | While [';']
-      | DoWhile [';']
+      | DoWhile ';'
       | Return ';'
       | Set ';'
       | Exit ';'
@@ -806,7 +806,6 @@ func statement(s *Lexer) (*mod.Node, *Error) {
 		semicolon = false
 	case lk.DO:
 		n, err = _dowhile(s)
-		semicolon = false
 	case lk.RETURN:
 		n, err = _return(s)
 	case lk.SET:

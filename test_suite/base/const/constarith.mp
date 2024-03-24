@@ -5,12 +5,12 @@ const c = a << 1
 const d = 1
 const e = (d + d) * (d + d) / (d + d)
 
-const f = 0xFFFFFFFF
-const g = (f * f):i32
-const h = (f * ~f):i32
+const f = 0xFFFFFFFFl
+const g = (f * f):i64
+const h = (f * ~f):i64
 
-const i64max = (1<<63)-1
-const i64min = ~(1<<63)
+const i64max = (1l<<63l)-1l
+const i64min = ~(1l<<63l)
 
 proc main
 begin

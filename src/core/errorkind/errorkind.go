@@ -32,7 +32,7 @@ const (
 	InvalidType
 	MismatchedTypeForArgument
 	InvalidNumberOfArgs
-	ExpectedProcedure
+	NotCallable
 	InvalidNumberOfReturns
 	MismatchedReturnType
 	ExpectedData
@@ -67,6 +67,8 @@ const (
 	FieldNotDefined
 	InvalidSizeof
 	InvalidNumOfAssignees
+	InvalidDataDecl
+	InvalidStructDecl
 )
 
 func (et ErrorKind) String() string {
@@ -101,7 +103,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidType:                    "E017",
 	MismatchedTypeForArgument:      "E020",
 	InvalidNumberOfArgs:            "E021",
-	ExpectedProcedure:              "E022",
+	NotCallable:                    "E022",
 	InvalidNumberOfReturns:         "E023",
 	MismatchedReturnType:           "E024",
 	ExpectedData:                   "E025",
@@ -137,4 +139,6 @@ var ErrorCodeMap = map[ErrorKind]string{
 	FieldNotDefined:                "E060",
 	InvalidSizeof:                  "E061",
 	InvalidNumOfAssignees:          "E062",
+	InvalidDataDecl:                "E063",
+	InvalidStructDecl:              "E064",
 }

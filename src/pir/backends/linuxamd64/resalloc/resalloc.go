@@ -1205,7 +1205,6 @@ func hirToMirMem(mem *pir.DataDecl) *mir.DataDecl {
 		DataSize: mem.DataSize,
 		Size:     mem.Size,
 		Nums:     mem.Nums,
-		Symbols:  mapIDs(mem.Symbols),
 	}
 }
 

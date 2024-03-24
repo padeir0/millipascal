@@ -1,6 +1,5 @@
 struct Point begin
-    X:i64;
-    Y:i64;
+    X:i32; Y:i32;
 end
 
 data P:Point []

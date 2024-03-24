@@ -1,8 +1,8 @@
-struct Window [sizeof[i64]]
+struct Window [sizeof[i32]]
 begin
-    Prev:i64 {~sizeof[i64]};
-    Curr:i64 {0};
-    Next:i64 {sizeof[i64]};
+    Prev:i32 {~sizeof[i32]};
+    Curr:i32 {0};
+    Next:i32 {sizeof[i32]};
 end
 
 const numItems = 64
@@ -10,7 +10,7 @@ data M:Window [numItems]
 
 const last = numItems-1
 proc main
-var i:i64
+var i:i32
 begin
     set i = 1;
     while i < last begin

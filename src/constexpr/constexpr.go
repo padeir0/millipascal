@@ -147,6 +147,10 @@ func evalConst(m *mod.Module, sy *mod.Global) *Error {
 
 func evalData(m *mod.Module, sy *mod.Global) *Error {
 	arg := sy.N.Leaves[2]
+	if arg == nil {
+		sy.Data.Size = sy.Data.Type.Sizeof()
+		return nil
+	}
 	switch arg.Lex {
 	case lk.STRING_LIT:
 		size := stringSize(arg.Text)
@@ -165,24 +169,27 @@ func evalData(m *mod.Module, sy *mod.Global) *Error {
 	}
 }
 
-func evalBlob(m *mod.Module, sy *mod.Global, n *mod.Node) *Error {
-	blob := n.Leaves[1]
-
-	nums := make([]*big.Int, len(blob.Leaves))
+func evalBlob(m *mod.Module, sy *mod.Global, blob *mod.Node) *Error {
+	nums := make([]T.DataEntry, len(blob.Leaves))
+	size := 0
 	for i, leaf := range blob.Leaves {
 		num, err := compute(m, leaf)
 		if err != nil {
 			return err
 		}
-		nums[i] = num
+		nums[i] = T.DataEntry{
+			Num:  num,
+			Type: leaf.Type,
+		}
+		size += leaf.Type.Size()
 	}
 	sy.Data.Nums = nums
-	sy.Data.Size = big.NewInt(int64(sy.Data.Type.Size() * len(nums)))
+	sy.Data.Size = big.NewInt(int64(size))
 	return nil
 }
 
 func compute(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
-	min, max := getMinMax(n.T)
+	min, max := getMinMax(n.Type)
 	res, err := computeExpr(m, n)
 	if err != nil {
 		return nil, err
@@ -207,7 +214,7 @@ func computeExpr(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
 	case lk.IDENTIFIER:
 		return getIDValue(m, n), nil
 	case lk.DOT:
-		panic("unimplemented")
+		return getDotAccess(m, n)
 	case lk.DOUBLECOLON:
 		return getExternalSymbol(m, n), nil
 	case lk.SIZEOF:
@@ -334,7 +341,7 @@ func computeColonExpr(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
 	left := n.Leaves[1]
 	tp := n.Leaves[0]
 
-	min, max := getMinMax(tp.T)
+	min, max := getMinMax(tp.Type)
 
 	op, err := computeExpr(M, left)
 	if err != nil {
@@ -361,21 +368,61 @@ func getIDValue(M *mod.Module, n *mod.Node) *big.Int {
 	return sy.Const.Value
 }
 
-// TODO: deal with STRUCT.FIELDS
 func getSizeof(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
-	op := n.Leaves[1]
+	op := n.Leaves[0]
+	dot := n.Leaves[1]
+	var sy *mod.Global
+	switch op.Lex {
+	case lk.IDENTIFIER: // struct or data
+		sy = M.GetSymbol(op.Text)
+	case lk.DOUBLECOLON: // external struct or data
+		moduleName := op.Leaves[0].Text
+		symbolName := op.Leaves[1].Text
+		sy = M.GetExternalSymbol(moduleName, symbolName)
+	default: // basic or proc type
+		return op.Type.Sizeof(), nil
+	}
+	if dot != nil {
+		id := dot.Leaves[0].Text
+		t := sy.Struct.Type
+		field, ok := t.Struct.Field(id)
+		if !ok {
+			panic("this must be safe on this pass")
+		}
+		out := int64(field.Type.Size())
+		return big.NewInt(out), nil
+	} else {
+		// can only be struct or data
+		if sy.Kind == gk.Struct {
+			return sy.Struct.Type.Sizeof(), nil
+		} else {
+			return sy.Data.Size, nil
+		}
+	}
+}
+
+func getDotAccess(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
+	op := n.Leaves[0]
+	id := n.Leaves[1].Text
+
+	var sy *mod.Global
 	switch op.Lex {
 	case lk.IDENTIFIER: // data declaration
-		sy := M.GetSymbol(op.Text)
-		return sy.Data.Size, nil
+		sy = M.GetSymbol(op.Text)
 	case lk.DOUBLECOLON: // external data declaration
 		modName := op.Leaves[0].Text
 		symName := op.Leaves[1].Text
-		sy := M.GetExternalSymbol(modName, symName)
-		return sy.Data.Size, nil
+		sy = M.GetExternalSymbol(modName, symName)
 	default:
-		return big.NewInt(int64(op.T.Size())), nil
+		panic("non-const expression")
 	}
+
+	t := sy.Struct.Type
+	field, ok := t.Struct.Field(id)
+	if !ok {
+		panic("this must be safe on this pass")
+	}
+	return field.Offset, nil
 }
 
 func getExternalSymbol(M *mod.Module, n *mod.Node) *big.Int {

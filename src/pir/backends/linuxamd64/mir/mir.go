@@ -85,8 +85,7 @@ type DataDecl struct {
 	Label    string
 	Data     string
 	Size     *big.Int
-	Nums     []*big.Int
-	Symbols  []SymbolID
+	Nums     []T.DataEntry
 	DataSize int
 }
 

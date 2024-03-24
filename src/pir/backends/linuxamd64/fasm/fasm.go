@@ -117,20 +117,12 @@ func (this *fasmProgram) String() string {
 }
 
 type fasmData struct {
-	label    string
-	content  string
-	dataSize string
-	declared bool
+	label   string
+	content string
 }
 
 func (this *fasmData) Str(b *builder) {
 	b.Place(this.label)
-	if this.declared {
-		b.Place(" d")
-	} else {
-		b.Place(" r")
-	}
-	b.Place(this.dataSize)
 	b.Place(" ")
 	b.Place(this.content)
 	b.Place("\n")
@@ -282,38 +274,33 @@ var Registers = []*register{
 func genMem(mem *mir.DataDecl) *fasmData {
 	if mem.Data != "" {
 		return &fasmData{
-			label:    mem.Label,
-			content:  convertString(mem.Data),
-			dataSize: "b",
-			declared: true,
+			label:   mem.Label,
+			content: convertString(mem.Data),
 		}
 	}
 	if mem.Nums != nil {
 		return &fasmData{
-			label:    mem.Label,
-			content:  convertNums(mem.Nums),
-			dataSize: genDataSize(mem.DataSize),
-			declared: true,
+			label:   mem.Label,
+			content: convertNums(mem.Nums),
 		}
 	}
 	return &fasmData{
-		label:    mem.Label,
-		content:  mem.Size.Text(10),
-		dataSize: "b",
-		declared: false,
+		label:   mem.Label,
+		content: " rb " + mem.Size.Text(10),
 	}
 }
 
+// only for declared data
 func genDataSize(size int) string {
 	switch size {
 	case 1:
-		return "b" // [b]yte
+		return " db " // [b]yte
 	case 2:
-		return "w" // [w]ord
+		return " dw " // [w]ord
 	case 4:
-		return "d" // [d]ouble word
+		return " dd " // [d]ouble word
 	case 8:
-		return "q" // [q]uad word
+		return " dq " // [q]uad word
 	default:
 		panic("unknown size")
 	}
@@ -321,7 +308,7 @@ func genDataSize(size int) string {
 
 func convertString(original string) string {
 	s := original[1 : len(original)-1] // removes quotes
-	output := "'"
+	output := " db '"
 	for i := 0; i < len(s); i++ {
 		r := s[i]
 		if r == '\\' {
@@ -351,17 +338,19 @@ func convertString(original string) string {
 
 var zero = big.NewInt(0)
 
-func convertNums(nums []*big.Int) string {
+func convertNums(entries []T.DataEntry) string {
 	b := builder{}
 	scratch := big.NewInt(0)
-	for i, num := range nums {
-		if num.Cmp(zero) == -1 {
+	for i, entry := range entries {
+		s := genDataSize(entry.Type.Size())
+		b.Place(s)
+		if entry.Num.Cmp(zero) == -1 {
 			b.Place("-")
 		}
 		b.Place("0x")
-		b.Place(scratch.Abs(num).Text(16))
-		if i < len(nums)-1 {
-			b.Place(",")
+		b.Place(scratch.Abs(entry.Num).Text(16))
+		if i < len(entries)-1 {
+			b.Place("\n")
 		}
 	}
 	return b.String()

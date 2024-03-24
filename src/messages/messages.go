@@ -31,7 +31,7 @@ func NameNotExported(M *ir.Module, n *ir.Node) *Error {
 func ErrorOperationBetweenUnequalTypes(M *ir.Module, op *ir.Node) *Error {
 	left := op.Leaves[0]
 	right := op.Leaves[1]
-	msg := "Operation between unequal types: " + left.T.String() + " and " + right.T.String()
+	msg := "Operation between unequal types: " + left.Type.String() + " and " + right.Type.String()
 	return NewSemanticError(M, et.OperationBetweenUnequalTypes, op, msg)
 }
 
@@ -60,7 +60,7 @@ func ErrorCannotUseMultipleValuesInExpr(M *ir.Module, n *ir.Node) *Error {
 }
 
 func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *T.Type) *Error {
-	return NewSemanticError(M, et.MismatchedTypeForArgument, param, "mismatched type in Call, has type: "+param.T.String()+", expected: "+arg.String())
+	return NewSemanticError(M, et.MismatchedTypeForArgument, param, "mismatched type in Call, has type: "+param.Type.String()+", expected: "+arg.String())
 }
 
 func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *Error {
@@ -68,8 +68,8 @@ func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *Err
 	return NewSemanticError(M, et.InvalidNumberOfArgs, n, "invalid number of arguments, expected: "+expected)
 }
 
-func ErrorExpectedProcedure(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.ExpectedProcedure, n, "is not a procedure (type: "+n.T.String()+")")
+func ErrorNotCallable(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.NotCallable, n, "is not callable (type: "+n.Type.String()+")")
 }
 
 func ErrorExpectedStruct(M *ir.Module, n *ir.Node) *Error {
@@ -77,7 +77,7 @@ func ErrorExpectedStruct(M *ir.Module, n *ir.Node) *Error {
 }
 
 func ErrorExpectedBasicOrProc(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.ExpectedBasicOrProcType, n, "is not of a basic or proc type (type: "+n.T.String()+")")
+	return NewSemanticError(M, et.ExpectedBasicOrProcType, n, "is not of a basic or proc type (type: "+n.Type.String()+")")
 }
 
 func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
@@ -86,7 +86,7 @@ func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error
 
 func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *Error {
 	ret := proc.Rets[i]
-	return NewSemanticError(M, et.MismatchedReturnType, retN, "mismatched type in return, has type: "+retN.T.String()+"expected type: "+ret.String())
+	return NewSemanticError(M, et.MismatchedReturnType, retN, "mismatched type in return, has type: "+retN.Type.String()+"expected type: "+ret.String())
 }
 
 func ErrorExpectedData(M *ir.Module, n *ir.Node) *Error {
@@ -101,11 +101,11 @@ func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Global, n *ir.Node
 
 func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *ir.Global, assignee *ir.Node, i int) *Error {
 	ret := proc.Proc.Rets[i]
-	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, assignee, "mismatched type in assignment, has type: "+assignee.T.String()+", expected type: "+ret.String())
+	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, assignee, "mismatched type in assignment, has type: "+assignee.Type.String()+", expected type: "+ret.String())
 }
 
 func ErrorMismatchedTypesInAssignment(M *ir.Module, assignee *ir.Node, value *ir.Node) *Error {
-	return NewSemanticError(M, et.MismatchedTypeInAssign, assignee, "mismatched type in assignment, has type: "+assignee.T.String()+", expected type: "+value.T.String())
+	return NewSemanticError(M, et.MismatchedTypeInAssign, assignee, "mismatched type in assignment, has type: "+assignee.Type.String()+", expected type: "+value.Type.String())
 }
 
 func ErrorMismatchedAssignment(M *ir.Module, assignee *ir.Node) *Error {
@@ -113,7 +113,7 @@ func ErrorMismatchedAssignment(M *ir.Module, assignee *ir.Node) *Error {
 }
 
 func ErrorInvalidTypeForExpr(M *ir.Module, op, operand *ir.Node, descr string) *Error {
-	return NewSemanticError(M, et.InvalidTypeForExpr, op, "invalid type for operator "+op.Text+" has "+operand.T.String()+", expected "+descr)
+	return NewSemanticError(M, et.InvalidTypeForExpr, op, "invalid type for operator "+op.Text+" has "+operand.Type.String()+", expected "+descr)
 }
 
 func ErrorCannotUseVoid(M *ir.Module, n *ir.Node) *Error {
@@ -129,7 +129,7 @@ func ExpectedInteger(M *ir.Module, n *ir.Node, t *T.Type) *Error {
 }
 
 func ExitMustBeI8(M *ir.Module, exp *ir.Node) *Error {
-	return NewSemanticError(M, et.ExitMustBeI8, exp, "exit must be type i8 (type: "+exp.T.String()+")")
+	return NewSemanticError(M, et.ExitMustBeI8, exp, "exit must be type i8 (type: "+exp.Type.String()+")")
 }
 
 func ErrorPtrCantBeUsedAsDataSize(M *ir.Module, init *ir.Node) *Error {
@@ -195,7 +195,7 @@ func ErrorInvalidSymbolCycle(M *ir.Module, prev []ir.SyField, sf ir.SyField) *Er
 }
 
 func ExpectedBool(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.ExpectedBool, n, "expected expression of bool type, instead got: "+n.T.String())
+	return NewSemanticError(M, et.ExpectedBool, n, "expected expression of bool type, instead got: "+n.Type.String())
 }
 
 func NonConstExpr(M *ir.Module, n *ir.Node) *Error {
@@ -216,7 +216,7 @@ func ValueOutOfBounds(M *ir.Module, n *ir.Node, res *big.Int) *Error {
 }
 
 func DoesntMatchBlobAnnot(M *ir.Module, assignee *ir.Node, t *T.Type) *Error {
-	msg := "doesn't match blob annotation, has: " + assignee.T.String() + ", expected: " + t.String()
+	msg := "doesn't match blob annotation, has: " + assignee.Type.String() + ", expected: " + t.String()
 	return NewSemanticError(M, et.DoesntMatchBlobAnnot, assignee, msg)
 }
 
@@ -237,7 +237,7 @@ func ErrorInvalidUseForStruct(M *ir.Module, n *ir.Node) *Error {
 }
 
 func FieldNotDefined(M *ir.Module, n *ir.Node) *Error {
-	return NewSemanticError(M, et.FieldNotDefined, n, "Field not defined in struct")
+	return NewSemanticError(M, et.FieldNotDefined, n, "field not defined in struct")
 }
 
 func ErrorInvalidSizeof(M *ir.Module, n *ir.Node) *Error {
@@ -246,4 +246,12 @@ func ErrorInvalidSizeof(M *ir.Module, n *ir.Node) *Error {
 
 func ErrorInvalidNumberOfAssignees(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidNumOfAssignees, n, "invalid number of assignees")
+}
+
+func InvalidDataDecl(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidDataDecl, n, "invalid data declaration")
+}
+
+func InvalidStructDecl(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidStructDecl, n, "invalid struct declaration (either fully explicit or fully implicit)")
 }
