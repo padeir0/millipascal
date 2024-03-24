@@ -1,5 +1,5 @@
 proc main
-var i, a, b:i64
+var i, a, b:i32
 begin
 	set i = 0;
 	set a = 5;

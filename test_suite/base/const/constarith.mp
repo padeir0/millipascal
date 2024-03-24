@@ -6,8 +6,8 @@ const d = 1
 const e = (d + d) * (d + d) / (d + d)
 
 const f = 0xFFFFFFFF
-const g = (f * f):i64
-const h = (f * ~f):i64
+const g = (f * f):i32
+const h = (f * ~f):i32
 
 const i64max = (1<<63)-1
 const i64min = ~(1<<63)

@@ -1,5 +1,5 @@
 proc main
-var a:i64, b:u64
+var a:i32, b:u64
 begin
 	set a = 0b0000_1111;
 	if a ^ 0b1111_0000 != 0b1111_1111 begin
@@ -15,17 +15,17 @@ begin
 		exit 1ss;
 	end
 
-	set b = 0b0000_0000ull;
-	if b ^ 0b0000_0000ull != 0b0000_0000ull begin
+	set b = 0b0000_0000ul;
+	if b ^ 0b0000_0000ul != 0b0000_0000ul begin
 		exit 1ss;
 	end
-	if b ^ 0b0000_1111ull != 0b0000_1111ull begin
+	if b ^ 0b0000_1111ul != 0b0000_1111ul begin
 		exit 1ss;
 	end
-	if b ^ 0b1010_0000ull != 0b1010_0000ull begin
+	if b ^ 0b1010_0000ul != 0b1010_0000ul begin
 		exit 1ss;
 	end
-	if b ^ 0b0001_1000ull != 0b0001_1000ull begin
+	if b ^ 0b0001_1000ul != 0b0001_1000ul begin
 		exit 1ss;
 	end
 end

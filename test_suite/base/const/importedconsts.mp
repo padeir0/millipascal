@@ -7,16 +7,16 @@ const d = globalconsts::i64min + globalconsts::i64max
 
 proc main
 begin
-    if a != ~1 begin
+    if a != ~1l begin
         exit 1ss;
     end
-    if b != ~1 begin
+    if b != ~1l begin
         exit 2ss;
     end
-    if c != ~1 begin
+    if c != ~1l begin
         exit 3ss;
     end
-    if d != ~1 begin
+    if d != ~1l begin
         exit 4ss;
     end
 end

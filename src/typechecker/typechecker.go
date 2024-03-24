@@ -3,12 +3,11 @@ package typechecker
 import (
 	. "mpc/core"
 	mod "mpc/core/module"
-	lk "mpc/core/module/lexkind"
-	ST "mpc/core/module/symbolkind"
+	GK "mpc/core/module/globalkind"
+	LxK "mpc/core/module/lexkind"
+	LcK "mpc/core/module/localkind"
 	msg "mpc/messages"
 	T "mpc/pir/types"
-
-	"fmt"
 )
 
 func Check(M *mod.Module) *Error {
@@ -38,8 +37,8 @@ func checkModule(M *mod.Module) *Error {
 	}
 
 	for _, sy := range M.Globals {
-		if sy.T == ST.Proc && !sy.External {
-			err := checkBlock(M, sy.Proc, sy.N.Leaves[5])
+		if sy.Kind == GK.Proc && !sy.External {
+			err := checkBlock(M, sy.Proc, sy.N.Leaves[4])
 			if err != nil {
 				return err
 			}
@@ -51,7 +50,7 @@ func checkModule(M *mod.Module) *Error {
 func checkSymbolsTpl(M *mod.Module) *Error {
 	for _, sy := range M.Globals {
 		if !sy.External {
-			err := checkSymbol(M, sy)
+			err := checkSymbol(M, mod.FromSymbol(sy))
 			if err != nil {
 				return err
 			}
@@ -65,52 +64,170 @@ func CheckMain(M *mod.Module) *Error {
 	if !ok {
 		return msg.ProgramWithoutEntry(M)
 	}
-	if p.Proc == nil || !T.IsProc(p.Type) || !T.T_MainProc.Equals(p.Type) {
+	if p.Proc == nil || !T.IsProc(p.Proc.Type) || !T.T_MainProc.Equals(p.Proc.Type) {
 		return msg.InvalidMain(M, p)
 	}
 	return nil
 }
 
-func checkSymbol(M *mod.Module, sy *mod.Symbol) *Error {
-	if sy.Visited {
+type modSy struct {
+	Mod string
+	Sy  string
+}
+
+func createStructTypes(M *mod.Module) *Error {
+	M.ResetVisited()
+	strmap := map[modSy]*T.Type{}
+	return createInternalStructs(M, strmap)
+}
+
+func createInternalStructs(M *mod.Module, strmap map[modSy]*T.Type) *Error {
+	if M.Visited {
 		return nil
 	}
-	err := checkSyDeps(M, sy)
-	if err != nil {
-		return err
+	M.Visited = true
+	for _, dep := range M.Dependencies {
+		createInternalStructs(dep.M, strmap)
 	}
-	sy.Visited = true
-	switch sy.T {
-	case ST.Proc:
-		err := checkProc(M, sy.Proc)
-		if err != nil {
-			return err
+	for _, sy := range M.Globals {
+		if sy.Kind == GK.Struct && !sy.External {
+			ms := modSy{
+				Mod: sy.ModuleName,
+				Sy:  sy.Name,
+			}
+			t := T.Type{
+				Basic: T.Ptr,
+				Proc:  nil,
+				Struct: &T.Struct{
+					Module:   ms.Mod,
+					Name:     ms.Sy,
+					Fields:   []T.Field{},
+					FieldMap: map[string]int{},
+					Size:     nil,
+				},
+			}
+			strmap[ms] = &t
+			sy.Struct.Type = &t
 		}
-		sy.Type = sy.Proc.T
-	case ST.Data:
-		err := checkData(M, sy)
-		if err != nil {
-			return err
-		}
-		sy.Type = T.T_Ptr
-		sy.N.T = T.T_Ptr
-	case ST.Const:
-		expr := sy.N.Leaves[1]
-		err := checkExpr(M, nil, expr)
-		if err != nil {
-			return err
-		}
-		sy.Type = expr.T
-		sy.N.T = expr.T
-		if !T.IsBasic(sy.Type) {
-			return msg.InvalidTypeForConst(M, sy.N)
+	}
+
+	for _, sy := range M.Globals {
+		if sy.Kind == GK.Struct && !sy.External {
+			err := createStructFields(M, strmap, sy)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func checkSyDeps(M *mod.Module, sy *mod.Symbol) *Error {
-	for _, ref := range sy.Refs {
+func createStructFields(M *mod.Module, strmap map[modSy]*T.Type, sy *mod.Global) *Error {
+	fields := sy.N.Leaves[2]
+	fieldIndex := 0
+	stType := sy.Struct.Type
+	for _, field := range fields.Leaves {
+		idlist := field.Leaves[0]
+		ann := field.Leaves[1]
+		t, err := getType(M, ann.Leaves[0])
+		if err != nil {
+			return err
+		}
+		for _, id := range idlist.Leaves {
+			stType.Struct.Fields[fieldIndex] = T.Field{
+				Name:   id.Text,
+				Type:   t,
+				Offset: nil,
+			}
+			stType.Struct.FieldMap[id.Text] = fieldIndex
+			fieldIndex++
+		}
+	}
+	return nil
+}
+
+func checkSymbol(M *mod.Module, sf mod.SyField) *Error {
+	if sf.IsVisited() {
+		return nil
+	}
+	sf.SetVisited(true) // this can come before or after checkSyDeps, since there are no cycles
+	err := checkSyDeps(M, sf)
+	if err != nil {
+		return err
+	}
+	if sf.IsField() {
+		return checkField(M, sf)
+	}
+	switch sf.Sy.Kind {
+	case GK.Proc:
+		return checkProc(M, sf.Sy.Proc)
+	case GK.Data:
+		return checkData(M, sf.Sy)
+	case GK.Const:
+		sy := sf.Sy
+		var t *T.Type
+		annot := sy.N.Leaves[1]
+		if annot != nil {
+			t, err = getType(M, annot.Leaves[0])
+		}
+		expr := sy.N.Leaves[2]
+		err := checkExpr(M, nil, expr)
+		if err != nil {
+			return err
+		}
+		if t != nil && !t.Equals(expr.T) {
+			return msg.ErrorMismatchedAssignment(M, sy.N)
+		}
+		sy.Const.Type = expr.T
+		if !T.IsBasic(sy.Const.Type) {
+			return msg.InvalidTypeForConst(M, sy.N)
+		}
+	case GK.Struct:
+		// check the size and offset expressions
+		return checkStruct(M, sf.Sy)
+	}
+	return nil
+}
+
+func checkStruct(M *mod.Module, sy *mod.Global) *Error {
+	size := sy.N.Leaves[1]
+	err := checkExpr(M, nil, size)
+	if err != nil {
+		return err
+	}
+	fields := sy.N.Leaves[2]
+	for _, field := range fields.Leaves {
+		offset := field.Leaves[2]
+		err := checkExpr(M, nil, offset)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkField(M *mod.Module, sf mod.SyField) *Error {
+	field := sf.GetField()
+	if field.Offset != nil {
+		err := checkExpr(M, nil, field.Offset)
+		if err != nil {
+			return err
+		}
+		if !T.IsInteger(field.Offset.T) {
+			return msg.ExpectedInteger(M, field.Offset, field.Offset.T)
+		}
+	}
+	return nil
+}
+
+func checkSyDeps(M *mod.Module, sy mod.SyField) *Error {
+	var refs mod.Refs
+	if sy.IsField() {
+		refs = sy.Sy.Struct.Fields[sy.Field].Refs
+	} else {
+		refs = sy.Sy.Refs
+	}
+	for _, ref := range refs.Symbols {
 		err := checkSymbol(M, ref)
 		if err != nil {
 			return err
@@ -119,20 +236,27 @@ func checkSyDeps(M *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
-func checkData(M *mod.Module, sy *mod.Symbol) *Error {
+func checkData(M *mod.Module, sy *mod.Global) *Error {
 	dt := sy.Data
+	annot := sy.N.Leaves[1]
+	var err *Error
+	dt.Type = T.T_Ptr
+	if annot != nil {
+		dt.Type, err = getType(M, annot)
+		if err != nil {
+			return err
+		}
+	}
 	switch dt.Init.Lex {
-	case lk.STRING_LIT:
-		dt.DataType = T.T_I8
-	case lk.BLOB:
-		err := checkBlob(M, sy, dt.Init, sy.Data.DataType)
+	case LxK.STRING_LIT:
+	case LxK.BLOB:
+		err = checkBlob(M, sy, dt.Init, sy.Data.Type)
 		if err != nil {
 			return err
 		}
 	default:
 		expr := sy.N.Leaves[2]
-		dt.DataType = T.T_I8
-		err := checkExpr(M, nil, expr)
+		err = checkExpr(M, nil, expr)
 		if err != nil {
 			return err
 		}
@@ -141,63 +265,14 @@ func checkData(M *mod.Module, sy *mod.Symbol) *Error {
 }
 
 // TODO: checkBlob
-func checkBlob(M *mod.Module, sy *mod.Symbol, contents *mod.Node, t *T.Type) *Error {
+func checkBlob(M *mod.Module, sy *mod.Global, contents *mod.Node, t *T.Type) *Error {
 	return nil
 }
 
 func checkProc(M *mod.Module, proc *mod.Proc) *Error {
-	annot := proc.N.Leaves[1]
-	if annot == nil {
-		return checkDirectProc(M, proc)
-	} else {
-		return checkAnnotProc(M, proc)
-	}
-}
-
-func checkAnnotProc(M *mod.Module, proc *mod.Proc) *Error {
-	annot := proc.N.Leaves[1]
-	nArgs := proc.N.Leaves[2]
-	nRets := proc.N.Leaves[3]
-	nVars := proc.N.Leaves[4]
-
-	if nRets != nil {
-		panic("invalid: explicit returns in annotatted procedure")
-	}
-	procT, err := getType(M, nil, annot.Leaves[0])
-	if err != nil {
-		return err
-	}
-	for i, t := range procT.Proc.Args {
-		id := nArgs.Leaves[i]
-		d := &mod.Symbol{
-			Name: id.Text,
-			N:    id,
-			T:    ST.Arg,
-			Type: t,
-		}
-		err := verifyIfDefined(M, proc, d)
-		if err != nil {
-			return err
-		}
-		id.T = d.Type
-		proc.ArgMap[d.Name] = mod.PositionalSymbol{
-			Position: i, Symbol: d,
-		}
-		proc.Args = append(proc.Args, d)
-	}
-	if nVars != nil {
-		err := checkProcVars(M, proc, nVars)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func checkDirectProc(M *mod.Module, proc *mod.Proc) *Error {
-	nArgs := proc.N.Leaves[2]
-	nRets := proc.N.Leaves[3]
-	nVars := proc.N.Leaves[4]
+	nArgs := proc.N.Leaves[1]
+	nRets := proc.N.Leaves[2]
+	nVars := proc.N.Leaves[3]
 	var err *Error
 	var args, rets []*T.Type
 
@@ -223,7 +298,7 @@ func checkDirectProc(M *mod.Module, proc *mod.Proc) *Error {
 		}
 	}
 	t := &T.Type{Proc: &T.ProcType{Args: args, Rets: rets}}
-	proc.T = t
+	proc.Type = t
 	proc.N.T = t
 	return nil
 }
@@ -231,7 +306,7 @@ func checkDirectProc(M *mod.Module, proc *mod.Proc) *Error {
 func getProcRets(M *mod.Module, n *mod.Node) ([]*T.Type, *Error) {
 	types := []*T.Type{}
 	for _, tNode := range n.Leaves {
-		t, err := getType(M, nil, tNode)
+		t, err := getType(M, tNode)
 		if err != nil {
 			return nil, err
 		}
@@ -245,26 +320,26 @@ func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Erro
 	tps := []*T.Type{}
 	position := 0
 	for _, decl := range n.Leaves {
-		tp, err := getType(M, nil, decl.Leaves[1])
+		tp, err := getType(M, decl.Leaves[1])
 		if err != nil {
 			return nil, err
 		}
 		idlist := decl.Leaves[0]
 		for _, id := range idlist.Leaves {
-			d := &mod.Symbol{
+			d := &mod.Local{
 				Name: id.Text,
 				N:    id,
-				T:    ST.Arg,
-				Type: tp,
+				Kind: LcK.Argument,
+				T:    tp,
 			}
 			err := verifyIfDefined(M, proc, d)
 			if err != nil {
 				return nil, err
 			}
-			decl.T = d.Type
-			tps = append(tps, d.Type)
-			proc.ArgMap[d.Name] = mod.PositionalSymbol{
-				Position: position, Symbol: d,
+			decl.T = d.T
+			tps = append(tps, d.T)
+			proc.ArgMap[d.Name] = mod.PositionalLocal{
+				Position: position, Local: d,
 			}
 			proc.Args = append(proc.Args, d)
 			position++
@@ -277,24 +352,24 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	position := 0
 	for _, decl := range n.Leaves {
 		idlist := decl.Leaves[0]
-		tp, err := getType(M, nil, decl.Leaves[1])
+		tp, err := getType(M, decl.Leaves[1])
 		if err != nil {
 			return err
 		}
 		for _, id := range idlist.Leaves {
-			d := &mod.Symbol{
+			d := &mod.Local{
 				Name: id.Text,
 				N:    id,
-				T:    ST.Var,
-				Type: tp,
+				Kind: LcK.Variable,
+				T:    tp,
 			}
 			err := verifyIfDefined(M, proc, d)
 			if err != nil {
 				return err
 			}
-			decl.T = d.Type
-			proc.Vars[d.Name] = mod.PositionalSymbol{
-				Position: position, Symbol: d,
+			decl.T = d.T
+			proc.Vars[d.Name] = mod.PositionalLocal{
+				Position: position, Local: d,
 			}
 			position++
 		}
@@ -302,54 +377,51 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	return nil
 }
 
-func verifyIfDefined(M *mod.Module, proc *mod.Proc, d *mod.Symbol) *Error {
-	l := getVarOrArg(proc, d.Name)
+func verifyIfDefined(M *mod.Module, proc *mod.Proc, d *mod.Local) *Error {
+	l := getLocal(proc, d.Name)
 	if l != nil {
 		return msg.ErrorNameAlreadyDefined(M, d.N, d.Name)
 	}
 	return nil
 }
 
-// sy might be nil
-func getType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
+func getType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 	switch n.Lex {
-	case lk.I8:
+	case LxK.I8:
 		return T.T_I8, nil
-	case lk.I16:
+	case LxK.I16:
 		return T.T_I16, nil
-	case lk.I32:
+	case LxK.I32:
 		return T.T_I32, nil
-	case lk.I64:
+	case LxK.I64:
 		return T.T_I64, nil
-	case lk.U8:
+	case LxK.U8:
 		return T.T_U8, nil
-	case lk.U16:
+	case LxK.U16:
 		return T.T_U16, nil
-	case lk.U32:
+	case LxK.U32:
 		return T.T_U32, nil
-	case lk.U64:
+	case LxK.U64:
 		return T.T_U64, nil
-	case lk.PTR:
+	case LxK.PTR:
 		return T.T_Ptr, nil
-	case lk.BOOL:
+	case LxK.BOOL:
 		return T.T_Bool, nil
-	case lk.PROC:
-		return getProcType(M, sy, n)
-	case lk.IDENTIFIER, lk.DOUBLECOLON:
-		return getIDType(M, sy, n)
-	case lk.DOT:
-		return nil, msg.ErrorBadType(M, n)
+	case LxK.PROC:
+		return getProcType(M, n)
+	case LxK.IDENTIFIER, LxK.DOUBLECOLON:
+		return getIDType(M, n)
 	}
 	panic("getType: what: " + n.String())
 }
 
-func getProcType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
+func getProcType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 	argTypes := make([]*T.Type, 0)
 	if n.Leaves[0] != nil {
 		args := n.Leaves[0].Leaves
 		argTypes = make([]*T.Type, len(args))
 		for i, arg := range args {
-			t, err := getType(M, sy, arg)
+			t, err := getType(M, arg)
 			if err != nil {
 				return nil, err
 			}
@@ -362,7 +434,7 @@ func getProcType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 		rets := n.Leaves[1].Leaves
 		retTypes = make([]*T.Type, len(rets))
 		for i, ret := range rets {
-			t, err := getType(M, sy, ret)
+			t, err := getType(M, ret)
 			if err != nil {
 				return nil, err
 			}
@@ -378,12 +450,23 @@ func getProcType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
 	}, nil
 }
 
-func getIDType(M *mod.Module, sy *mod.Symbol, n *mod.Node) (*T.Type, *Error) {
+func getIDType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
+	var found *mod.Global
 	switch n.Lex {
-	case lk.IDENTIFIER:
-	case lk.DOUBLECOLON:
+	case LxK.IDENTIFIER:
+		found = M.GetSymbol(n.Text)
+	case LxK.DOUBLECOLON:
+		mod := n.Leaves[0].Text
+		id := n.Leaves[1].Text
+		found = M.GetExternalSymbol(mod, id)
 	}
-	panic("unreachable")
+	if found != nil {
+		return nil, msg.ErrorNameNotDefined(M, n)
+	}
+	if found.Kind != GK.Struct {
+		return nil, msg.ErrorExpectedStruct(M, n)
+	}
+	return found.Struct.Type, nil
 }
 
 func checkBlock(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
@@ -398,17 +481,19 @@ func checkBlock(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 
 func checkStatement(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	switch n.Lex {
-	case lk.EOF:
+	case LxK.EOF:
 		return nil
-	case lk.IF:
+	case LxK.IF:
 		return checkIf(M, proc, n)
-	case lk.WHILE:
+	case LxK.WHILE:
 		return checkWhile(M, proc, n)
-	case lk.RETURN:
+	case LxK.DO:
+		return checkDoWhile(M, proc, n)
+	case LxK.RETURN:
 		return checkReturn(M, proc, n)
-	case lk.SET:
-		return checkAssignment(M, proc, n)
-	case lk.EXIT:
+	case LxK.SET:
+		return checkSet(M, proc, n)
+	case LxK.EXIT:
 		return checkExit(M, proc, n)
 	default:
 		return checkExpr(M, proc, n)
@@ -494,17 +579,48 @@ func checkElseIf(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 }
 
 func checkWhile(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	err := checkExpr(M, proc, n.Leaves[0])
+	cond := n.Leaves[0]
+	bl := n.Leaves[1]
+	err := checkExpr(M, proc, cond)
 	if err != nil {
 		return err
 	}
 
-	err = checkExprType(M, n.Leaves[0])
+	err = checkExprType(M, cond)
 	if err != nil {
 		return err
 	}
 
-	err = checkBlock(M, proc, n.Leaves[1])
+	if !cond.T.Equals(T.T_Bool) {
+		return msg.ExpectedBool(M, cond)
+	}
+
+	err = checkBlock(M, proc, bl)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkDoWhile(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	cond := n.Leaves[1]
+	bl := n.Leaves[0]
+
+	err := checkExpr(M, proc, cond)
+	if err != nil {
+		return err
+	}
+
+	err = checkExprType(M, cond)
+	if err != nil {
+		return err
+	}
+
+	if !cond.T.Equals(T.T_Bool) {
+		return msg.ExpectedBool(M, cond)
+	}
+
+	err = checkBlock(M, proc, bl)
 	if err != nil {
 		return err
 	}
@@ -540,7 +656,7 @@ func checkExit(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	return nil
 }
 
-func checkAssignment(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+func checkSet(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	left := n.Leaves[0]
 	op := n.Leaves[1]
 	right := n.Leaves[2]
@@ -550,49 +666,61 @@ func checkAssignment(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		return err
 	}
 
+	if op.Lex == LxK.PLUS_PLUS ||
+		op.Lex == LxK.MINUS_MINUS {
+		if len(left.Leaves) != 1 {
+			return msg.ErrorInvalidNumberOfAssignees(M, n)
+		}
+		assignee := left.Leaves[0]
+		if assignee.MultiRet {
+			return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
+		}
+		if !(T.IsInteger(assignee.T) ||
+			T.IsPtr(assignee.T) ||
+			T.IsStruct(assignee.T)) {
+			return msg.ErrorInvalidTypeForExpr(M, op, assignee, "numerical, pointer or struct")
+		}
+		return nil
+	}
+
 	err = checkExpr(M, proc, right)
 	if err != nil {
 		return err
 	}
 
-	if right.T == nil {
-		fmt.Println(n)
-		panic("right side is nil!!")
-	}
-	if (T.IsMultiRet(right.T) || len(left.Leaves) > 1) &&
-		op.Lex != lk.ASSIGNMENT {
+	if (right.MultiRet || len(left.Leaves) > 1) &&
+		op.Lex != LxK.ASSIGNMENT {
 		return msg.ErrorCanOnlyUseNormalAssignment(M, op)
 	}
 
-	if !T.IsMultiRet(right.T) && len(left.Leaves) > 1 ||
-		T.IsMultiRet(right.T) && len(left.Leaves) == 1 {
+	if !right.MultiRet && len(left.Leaves) > 1 ||
+		right.MultiRet && len(left.Leaves) == 1 {
 		return msg.ErrorMismatchedAssignment(M, n)
 	}
 
-	if T.IsVoid(right.T) {
-		return msg.ErrorCannotUseVoid(M, right)
-	}
-
-	if T.IsMultiRet(right.T) {
+	if right.MultiRet {
 		err := checkMultiAssignment(M, left, right)
 		if err != nil {
 			return err
 		}
 	} else {
+		if T.IsVoid(right.T) {
+			return msg.ErrorCannotUseVoid(M, right)
+		}
 		leftside := left.Leaves[0]
 		if T.IsPtr(leftside.T) {
-			if op.Lex != lk.ASSIGNMENT && !T.IsInteger(right.T) {
-				return msg.ExpectedNumber(M, op, right.T)
+			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(right.T) {
+				return msg.ExpectedInteger(M, op, right.T)
 			}
-			if op.Lex == lk.ASSIGNMENT && !T.IsPtr(right.T) {
+			if op.Lex == LxK.ASSIGNMENT && !T.IsPtr(right.T) {
 				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
 			}
 		} else {
 			if !leftside.T.Equals(right.T) {
 				return msg.ErrorMismatchedTypesInAssignment(M, leftside, right)
 			}
-			if op.Lex != lk.ASSIGNMENT && !T.IsInteger(leftside.T) {
-				return msg.ExpectedNumber(M, op, left.T)
+			if op.Lex != LxK.ASSIGNMENT && !T.IsInteger(leftside.T) {
+				return msg.ExpectedInteger(M, op, left.T)
 			}
 		}
 	}
@@ -616,12 +744,12 @@ func checkExprList(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 func checkAssignees(M *mod.Module, proc *mod.Proc, left *mod.Node) *Error {
 	for _, assignee := range left.Leaves {
 		switch assignee.Lex {
-		case lk.IDENTIFIER:
+		case LxK.IDENTIFIER:
 			err := checkIdAssignee(M, proc, assignee)
 			if err != nil {
 				return err
 			}
-		case lk.AT:
+		case LxK.AT:
 			err := checkDeref(M, proc, assignee)
 			if err != nil {
 				return err
@@ -634,9 +762,9 @@ func checkAssignees(M *mod.Module, proc *mod.Proc, left *mod.Node) *Error {
 }
 
 func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
-	d := getVarOrArg(proc, assignee.Text)
+	d := getLocal(proc, assignee.Text)
 	if d != nil {
-		assignee.T = d.Type
+		assignee.T = d.T
 		return nil
 	}
 	_, ok := M.Globals[assignee.Text]
@@ -646,14 +774,14 @@ func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
 	return msg.ErrorNameNotDefined(M, assignee)
 }
 
-func getVarOrArg(proc *mod.Proc, name string) *mod.Symbol {
+func getLocal(proc *mod.Proc, name string) *mod.Local {
 	posSy, ok := proc.ArgMap[name]
 	if ok {
-		return posSy.Symbol
+		return posSy.Local
 	}
 	def, ok := proc.Vars[name]
 	if ok {
-		return def.Symbol
+		return def.Local
 	}
 	return nil
 }
@@ -674,89 +802,106 @@ func checkMultiAssignment(M *mod.Module, left *mod.Node, n *mod.Node) *Error {
 
 func checkExpr(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	switch n.Lex {
-	case lk.IDENTIFIER:
-		return checkID(M, proc, n)
-	case lk.SIZEOF:
+	case LxK.IDENTIFIER:
+		return checkID(M, proc, n, true)
+	case LxK.SIZEOF:
 		return checkSizeof(M, proc, n)
-	case lk.DOUBLECOLON:
+	case LxK.DOUBLECOLON:
 		return checkExternalID(M, n)
-	case lk.I64_LIT, lk.I32_LIT, lk.I16_LIT, lk.I8_LIT,
-		lk.U64_LIT, lk.U32_LIT, lk.U16_LIT, lk.U8_LIT,
-		lk.FALSE, lk.TRUE, lk.PTR_LIT, lk.STRING_LIT,
-		lk.CHAR_LIT:
+	case LxK.I64_LIT, LxK.I32_LIT, LxK.I16_LIT, LxK.I8_LIT,
+		LxK.U64_LIT, LxK.U32_LIT, LxK.U16_LIT, LxK.U8_LIT,
+		LxK.FALSE, LxK.TRUE, LxK.PTR_LIT, LxK.STRING_LIT,
+		LxK.CHAR_LIT:
 		n.T = termToType(n.Lex)
 		return nil
-	case lk.NEG, lk.BITWISENOT:
+	case LxK.NEG, LxK.BITWISENOT:
 		return unaryOp(M, proc, n, integer, outSame)
-	case lk.PLUS:
+	case LxK.PLUS:
 		return checkAdd(M, proc, n)
-	case lk.MINUS:
+	case LxK.MINUS:
 		return checkSub(M, proc, n)
-	case lk.MULTIPLICATION,
-		lk.DIVISION, lk.REMAINDER, lk.BITWISEAND,
-		lk.BITWISEXOR, lk.BITWISEOR, lk.SHIFTLEFT,
-		lk.SHIFTRIGHT:
+	case LxK.MULTIPLICATION,
+		LxK.DIVISION, LxK.REMAINDER, LxK.BITWISEAND,
+		LxK.BITWISEXOR, LxK.BITWISEOR, LxK.SHIFTLEFT,
+		LxK.SHIFTRIGHT:
 		return binaryOp(M, proc, n, integer, outSame)
-	case lk.EQUALS, lk.DIFFERENT:
+	case LxK.EQUALS, LxK.DIFFERENT:
 		return binaryOp(M, proc, n, comparable, outBool)
-	case lk.MORE, lk.MOREEQ, lk.LESS, lk.LESSEQ:
+	case LxK.MORE, LxK.MOREEQ, LxK.LESS, LxK.LESSEQ:
 		return binaryOp(M, proc, n, basic, outBool)
-	case lk.AND, lk.OR:
+	case LxK.AND, LxK.OR:
 		return binaryOp(M, proc, n, _bool, outBool)
-	case lk.COLON:
+	case LxK.COLON:
 		return conversion(M, proc, n)
-	case lk.CALL:
+	case LxK.CALL:
 		return checkCall(M, proc, n)
-	case lk.AT:
+	case LxK.AT:
 		return checkDeref(M, proc, n)
-	case lk.NOT:
+	case LxK.NOT:
 		return unaryOp(M, proc, n, _bool, outBool)
-	case lk.DOT:
-		return dotAccess(M, n)
-	case lk.ARROW:
-		return arrowAccess(M, n)
+	case LxK.DOT:
+		return dotAccess(M, proc, n)
+	case LxK.ARROW:
+		return arrowAccess(M, proc, n)
 	}
 	return nil
 }
 
 func checkSizeof(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
-	thing := n.Leaves[1]
+	typeOp := n.Leaves[0]
+	dot := n.Leaves[1]
 	// special cases of sizeof: data declarations, struct fields
-	switch thing.Lex {
-	case lk.DOT: // struct fields
-		left := n.Leaves[0]
-		// right := n.Leaves[1]
-		switch left.Lex {
-		case lk.IDENTIFIER: // struct
-		case lk.DOUBLECOLON: // external struct
+	if dot != nil {
+		var sy *mod.Global
+		switch typeOp.Lex {
+		case LxK.IDENTIFIER: // struct
+			sy = M.GetSymbol(typeOp.Text)
+		case LxK.DOUBLECOLON: // external struct
+			mod := typeOp.Leaves[0].Text
+			id := typeOp.Leaves[1].Text
+			sy = M.GetExternalSymbol(mod, id)
 		}
-		panic("unimplemented")
-	case lk.IDENTIFIER: // data declarations
-		sy := M.GetSymbol(thing.Text)
 		if sy == nil {
 			return msg.ErrorNameNotDefined(M, n)
 		}
-		if sy.T != ST.Data {
-			return msg.ErrorExpectedData(M, n)
+		if sy.Kind != GK.Struct {
+			return msg.ErrorExpectedStruct(M, n)
 		}
-	case lk.DOUBLECOLON: // external data declarations
-		moduleName := thing.Leaves[0].Text
-		symbolName := thing.Leaves[1].Text
+		field := dot.Leaves[0]
+		_, ok := sy.Struct.FieldMap[field.Text]
+		if ok {
+			return msg.FieldNotDefined(M, n)
+		}
+		n.T = T.T_I32
+		return nil
+	}
+	switch typeOp.Lex {
+	case LxK.IDENTIFIER: // data declarations and structs
+		sy := M.GetSymbol(typeOp.Text)
+		if sy == nil {
+			return msg.ErrorNameNotDefined(M, n)
+		}
+		if sy.Kind != GK.Data && sy.Kind != GK.Struct {
+			return msg.ErrorInvalidSizeof(M, n)
+		}
+	case LxK.DOUBLECOLON: // external data declarations
+		moduleName := typeOp.Leaves[0].Text
+		symbolName := typeOp.Leaves[1].Text
 		sy := M.GetExternalSymbol(moduleName, symbolName)
 		if sy == nil {
 			return msg.ErrorNameNotDefined(M, n)
 		}
-		if sy.T != ST.Data {
-			return msg.ErrorExpectedData(M, n)
+		if sy.Kind != GK.Data && sy.Kind != GK.Struct {
+			return msg.ErrorInvalidSizeof(M, n)
 		}
 	default:
-		t, err := getType(M, nil, thing)
+		t, err := getType(M, typeOp)
 		if err != nil {
 			return err
 		}
-		thing.T = t
+		typeOp.T = t
 	}
-	n.T = T.T_I64
+	n.T = T.T_I32
 	return nil
 }
 
@@ -765,7 +910,7 @@ func conversion(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	if err != nil {
 		return err
 	}
-	n.T, err = getType(M, nil, n.Leaves[0])
+	n.T, err = getType(M, n.Leaves[0])
 	if err != nil {
 		return err
 	}
@@ -808,7 +953,7 @@ func checkCallProc(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	} else if len(callee.Rets) == 0 {
 		n.T = T.T_Void
 	} else {
-		n.T = T.T_MultiRet
+		n.MultiRet = true
 	}
 	return nil
 }
@@ -827,22 +972,29 @@ func checkExternalID(M *mod.Module, dcolon *mod.Node) *Error {
 		return msg.NameNotExported(M, dcolon.Leaves[1])
 	}
 
-	dcolon.Leaves[1].T = sy.Type
-	dcolon.T = sy.Type
+	if sy.Kind == GK.Struct {
+		return msg.ErrorInvalidUseForStruct(M, dcolon)
+	}
+	t := getSymbolType(sy)
+	dcolon.Leaves[1].T = t
+	dcolon.T = t
 	return nil
 }
 
-func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node) *Error {
+func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node, disallow bool) *Error {
 	if proc != nil { // means we're inside a procedure
-		local := getVarOrArg(proc, id.Text)
+		local := getLocal(proc, id.Text)
 		if local != nil {
-			id.T = local.Type
+			id.T = local.T
 			return nil
 		}
 	}
 	global, ok := M.Globals[id.Text]
 	if ok {
-		id.T = global.Type
+		if global.Kind == GK.Struct && disallow {
+			return msg.ErrorInvalidUseForStruct(M, id)
+		}
+		id.T = getSymbolType(global)
 		if global.External {
 			id.T = global.N.T
 		}
@@ -851,33 +1003,49 @@ func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node) *Error {
 	return msg.ErrorNameNotDefined(M, id)
 }
 
-func termToType(tp lk.LexKind) *T.Type {
+// as if the symbol is inside an expression
+func getSymbolType(sy *mod.Global) *T.Type {
+	switch sy.Kind {
+	case GK.Data:
+		return sy.Data.Type
+	case GK.Proc:
+		return sy.Proc.Type
+	case GK.Const:
+		return sy.Const.Type
+	case GK.Struct:
+		return nil
+	default:
+		panic("unreachable 820")
+	}
+}
+
+func termToType(tp LxK.LexKind) *T.Type {
 	switch tp {
-	case lk.I64_LIT:
+	case LxK.I64_LIT:
 		return T.T_I64
-	case lk.I32_LIT:
+	case LxK.I32_LIT:
 		return T.T_I32
-	case lk.I16_LIT:
+	case LxK.I16_LIT:
 		return T.T_I16
-	case lk.I8_LIT:
+	case LxK.I8_LIT:
 		return T.T_I8
-	case lk.U64_LIT:
+	case LxK.U64_LIT:
 		return T.T_U64
-	case lk.U32_LIT:
+	case LxK.U32_LIT:
 		return T.T_U32
-	case lk.U16_LIT:
+	case LxK.U16_LIT:
 		return T.T_U16
-	case lk.U8_LIT:
+	case LxK.U8_LIT:
 		return T.T_U8
-	case lk.CHAR_LIT:
+	case LxK.CHAR_LIT:
 		return T.T_I8
-	case lk.STRING_LIT:
+	case LxK.STRING_LIT:
 		return T.T_Ptr
-	case lk.TRUE:
+	case LxK.TRUE:
 		return T.T_Bool
-	case lk.FALSE:
+	case LxK.FALSE:
 		return T.T_Bool
-	case lk.PTR_LIT:
+	case LxK.PTR_LIT:
 		return T.T_Ptr
 	}
 	panic("termToType: invalid type")
@@ -1069,7 +1237,7 @@ func binaryOp(M *mod.Module, proc *mod.Proc, op *mod.Node, c class, der deriver)
 }
 
 func checkExprType(M *mod.Module, n *mod.Node) *Error {
-	if T.IsMultiRet(n.T) {
+	if n.MultiRet {
 		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
 	}
 	if T.IsVoid(n.T) {
@@ -1109,7 +1277,7 @@ func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	exp := n.Leaves[1]
 	t := n.Leaves[0]
 	var err *Error
-	t.T, err = getType(M, nil, t)
+	t.T, err = getType(M, t)
 	if err != nil {
 		return err
 	}
@@ -1131,13 +1299,86 @@ func checkDeref(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 //         where p is an expression of struct type
 //         and field is a valid field in the struct type.
 //         yields (p + STRUCT.field) of type pointer
-func dotAccess(M *mod.Module, n *mod.Node) *Error {
-	panic("unimplemented")
+func dotAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	leftExpr := n.Leaves[1]
+	field := n.Leaves[0]
+
+	switch leftExpr.Lex {
+	case LxK.IDENTIFIER:
+		err := checkID(M, proc, leftExpr, false)
+		if err != nil {
+			return err
+		}
+		sy := M.GetSymbol(leftExpr.Text)
+		if sy != nil && sy.Kind == GK.Struct {
+			return checkStructField(M, sy, n, field)
+		}
+	case LxK.DOUBLECOLON:
+		mod := n.Leaves[0].Text
+		id := n.Leaves[1].Text
+		global := M.GetExternalSymbol(mod, id)
+		if global == nil {
+			return msg.ErrorNameNotDefined(M, n)
+		}
+		if global.Kind == GK.Struct {
+			return checkStructField(M, global, n, field)
+		} else {
+			leftExpr.T = getSymbolType(global)
+		}
+	default:
+		err := checkExpr(M, proc, leftExpr)
+		if err != nil {
+			return err
+		}
+	}
+
+	if leftExpr.MultiRet {
+		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
+	} else if leftExpr.T == nil {
+		return msg.ErrorBadType(M, n)
+	} else if !T.IsStruct(leftExpr.T) {
+		return msg.ErrorExpectedStruct(M, n)
+	}
+
+	_, ok := leftExpr.T.Struct.Field(field.Text)
+	if ok {
+		return msg.FieldNotDefined(M, field)
+	}
+	n.T = T.T_Ptr
+	return nil
+}
+
+func checkStructField(M *mod.Module, sy *mod.Global, n, field *mod.Node) *Error {
+	_, ok := sy.Struct.FieldMap[field.Text]
+	if !ok {
+		return msg.FieldNotDefined(M, n)
+	}
+	n.T = T.T_I32
+	return nil
 }
 
 // p->field where p is an expression of struct type and field is a
 // valid field in the struct, yields (p + STRUCT.field)@fieldtype,
 // where fieldtype is the type specified at the struct declaration
-func arrowAccess(M *mod.Module, n *mod.Node) *Error {
-	panic("unimplemented")
+func arrowAccess(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	leftExpr := n.Leaves[1]
+	field := n.Leaves[0]
+	err := checkExpr(M, proc, leftExpr)
+	if err != nil {
+		return err
+	}
+	if leftExpr.MultiRet {
+		return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
+	} else if leftExpr.T == nil {
+		return msg.ErrorBadType(M, n)
+	} else if !T.IsStruct(leftExpr.T) {
+		return msg.ErrorExpectedStruct(M, n)
+	}
+
+	t := leftExpr.T.Struct.Typeof(field.Text)
+	if t == nil {
+		return msg.FieldNotDefined(M, field)
+	}
+	n.T = t
+	return nil
 }

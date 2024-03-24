@@ -7,7 +7,7 @@ const begin
 end
 
 proc main
-var a:i64
+var a:i32
 begin
 	set a = Cinco;
 	if a != 5 begin

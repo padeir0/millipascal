@@ -2,9 +2,10 @@ package module
 
 import (
 	. "mpc/core"
-	lex "mpc/core/module/lexkind"
-	ST "mpc/core/module/symbolkind"
-	T "mpc/core/module/types"
+	GK "mpc/core/module/globalkind"
+	LxK "mpc/core/module/lexkind"
+	LcK "mpc/core/module/localkind"
+	T "mpc/pir/types"
 
 	"fmt"
 	"strings"
@@ -12,21 +13,13 @@ import (
 	"math/big"
 )
 
-type TypeInfo struct {
-	MultiRet bool
-	ID       T.TypeID
-}
-
-func (this TypeInfo) String() string {
-	return fmt.Sprintf("[%v, %v]", this.MultiRet, this.ID)
-}
-
 type Node struct {
 	Text   string
-	Lex    lex.LexKind
+	Lex    LxK.LexKind
 	Leaves []*Node
 
-	TInfo TypeInfo
+	T        *T.Type
+	MultiRet bool // if this is true, T == nil
 
 	Value *big.Int // for int literals
 
@@ -55,9 +48,9 @@ func ast(n *Node, i int) string {
 		rng = n.Range.String()
 	}
 	output := fmt.Sprintf("{%s, '%s':%s, %s",
-		lex.FmtLexKind(n.Lex),
+		LxK.FmtLexKind(n.Lex),
 		n.Text,
-		n.TInfo.String(),
+		n.T.String(),
 		rng,
 	)
 	output += "}"
@@ -91,9 +84,9 @@ type Module struct {
 	FullPath string
 	Root     *Node
 
-	Globals      map[string]*Symbol
+	Globals      map[string]*Global
 	Dependencies map[string]*Dependency
-	Exported     map[string]*Symbol
+	Exported     map[string]*Global
 
 	Visited bool
 }
@@ -130,7 +123,7 @@ func (M *Module) ResetVisitedSymbols() {
 	}
 }
 
-func (M *Module) GetSymbol(name string) *Symbol {
+func (M *Module) GetSymbol(name string) *Global {
 	sy, ok := M.Globals[name]
 	if !ok {
 		return nil
@@ -149,7 +142,7 @@ func (M *Module) GetSymbol(name string) *Symbol {
 	return sy
 }
 
-func (M *Module) GetExternalSymbol(module string, name string) *Symbol {
+func (M *Module) GetExternalSymbol(module string, name string) *Global {
 	dep, ok := M.Dependencies[module]
 	if !ok {
 		panic("use of unknown dependency")
@@ -161,59 +154,87 @@ func (M *Module) GetExternalSymbol(module string, name string) *Symbol {
 	return sy
 }
 
-type Symbol struct {
-	T          ST.SymbolKind
+type Global struct {
+	Kind       GK.GlobalKind
 	ModuleName string
 	Name       string
 	N          *Node
 	External   bool
+	Refs       Refs
+	Visited    bool
 
-	Proc  *Proc
-	Data  *Data
-	Const *Const
-	Type  *TypeDef
-
-	Refs    map[string]*Symbol
-	Visited bool
+	Proc   *Proc
+	Data   *Data
+	Const  *Const
+	Struct *Struct
 }
 
-func (this *Symbol) ResetVisited() {
+func (this *Global) Link(other *Global) {
+	this.Refs.Link(other)
+}
+
+func (this *Global) LinkField(other *Global, field int) {
+	this.Refs.LinkField(other, field)
+}
+
+func (this *Global) ResetVisited() {
 	if !this.Visited {
 		return
 	}
 	this.Visited = false
-	for _, ref := range this.Refs {
-		ref.ResetVisited()
+	this.Refs.ResetVisited()
+	if this.Kind == GK.Struct {
+		for i, field := range this.Struct.Fields {
+			if field.Visited {
+				this.Struct.Fields[i].Visited = false
+				field.Refs.ResetVisited()
+			}
+		}
 	}
 }
 
-func (v *Symbol) String() string {
-	return v.T.String() + " " + v.Name
+func (v *Global) String() string {
+	return v.Kind.String() + " " + v.Name
 }
 
-func (this *Symbol) Link(s *Symbol) {
-	if this.Refs == nil {
-		this.Refs = map[string]*Symbol{}
+func (this *Global) GetType() *T.Type {
+	switch this.Kind {
+	case GK.Data:
+		return this.Data.Type
+	case GK.Proc:
+		return this.Proc.Type
+	case GK.Const:
+		return this.Const.Type
+	case GK.Struct:
+		return this.Struct.Type
+	default:
+		panic("unreachable 212")
 	}
-	_, ok := this.Refs[s.Name]
-	if ok {
-		return
-	}
-	this.Refs[s.Name] = s
 }
 
-type PositionalSymbol struct {
+type Local struct {
+	Kind LcK.LocalKind
+	Name string
+	N    *Node
+	T    *T.Type
+}
+
+func (this *Local) String() string {
+	return this.Name + ":" + this.T.String()
+}
+
+type PositionalLocal struct {
 	Position int
-	Symbol   *Symbol
+	Local    *Local
 }
 
 type Proc struct {
 	Name   string
-	ArgMap map[string]PositionalSymbol
-	Vars   map[string]PositionalSymbol
-	Args   []*Symbol
-	Rets   []T.TypeID
-	Type   T.TypeID
+	ArgMap map[string]PositionalLocal
+	Vars   map[string]PositionalLocal
+	Args   []*Local
+	Rets   []*T.Type
+	Type   *T.Type
 
 	N *Node
 }
@@ -221,7 +242,7 @@ type Proc struct {
 func (p *Proc) StrArgs() string {
 	output := []string{}
 	for _, decl := range p.ArgMap {
-		output = append(output, decl.Symbol.String())
+		output = append(output, decl.Local.String())
 	}
 	return strings.Join(output, ", ")
 }
@@ -229,7 +250,7 @@ func (p *Proc) StrArgs() string {
 func (p *Proc) StrVars() string {
 	output := []string{}
 	for _, decl := range p.Vars {
-		output = append(output, decl.Symbol.String())
+		output = append(output, decl.Local.String())
 	}
 	return strings.Join(output, ", ")
 }
@@ -246,11 +267,114 @@ func (p *Proc) DoesReturnSomething() bool {
 	return len(p.Rets) > 0
 }
 
+func FromSymbol(s *Global) SyField {
+	return SyField{
+		Sy:    s,
+		Field: -1,
+	}
+}
+
+type SyField struct {
+	Sy    *Global
+	Field int
+}
+
+func (this *SyField) IsVisited() bool {
+	if this.IsField() {
+		return this.Sy.Struct.Fields[this.Field].Visited
+	} else {
+		return this.Sy.Visited
+	}
+}
+
+func (this *SyField) SetVisited(b bool) {
+	if this.IsField() {
+		this.Sy.Struct.Fields[this.Field].Visited = b
+	} else {
+		this.Sy.Visited = b
+	}
+}
+
+func (this *SyField) IsField() bool {
+	return this.Field >= 0
+}
+
+func (this *SyField) GetField() *Field {
+	if this.IsField() {
+		return &this.Sy.Struct.Fields[this.Field]
+	}
+	return nil
+}
+
+func (this *SyField) GetRefs() Refs {
+	if this.IsField() {
+		return this.Sy.Struct.Fields[this.Field].Refs
+	}
+	return this.Sy.Refs
+}
+
+func (this *SyField) Name() string {
+	name := ""
+	if this.IsField() {
+		field := this.Sy.Struct.Fields[this.Field]
+		name = this.Sy.Name + "." + field.Name
+	} else {
+		name = this.Sy.Name
+	}
+	return name
+}
+
+func (this *SyField) Link(sy *Global) {
+	this.LinkField(sy, -1)
+}
+
+func (this *SyField) LinkField(sy *Global, field int) {
+	if this.IsField() {
+		this.Sy.Struct.Fields[this.Field].Refs.LinkField(sy, field)
+	} else {
+		this.Sy.LinkField(sy, field)
+	}
+}
+
+type Unit struct{}
+
+type Refs struct {
+	Set     map[string]Unit
+	Symbols []SyField
+}
+
+func (this Refs) Link(s *Global) {
+	this.LinkField(s, -1)
+}
+
+func (this Refs) LinkField(s *Global, field int) {
+	if this.Set == nil {
+		this.Set = map[string]Unit{}
+	}
+	internalName := fmt.Sprintf("%v.%d", s.Name, field)
+	_, ok := this.Set[internalName]
+	if ok {
+		return
+	}
+	this.Set[internalName] = Unit{}
+	sf := SyField{
+		Sy:    s,
+		Field: field,
+	}
+	this.Symbols = append(this.Symbols, sf)
+}
+
+func (this Refs) ResetVisited() {
+	for _, sf := range this.Symbols {
+		sf.Sy.ResetVisited()
+	}
+}
+
 type Data struct {
-	Name     string
-	Size     *big.Int
-	Init     *Node
-	DataType T.TypeID
+	Name string
+	Size *big.Int
+	Init *Node
+	Type *T.Type
 
 	Contents string
 
@@ -261,17 +385,26 @@ type Data struct {
 	//     if symbol is also nil, panic
 	// this could have been written in Anu as:
 	//     Blob *(&Symbol|int)
-	Symbols []*Symbol
+	Symbols []*Global
 	Nums    []*big.Int
 }
 
 // a constant can either be a integer or a symbol
 type Const struct {
 	Value  *big.Int
-	Symbol *Symbol
-	Type   T.TypeID
+	Symbol *Global
+	Type   *T.Type
 }
 
-type TypeDef struct {
-	Type T.TypeID
+type Struct struct {
+	Type     *T.Type
+	Fields   []Field
+	FieldMap map[string]int
+}
+
+type Field struct {
+	Name    string
+	Refs    Refs
+	Offset  *Node
+	Visited bool
 }

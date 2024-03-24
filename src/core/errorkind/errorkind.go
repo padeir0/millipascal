@@ -43,7 +43,7 @@ const (
 	CannotUseVoid
 	ExpectedBasicOrProcType
 	CanOnlyUseNormalAssignment
-	ExpectedNumber
+	ExpectedIntegers
 	ExitMustBeI8
 	PtrCantBeUsedAsDataSize
 	InvalidProp
@@ -61,6 +61,12 @@ const (
 	DoesntMatchBlobAnnot
 	BadType
 	CantImportAll
+	ExpectedStruct
+	OffsetInMultipleFields
+	InvalidUseForStruct
+	FieldNotDefined
+	InvalidSizeof
+	InvalidNumOfAssignees
 )
 
 func (et ErrorKind) String() string {
@@ -106,7 +112,7 @@ var ErrorCodeMap = map[ErrorKind]string{
 	CannotUseVoid:                  "E035",
 	ExpectedBasicOrProcType:        "E036",
 	CanOnlyUseNormalAssignment:     "E037",
-	ExpectedNumber:                 "E038",
+	ExpectedIntegers:               "E038",
 	ExitMustBeI8:                   "E039",
 	PtrCantBeUsedAsDataSize:        "E040",
 	InvalidProp:                    "E041",
@@ -125,4 +131,10 @@ var ErrorCodeMap = map[ErrorKind]string{
 	DoesntMatchBlobAnnot:           "E054",
 	BadType:                        "E055",
 	CantImportAll:                  "E056",
+	ExpectedStruct:                 "E057",
+	OffsetInMultipleFields:         "E058",
+	InvalidUseForStruct:            "E059",
+	FieldNotDefined:                "E060",
+	InvalidSizeof:                  "E061",
+	InvalidNumOfAssignees:          "E062",
 }

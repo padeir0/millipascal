@@ -7,20 +7,20 @@ begin
     test_e[];
 end
 
-data a { 0xF, 0xFF, ~0xFFF, ~0xFFFF}
+data a { 0xFl, 0xFFl, ~0xFFFl, ~0xFFFFl}
 
 proc test_a
 begin
-    if (a + 0*sizeof[i64])@i64 != 0xF begin
+    if (a + 0*sizeof[i64])@i64 != 0xFl begin
         exit 1ss;
     end
-    if (a + 1*sizeof[i64])@i64 != 0xFF begin
+    if (a + 1*sizeof[i64])@i64 != 0xFFl begin
         exit 2ss;
     end
-    if (a + 2*sizeof[i64])@i64 != ~0xFFF begin
+    if (a + 2*sizeof[i64])@i64 != ~0xFFFl begin
         exit 3ss;
     end
-    if (a + 3*sizeof[i64])@i64 != ~0xFFFF begin
+    if (a + 3*sizeof[i64])@i64 != ~0xFFFFl begin
         exit 4ss;
     end
 
@@ -29,17 +29,17 @@ begin
     end
 end
 
-data b { 0xAl, ~0xAAl, 0xAAAl}
+data b { 0xA, ~0xAA, 0xAAA}
 
 proc test_b
 begin
-    if (b + 0*sizeof[i32])@i32 != 0xAl begin
+    if (b + 0*sizeof[i32])@i32 != 0xA begin
         exit 6ss;
     end
-    if (b + 1*sizeof[i32])@i32 != ~0xAAl begin
+    if (b + 1*sizeof[i32])@i32 != ~0xAA begin
         exit 7ss;
     end
-    if (b + 2*sizeof[i32])@i32 != 0xAAAl begin
+    if (b + 2*sizeof[i32])@i32 != 0xAAA begin
         exit 8ss;
     end
 

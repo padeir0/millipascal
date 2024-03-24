@@ -1,5 +1,5 @@
 proc main
-var a, b, c:i64
+var a, b, c:i32
 begin
 	set a, b, c = P[];
 	if a != 1 begin
@@ -13,7 +13,7 @@ begin
 	end
 end
 
-proc P[] i64, i64, i64
+proc P[] i32, i32, i32
 begin
 	return 1, 2, 3;
 end

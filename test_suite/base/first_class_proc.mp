@@ -1,5 +1,5 @@
 proc main
-var a, b:i64
+var a, b:i32
 begin
 	set a = 1;
 
@@ -14,17 +14,17 @@ begin
 	end
 end
 
-proc Perform[a, b:i64, p:proc[i64, i64][i64] ] i64
+proc Perform[a, b:i32, p:proc[i32, i32][i32] ] i32
 begin
 	return p[a, b];
 end
 
-proc Add[a, b:i64] i64
+proc Add[a, b:i32] i32
 begin
 	return a + b;
 end
 
-proc Sub[a, b:i64] i64
+proc Sub[a, b:i32] i32
 begin
 	return a - b;
 end

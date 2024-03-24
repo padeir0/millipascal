@@ -13,21 +13,21 @@ const i16min = (~(1<<64)):i16
 const i32max = (1<<64):i32
 const i32min = (~(1<<64)):i32
 
-const i64max = (1<<64):i64
-const i64min = (~(1<<64)):i64
+const i64max = (1l<<64l):i64
+const i64min = (~(1l<<64l)):i64
 
 proc main
 begin
-    if i8max != ((1<<7)-1):i8 begin
+    if i8max != ((1ss<<7ss)-1ss):i8 begin
         exit 1ss;
     end
-    if i8min != (~(1<<7)):i8 begin
+    if i8min != (~(1ss<<7ss)):i8 begin
         exit 2ss;
     end
-    if i16max != ((1<<15)-1):i16 begin
+    if i16max != ((1s<<15s)-1s):i16 begin
         exit 3ss;
     end
-    if i16min != (~(1<<15)):i16 begin
+    if i16min != (~(1s<<15s)):i16 begin
         exit 4ss;
     end
 
@@ -37,10 +37,10 @@ begin
     if i32min != (~(1<<31)):i32 begin
         exit 6ss;
     end
-    if i64max != ((1<<63)-1):i64 begin
+    if i64max != ((1l<<63l)-1l):i64 begin
         exit 7ss;
     end
-    if i64min != (~(1<<63)):i64 begin
+    if i64min != (~(1l<<63l)):i64 begin
         exit 8ss;
     end
 end

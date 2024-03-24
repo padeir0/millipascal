@@ -10,8 +10,8 @@ import (
 	RIU "mpc/pir/util"
 
 	mod "mpc/core/module"
+	GK "mpc/core/module/globalkind"
 	lk "mpc/core/module/lexkind"
-	ST "mpc/core/module/symbolkind"
 	msg "mpc/messages"
 
 	"fmt"
@@ -108,11 +108,11 @@ func declAll(c *context, M *mod.Module) {
 	}
 	for _, sy := range M.Globals {
 		if !sy.External {
-			if sy.T == ST.Proc {
+			if sy.Kind == GK.Proc {
 				p := newPirProc(M.Name, sy.Proc)
 				i := c.Program.AddProc(p)
 				c.symbolMap[p.Label] = pir.SymbolID(i)
-			} else if sy.T == ST.Data {
+			} else if sy.Kind == GK.Data {
 				m := newPirMem(c, M.Name, sy.Data)
 				i := c.Program.AddMem(m)
 				c.symbolMap[m.Label] = pir.SymbolID(i)
@@ -134,7 +134,7 @@ func genAll(c *context, M *mod.Module) *Error {
 	}
 	for _, sy := range M.Globals {
 		if !sy.External {
-			if sy.T == ST.Proc {
+			if sy.Kind == GK.Proc {
 				err := genProc(c, M, sy.Proc)
 				if err != nil {
 					return err
@@ -153,7 +153,7 @@ func genProc(c *context, M *mod.Module, proc *mod.Proc) *Error {
 	c.PirProc.Start = startID
 	c.CurrBlock = start
 
-	body := proc.N.Leaves[5]
+	body := proc.N.Leaves[4]
 	genBlock(M, c, body)
 	if !pir.ProperlyTerminates(c.PirProc) {
 		if proc.DoesReturnSomething() {
@@ -540,25 +540,25 @@ func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 	panic("genExprID: global not found")
 }
 
-func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand {
+func globalToOperand(c *context, M *mod.Module, global *mod.Global) pir.Operand {
 	i := int64(c.GetSymbolID(global.ModuleName, global.Name))
-	switch global.T {
-	case ST.Proc:
+	switch global.Kind {
+	case GK.Proc:
 		return pir.Operand{
 			Class: pirc.Global,
 			Type:  global.N.T,
 			ID:    i,
 		}
-	case ST.Data:
+	case GK.Data:
 		return pir.Operand{
 			Class: pirc.Global,
 			Type:  T.T_Ptr,
 			ID:    i,
 		}
-	case ST.Const:
+	case GK.Const:
 		return pir.Operand{
 			Class: pirc.Lit,
-			Type:  global.Type,
+			Type:  global.GetType(),
 			ID:    -1,
 			Num:   global.Const.Value,
 		}
@@ -567,22 +567,45 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Symbol) pir.Operand 
 }
 
 func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
-	op := sizeof.Leaves[1]
+	op := sizeof.Leaves[0]
+	dot := sizeof.Leaves[1]
+	if dot != nil {
+		var sy *mod.Global
+		switch op.Lex {
+		case lk.IDENTIFIER: // struct
+			sy = M.GetSymbol(op.Text)
+		case lk.DOUBLECOLON: // external struct
+			mod := op.Leaves[0].Text
+			id := op.Leaves[1].Text
+			sy = M.GetExternalSymbol(mod, id)
+		}
+		t := sy.Struct.Type
+		fieldName := dot.Leaves[0].Text
+		field, ok := t.Struct.Field(fieldName)
+		if !ok {
+			panic("impossible 586")
+		}
+		size := int64(field.Type.Size()) // we don't look at struct sizes here
+		return newNumLit(big.NewInt(size), sizeof.T)
+	}
+	var sy *mod.Global
 	switch op.Lex {
 	case lk.IDENTIFIER:
-		// TODO: if inside a struct, this identifier might be a field whithin scope
-		sy := M.GetSymbol(op.Text)
-		return newNumLit(sy.Data.Size, sizeof.T)
+		sy = M.GetSymbol(op.Text)
 	case lk.DOUBLECOLON:
 		module := op.Leaves[0].Text
 		id := op.Leaves[1].Text
-		sy := M.GetExternalSymbol(module, id)
-		return newNumLit(sy.Data.Size, sizeof.T)
-	case lk.DOT:
-		panic("unimplemented")
+		sy = M.GetExternalSymbol(module, id)
 	default:
-		size := big.NewInt(int64(op.T.Size()))
-		return newNumLit(size, sizeof.T)
+		return newNumLit(op.T.Sizeof(), sizeof.T)
+	}
+	switch sy.Kind {
+	case GK.Data:
+		return newNumLit(sy.Data.Size, sizeof.T)
+	case GK.Struct:
+		return newNumLit(sy.Struct.Type.Sizeof(), sizeof.T)
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -711,11 +734,11 @@ func lexToUnaryOp(op lk.LexKind) IT.InstrKind {
 func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
 	args := []*T.Type{}
 	for _, arg := range P.Args {
-		args = append(args, arg.Type)
+		args = append(args, arg.T)
 	}
 	vars := make([]*T.Type, len(P.Vars))
 	for _, ps := range P.Vars {
-		vars[ps.Position] = ps.Symbol.Type
+		vars[ps.Position] = ps.Local.T
 	}
 	return &pir.Procedure{
 		Label: modName + "_" + P.Name,
@@ -730,13 +753,13 @@ func newPirMem(c *context, modName string, dt *mod.Data) *pir.DataDecl {
 		Label:    modName + "_" + dt.Name,
 		Size:     dt.Size,
 		Data:     dt.Contents,
-		DataSize: dt.DataType.Size(),
+		DataSize: dt.Type.Size(),
 		Nums:     dt.Nums,
 		Symbols:  mapSymbols(c, dt.Symbols),
 	}
 }
 
-func mapSymbols(c *context, symbols []*mod.Symbol) []pir.SymbolID {
+func mapSymbols(c *context, symbols []*mod.Global) []pir.SymbolID {
 	out := make([]pir.SymbolID, len(symbols))
 	for i, sy := range symbols {
 		mod := sy.ModuleName

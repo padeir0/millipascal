@@ -17,8 +17,8 @@ begin
 	end
 end
 
-proc equals[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
-var i:i64
+proc equals[p1:ptr, size1:i32, p2:ptr, size2:i32] bool
+var i:i32
 begin
 	if size1 != size2
 	begin

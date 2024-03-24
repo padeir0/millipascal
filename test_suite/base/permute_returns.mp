@@ -1,5 +1,5 @@
 proc main
-var i, a,b,c,d,e:i64
+var i, a,b,c,d,e:i32
 begin
     set i = 0;
 
@@ -22,7 +22,7 @@ begin
 
 end
 
-proc permute[a,b,c,d,e:i64] i64,i64,i64,i64,i64
+proc permute[a,b,c,d,e:i32] i32,i32,i32,i32,i32
 begin
     return b, a, d, e, c;
 end

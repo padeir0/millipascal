@@ -27,29 +27,29 @@ begin
 		exit 1ss;
 	end
 
-	set c = 0b11111111111111111111111111111111ul;
-	if c + 1ul != 0ul begin
+	set c = 0b11111111111111111111111111111111u;
+	if c + 1u != 0u begin
 		exit 1ss;
 	end
-	set c = 0xFFFFFFFFul;
-	if c + 1ul != 0ul begin
+	set c = 0xFFFFFFFFu;
+	if c + 1u != 0u begin
 		exit 1ss;
 	end
-	set c = 4294967295ul;
-	if c + 1ul != 0ul begin
+	set c = 4294967295u;
+	if c + 1u != 0u begin
 		exit 1ss;
 	end
 
-	set d = 0b1111111111111111111111111111111111111111111111111111111111111111u;
-	if d + 1u != 0u begin
+	set d = 0b1111111111111111111111111111111111111111111111111111111111111111ul;
+	if d + 1ul != 0ul begin
 		exit 1ss;
 	end
-	set d = 0xFFFFFFFFFFFFFFFFu;
-	if d + 1u != 0u begin
+	set d = 0xFFFFFFFFFFFFFFFFul;
+	if d + 1ul != 0ul begin
 		exit 1ss;
 	end
-	set d = 18446744073709551615u;
-	if d + 1u != 0u begin
+	set d = 18446744073709551615ul;
+	if d + 1ul != 0ul begin
 		exit 1ss;
 	end
 end

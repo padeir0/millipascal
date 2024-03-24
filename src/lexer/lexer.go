@@ -267,17 +267,20 @@ func any(st *Lexer) (*ir.Node, *Error) {
 	}
 
 	switch r {
-	case '+': // + +=
+	case '+': // + += ++
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
 		case '=':
 			nextRune(st)
 			tp = T.PLUS_ASSIGN
+		case '+':
+			nextRune(st)
+			tp = T.PLUS_PLUS
 		default:
 			tp = T.PLUS
 		}
-	case '-': // - -= ->
+	case '-': // - -= -> --
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
@@ -287,6 +290,9 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		case '>':
 			nextRune(st)
 			tp = T.ARROW
+		case '-':
+			nextRune(st)
+			tp = T.MINUS_MINUS
 		default:
 			tp = T.MINUS
 		}
@@ -320,35 +326,18 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.REMAINDER
 		}
-	case '|': // || |^
+	case '|': // |
 		nextRune(st)
-		r = peekRune(st)
-		switch r {
-		case '|':
-			nextRune(st)
-			tp = T.BITWISEOR
-		case '^':
-			nextRune(st)
-			tp = T.BITWISEXOR
-		default:
-			return nil, InvalidSymbol(st, r)
-		}
-	case '&': // &&
+		tp = T.BITWISEOR
+	case '&': // &
 		nextRune(st)
-		r = peekRune(st)
-		switch r {
-		case '&':
-			nextRune(st)
-			tp = T.BITWISEAND
-		default:
-			return nil, InvalidSymbol(st, r)
-		}
+		tp = T.BITWISEAND
 	case '@':
 		nextRune(st)
 		tp = T.AT
 	case '^':
 		nextRune(st)
-		tp = T.CARET
+		tp = T.BITWISEXOR
 	case '~':
 		nextRune(st)
 		tp = T.NEG
@@ -402,13 +391,16 @@ func any(st *Lexer) (*ir.Node, *Error) {
 		default:
 			tp = T.MORE
 		}
-	case '<': // <  <=  <<
+	case '<': // <  <=  << <>
 		nextRune(st)
 		r = peekRune(st)
 		switch r {
 		case '=':
 			nextRune(st)
 			tp = T.LESSEQ
+		case '>':
+			nextRune(st)
+			tp = T.SWAP
 		case '<':
 			nextRune(st)
 			tp = T.SHIFTLEFT
@@ -486,14 +478,9 @@ func number(st *Lexer) *ir.Node {
 			return genNumNode(st, T.U16_LIT, value)
 		case 'l': // long
 			nextRune(st)
-			r = peekRune(st)
-			if r == 'l' { // longer long
-				nextRune(st)
-				return genNumNode(st, T.U64_LIT, value)
-			}
-			return genNumNode(st, T.U32_LIT, value)
-		default:
 			return genNumNode(st, T.U64_LIT, value)
+		default:
+			return genNumNode(st, T.U32_LIT, value)
 		}
 	case 's': // short
 		nextRune(st)
@@ -505,14 +492,9 @@ func number(st *Lexer) *ir.Node {
 		return genNumNode(st, T.I16_LIT, value)
 	case 'l': // long
 		nextRune(st)
-		r = peekRune(st)
-		if r == 'l' { // longer long
-			nextRune(st)
-			return genNumNode(st, T.I64_LIT, value)
-		}
-		return genNumNode(st, T.I32_LIT, value)
+		return genNumNode(st, T.I64_LIT, value)
 	}
-	return genNumNode(st, T.I64_LIT, value)
+	return genNumNode(st, T.I32_LIT, value)
 }
 
 func identifier(st *Lexer) *ir.Node {
@@ -548,6 +530,8 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.ELSE
 	case "while":
 		tp = T.WHILE
+	case "do":
+		tp = T.DO
 	case "return":
 		tp = T.RETURN
 	case "elseif":
@@ -568,12 +552,10 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.EXPORT
 	case "as":
 		tp = T.AS
-	case "is":
-		tp = T.IS
 	case "all":
 		tp = T.ALL
-	case "type":
-		tp = T.TYPE
+	case "struct":
+		tp = T.STRUCT
 	case "sizeof":
 		tp = T.SIZEOF
 	case "i8":
@@ -598,6 +580,8 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.PTR
 	case "void":
 		tp = T.VOID
+	case "attr":
+		tp = T.ATTR
 	}
 	return genNode(st, tp)
 }

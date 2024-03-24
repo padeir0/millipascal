@@ -1,5 +1,5 @@
 proc main
-var a:i64
+var a:i32
 begin
     if Try[10] != 10 begin
         exit 1ss;
@@ -15,8 +15,8 @@ begin
     end
 end
 
-proc Try[n:i64] i64
-var idd, i, q, b64:i64
+proc Try[n:i32] i32
+var idd, i, q, b64:i32
 begin
     set idd = 0;
     set i = n-1;
@@ -31,10 +31,10 @@ begin
     return idd;
 end
 
-proc A[a:i64]
+proc A[a:i32]
 begin
 end
 
-proc B[a, b, c:i64]
+proc B[a, b, c:i32]
 begin
 end

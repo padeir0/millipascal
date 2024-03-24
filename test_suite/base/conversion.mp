@@ -16,32 +16,32 @@ var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss;
 	set b = 7s;
-	set c = 15l;
-	set d = 31;
+	set c = 15;
+	set d = 31l;
 
-	if a:i64 != 3 begin
+	if a:i64 != 3l begin
 		exit 1ss;
 	end
-	if b:i64 != 7 begin
+	if b:i64 != 7l begin
 		exit 2ss;
 	end
-	if c:i64 != 15 begin
+	if c:i64 != 15l begin
 		exit 3ss;
 	end
-	if d:i64 != 31 begin
+	if d:i64 != 31l begin
 		exit 4ss;
 	end
 
-	if a:i32 != 3l begin
+	if a:i32 != 3 begin
 		exit 5ss;
 	end
-	if b:i32 != 7l begin
+	if b:i32 != 7 begin
 		exit 6ss;
 	end
-	if c:i32 != 15l begin
+	if c:i32 != 15 begin
 		exit 7ss;
 	end
-	if d:i32 != 31l begin
+	if d:i32 != 31 begin
 		exit 8ss;
 	end
 
@@ -77,32 +77,32 @@ var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss;
 	set b = 7us;
-	set c = 15ul;
-	set d = 31u;
+	set c = 15u;
+	set d = 31ul;
 
-	if a:u64 != 3u begin
+	if a:u64 != 3ul begin
 		exit 17ss;
 	end
-	if b:u64 != 7u begin
+	if b:u64 != 7ul begin
 		exit 18ss;
 	end
-	if c:u64 != 15u begin
+	if c:u64 != 15ul begin
 		exit 19ss;
 	end
-	if d:u64 != 31u begin
+	if d:u64 != 31ul begin
 		exit 20ss;
 	end
 
-	if a:u32 != 3ul begin
+	if a:u32 != 3u begin
 		exit 21ss;
 	end
-	if b:u32 != 7ul begin
+	if b:u32 != 7u begin
 		exit 22ss;
 	end
-	if c:u32 != 15ul begin
+	if c:u32 != 15u begin
 		exit 23ss;
 	end
-	if d:u32 != 31ul begin
+	if d:u32 != 31u begin
 		exit 24ss;
 	end
 
@@ -138,32 +138,32 @@ var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss;
 	set b = 7us;
-	set c = 15ul;
-	set d = 31u;
+	set c = 15u;
+	set d = 31ul;
 
-	if a:i64 != 3 begin
+	if a:i64 != 3l begin
 		exit 33ss;
 	end
-	if b:i64 != 7 begin
+	if b:i64 != 7l begin
 		exit 34ss;
 	end
-	if c:i64 != 15 begin
+	if c:i64 != 15l begin
 		exit 35ss;
 	end
-	if d:i64 != 31 begin
+	if d:i64 != 31l begin
 		exit 36ss;
 	end
 
-	if a:i32 != 3l begin
+	if a:i32 != 3 begin
 		exit 37ss;
 	end
-	if b:i32 != 7l begin
+	if b:i32 != 7 begin
 		exit 38ss;
 	end
-	if c:i32 != 15l begin
+	if c:i32 != 15 begin
 		exit 39ss;
 	end
-	if d:i32 != 31l begin
+	if d:i32 != 31 begin
 		exit 40ss;
 	end
 
@@ -199,32 +199,32 @@ var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss;
 	set b = 7s;
-	set c = 15l;
-	set d = 31;
+	set c = 15;
+	set d = 31l;
 
-	if a:u64 != 3u begin
+	if a:u64 != 3ul begin
 		exit 49ss;
 	end
-	if b:u64 != 7u begin
+	if b:u64 != 7ul begin
 		exit 50ss;
 	end
-	if c:u64 != 15u begin
+	if c:u64 != 15ul begin
 		exit 51ss;
 	end
-	if d:u64 != 31u begin
+	if d:u64 != 31ul begin
 		exit 52ss;
 	end
 
-	if a:u32 != 3ul begin
+	if a:u32 != 3u begin
 		exit 53ss;
 	end
-	if b:u32 != 7ul begin
+	if b:u32 != 7u begin
 		exit 54ss;
 	end
-	if c:u32 != 15ul begin
+	if c:u32 != 15u begin
 		exit 55ss;
 	end
-	if d:u32 != 31ul begin
+	if d:u32 != 31u begin
 		exit 56ss;
 	end
 
@@ -260,32 +260,32 @@ var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = ~3ss;
 	set b = ~7s;
-	set c = ~15l;
-	set d = ~31;
+	set c = ~15;
+	set d = ~31l;
 
-	if a:i64 != ~3 begin
+	if a:i64 != ~3l begin
 		exit 65ss;
 	end
-	if b:i64 != ~7 begin
+	if b:i64 != ~7l begin
 		exit 66ss;
 	end
-	if c:i64 != ~15 begin
+	if c:i64 != ~15l begin
 		exit 67ss;
 	end
-	if d:i64 != ~31 begin
+	if d:i64 != ~31l begin
 		exit 68ss;
 	end
 
-	if a:i32 != ~3l begin
+	if a:i32 != ~3 begin
 		exit 69ss;
 	end
-	if b:i32 != ~7l begin
+	if b:i32 != ~7 begin
 		exit 70ss;
 	end
-	if c:i32 != ~15l begin
+	if c:i32 != ~15 begin
 		exit 71ss;
 	end
-	if d:i32 != ~31l begin
+	if d:i32 != ~31 begin
 		exit 72ss;
 	end
 
@@ -321,8 +321,8 @@ var a:i8, b:i16, c:i32, d:i64
 begin
 	set a = 3ss;
 	set b = 7s;
-	set c = 15l;
-	set d = 31;
+	set c = 15;
+	set d = 31l;
 
 	if a:ptr != 3p begin
 		exit 81ss;
@@ -343,8 +343,8 @@ var a:u8, b:u16, c:u32, d:u64
 begin
 	set a = 3uss;
 	set b = 7us;
-	set c = 15ul;
-	set d = 3u;
+	set c = 15u;
+	set d = 3ul;
 
 	if a:ptr != 3p begin
 		exit 85ss;
@@ -361,7 +361,7 @@ begin
 end
 
 proc procs
-var a:proc[i64][i64], b:ptr
+var a:proc[i32][i32], b:ptr
 begin
 	set a = square;
 
@@ -371,12 +371,12 @@ begin
 
 	set b = square:ptr;
 
-	if (b:proc[i64][i64])[2] != 4 begin
+	if (b:proc[i32][i32])[2] != 4 begin
 		exit 87ss;
 	end
 end
 
-proc square[a:i64] i64
+proc square[a:i32] i32
 begin
 	return a*a;
 end

@@ -8,8 +8,8 @@ import (
 	. "mpc/core"
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
+	GK "mpc/core/module/globalkind"
 	lex "mpc/core/module/lexkind"
-	ST "mpc/core/module/symbolkind"
 	"mpc/format"
 	"mpc/lexer"
 	msg "mpc/messages"
@@ -219,8 +219,8 @@ func newModule(basePath, modID, filename string, root *ir.Node) *ir.Module {
 		FullPath:     basePath + "/" + filename,
 		Root:         root,
 		Dependencies: map[string]*ir.Dependency{},
-		Exported:     map[string]*ir.Symbol{},
-		Globals:      map[string]*ir.Symbol{},
+		Exported:     map[string]*ir.Global{},
+		Globals:      map[string]*ir.Global{},
 	}
 }
 
@@ -386,9 +386,9 @@ func importSymbols(M *ir.Module, n *ir.Node) *Error {
 }
 
 func defineModSymbol(M *ir.Module, n *ir.Node, impName, name string) *Error {
-	sy := &ir.Symbol{
+	sy := &ir.Global{
 		Name:       impName,
-		T:          ST.Module,
+		Kind:       GK.Module,
 		ModuleName: M.Name,
 		N:          n,
 	}
@@ -458,13 +458,17 @@ func fromImportSymbols(M *ir.Module, n *ir.Node) *Error {
 	return nil
 }
 
-func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Symbol, impName, name string) *Error {
-	newSy := &ir.Symbol{
-		T:          sy.T,
+func defineExternalSymbol(M *ir.Module, n *ir.Node, sy *ir.Global, impName, name string) *Error {
+	newSy := &ir.Global{
+		Kind:       sy.Kind,
 		Name:       impName,
 		N:          sy.N,
 		External:   true,
 		ModuleName: sy.ModuleName,
+		Proc:       sy.Proc,
+		Data:       sy.Data,
+		Struct:     sy.Struct,
+		Const:      sy.Const,
 	}
 	_, ok := M.Globals[name]
 	if ok {
@@ -541,8 +545,8 @@ func declareSymbol(M *ir.Module, n *ir.Node) *Error {
 		return declMemSymbol(M, n)
 	case lex.CONST:
 		return declConstSymbol(M, n)
-	case lex.TYPE:
-		return declTypeSymbol(M, n)
+	case lex.STRUCT:
+		return declStructSymbol(M, n)
 	default:
 		panic("impossible")
 	}
@@ -576,11 +580,6 @@ func declMemSymbol(M *ir.Module, n *ir.Node) *Error {
 	}
 }
 
-// TODO: declTypeSymbol
-func declTypeSymbol(M *ir.Module, n *ir.Node) *Error {
-	return nil
-}
-
 func declConstSymbol(M *ir.Module, n *ir.Node) *Error {
 	leaf := n.Leaves[0]
 	switch leaf.Lex {
@@ -599,16 +598,16 @@ func declConstSymbol(M *ir.Module, n *ir.Node) *Error {
 	}
 }
 
-func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Symbol {
+func getProcSymbol(M *ir.Module, n *ir.Node) *ir.Global {
 	name := n.Leaves[0].Text
-	return &ir.Symbol{
-		T:          ST.Proc,
+	return &ir.Global{
+		Kind:       GK.Proc,
 		Name:       name,
 		ModuleName: M.Name,
 		Proc: &ir.Proc{
 			Name:   name,
-			ArgMap: map[string]ir.PositionalSymbol{},
-			Vars:   map[string]ir.PositionalSymbol{},
+			ArgMap: map[string]ir.PositionalLocal{},
+			Vars:   map[string]ir.PositionalLocal{},
 			N:      n,
 		},
 		N: n,
@@ -621,8 +620,8 @@ func setMemSymbol(M *ir.Module, n *ir.Node) *Error {
 		Name: name,
 		Init: n.Leaves[2],
 	}
-	sy := &ir.Symbol{
-		T:          ST.Data,
+	sy := &ir.Global{
+		Kind:       GK.Data,
 		Name:       name,
 		ModuleName: M.Name,
 		Data:       mem,
@@ -638,8 +637,8 @@ func setMemSymbol(M *ir.Module, n *ir.Node) *Error {
 
 func setConstSymbol(M *ir.Module, n *ir.Node) *Error {
 	name := n.Leaves[0].Text
-	sy := &ir.Symbol{
-		T:          ST.Const,
+	sy := &ir.Global{
+		Kind:       GK.Const,
 		Name:       name,
 		ModuleName: M.Name,
 		N:          n,
@@ -655,15 +654,57 @@ func setConstSymbol(M *ir.Module, n *ir.Node) *Error {
 	return nil
 }
 
+func declStructSymbol(M *ir.Module, n *ir.Node) *Error {
+	id := n.Leaves[0].Text
+	sy := &ir.Global{
+		Kind:       GK.Struct,
+		Name:       id,
+		ModuleName: M.Name,
+		N:          n,
+		Struct: &ir.Struct{
+			Fields:   []ir.Field{},
+			FieldMap: map[string]int{},
+		},
+	}
+	fields := n.Leaves[2]
+	i := 0
+	for _, field := range fields.Leaves {
+		idList := field.Leaves[0]
+		offset := field.Leaves[2]
+		if len(idList.Leaves) > 1 && offset != nil {
+			return msg.ErrorOffsetInMultipleFields(M, field)
+		}
+		for _, id := range idList.Leaves {
+			if _, ok := sy.Struct.FieldMap[id.Text]; ok {
+				return msg.ErrorNameAlreadyDefined(M, id, id.Text)
+			}
+			field := ir.Field{
+				Name:   id.Text,
+				Refs:   ir.Refs{},
+				Offset: offset,
+			}
+			sy.Struct.Fields = append(sy.Struct.Fields, field)
+			sy.Struct.FieldMap[id.Text] = i
+			i++
+		}
+	}
+	_, ok := M.Globals[sy.Name]
+	if ok {
+		return msg.ErrorNameAlreadyDefined(M, n, sy.Name)
+	}
+	M.Globals[sy.Name] = sy
+	return nil
+}
+
 func resolveGlobalDepGraph(M *ir.Module) *Error {
 	for _, sy := range M.Globals {
-		if sy.T == ST.Const {
-			err := resDepExpr(M, sy, sy.N.Leaves[1])
+		if sy.Kind == GK.Const {
+			err := resDepExpr(M, ir.FromSymbol(sy), sy.N.Leaves[2])
 			if err != nil {
 				return err
 			}
 		}
-		if sy.T == ST.Data {
+		if sy.Kind == GK.Data {
 			contents := sy.N.Leaves[2]
 			var err *Error
 			switch contents.Lex {
@@ -671,8 +712,14 @@ func resolveGlobalDepGraph(M *ir.Module) *Error {
 			case lex.BLOB:
 				err = resBlobExpr(M, sy, contents)
 			default:
-				err = resDepExpr(M, sy, contents)
+				err = resDepExpr(M, ir.FromSymbol(sy), contents)
 			}
+			if err != nil {
+				return err
+			}
+		}
+		if sy.Kind == GK.Struct {
+			err := resStruct(M, sy)
 			if err != nil {
 				return err
 			}
@@ -681,10 +728,39 @@ func resolveGlobalDepGraph(M *ir.Module) *Error {
 	return nil
 }
 
-func resBlobExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+func resBaseType(M *ir.Module, sy *ir.Global, n *ir.Node) *Error {
+	if n.Lex == lex.IDENTIFIER {
+		return resDepID(M, ir.FromSymbol(sy), n, true)
+	}
+	return nil
+}
+
+func resStruct(M *ir.Module, sy *ir.Global) *Error {
+	fields := sy.N.Leaves[2]
+	for _, field := range fields.Leaves {
+		idList := field.Leaves[0]
+		expr := field.Leaves[2]
+		if expr != nil {
+			for _, id := range idList.Leaves {
+				field := sy.Struct.FieldMap[id.Text]
+				sf := ir.SyField{
+					Sy:    sy,
+					Field: field,
+				}
+				err := resDepExpr(M, sf, expr)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func resBlobExpr(M *ir.Module, sy *ir.Global, n *ir.Node) *Error {
 	blobContents := n.Leaves[1]
 	for _, leaf := range blobContents.Leaves {
-		err := resDepExpr(M, sy, leaf)
+		err := resDepExpr(M, ir.FromSymbol(sy), leaf)
 		if err != nil {
 			return err
 		}
@@ -692,7 +768,7 @@ func resBlobExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
 	return nil
 }
 
-func resDepExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
+func resDepExpr(M *ir.Module, sy ir.SyField, n *ir.Node) *Error {
 	switch n.Lex {
 	case lex.STRING_LIT:
 		return msg.CannotUseStringInExpr(M, n)
@@ -729,36 +805,74 @@ func resDepExpr(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
 	return nil
 }
 
-func resSizeof(M *ir.Module, sy *ir.Symbol, n *ir.Node) *Error {
-	op := n.Leaves[1]
-	switch op.Lex {
-	case lex.IDENTIFIER:
-		return resDepID(M, sy, op, false)
-	case lex.DOUBLECOLON:
-		return resExternalID(M, op, false)
-	case lex.DOT:
-		panic("unimplemented")
-	default:
+func resSizeof(M *ir.Module, sy ir.SyField, n *ir.Node) *Error {
+	op := n.Leaves[0]
+	dot := n.Leaves[1]
+	if dot == nil {
+		switch op.Lex {
+		case lex.IDENTIFIER:
+			return resDepID(M, sy, op, false)
+		case lex.DOUBLECOLON:
+			return resExternalID(M, op, false)
+		default:
+			return nil
+		}
+	}
+	// if dot is not nil, we don't care, fields have static sizes,
+	// ie, they have a basic type size.
+	return nil
+}
+
+func resDotExpr(M *ir.Module, sy *ir.SyField, n *ir.Node) *Error {
+	field := n.Leaves[0]
+	expr := n.Leaves[1]
+
+	if expr.Lex == lex.IDENTIFIER {
+		tsy := M.GetSymbol(expr.Text)
+		if tsy == nil {
+			return msg.ErrorNameNotDefined(M, expr)
+		}
+		if tsy.Kind != GK.Struct {
+			return msg.ErrorExpectedStruct(M, expr)
+		}
+		if !tsy.External {
+			fieldIndex, ok := tsy.Struct.FieldMap[field.Text]
+			if !ok {
+				return msg.ErrorNameNotDefined(M, field)
+			}
+			sy.LinkField(tsy, fieldIndex)
+		}
 		return nil
 	}
+	return nil
+}
+
+func getSymbolFromExpr(M *ir.Module, n *ir.Node) *ir.Global {
+	switch n.Lex {
+	case lex.IDENTIFIER:
+		return M.GetSymbol(n.Text)
+	case lex.DOUBLECOLON:
+		return M.GetExternalSymbol(n.Leaves[0].Text, n.Leaves[1].Text)
+	}
+	return nil
 }
 
 func resExternalID(M *ir.Module, n *ir.Node, disallow bool) *Error {
 	module := n.Leaves[0].Text
 	name := n.Leaves[1].Text
 	sy := M.GetExternalSymbol(module, name)
-	if sy.T != ST.Const && disallow {
+	if sy.Kind != GK.Const && disallow {
 		return msg.NonConstExpr(M, n)
 	}
 	return nil
 }
 
-func resDepID(M *ir.Module, sy *ir.Symbol, n *ir.Node, disallow bool) *Error {
+func resDepID(M *ir.Module, sy ir.SyField, n *ir.Node, disallow bool) *Error {
 	other := M.GetSymbol(n.Text)
 	if other == nil {
 		return msg.ErrorNameNotDefined(M, n)
 	}
-	if other.T != ST.Const && disallow {
+	if other.Kind != GK.Const && disallow {
 		// we can't allow procedures and data declarations arbitrarely,
 		// since we don't know the addresses yet.
 		return msg.NonConstExpr(M, n)
@@ -771,8 +885,8 @@ func resDepID(M *ir.Module, sy *ir.Symbol, n *ir.Node, disallow bool) *Error {
 
 func checkGlobalCycles(M *ir.Module) *Error {
 	for _, sy := range M.Globals {
-		prev := []*ir.Symbol{}
-		err := checkSymbolCycle(M, sy, prev)
+		prev := []ir.SyField{}
+		err := checkSymbolCycle(M, ir.FromSymbol(sy), prev)
 		if err != nil {
 			return err
 		}
@@ -780,13 +894,22 @@ func checkGlobalCycles(M *ir.Module) *Error {
 	return nil
 }
 
-func checkSymbolCycle(M *ir.Module, d *ir.Symbol, prev []*ir.Symbol) *Error {
+func checkSymbolCycle(M *ir.Module, d ir.SyField, prev []ir.SyField) *Error {
 	if syHasVisited(prev, d) {
 		return msg.ErrorInvalidSymbolCycle(M, prev, d)
 	}
 	prev = append(prev, d)
+	if d.IsField() {
+		field := d.Sy.Struct.Fields[d.Field]
+		return checkRefs(M, field.Refs, prev)
+	} else {
+		return checkRefs(M, d.Sy.Refs, prev)
+	}
+}
+
+func checkRefs(M *ir.Module, refs ir.Refs, prev []ir.SyField) *Error {
 	top := len(prev)
-	for _, ref := range d.Refs {
+	for _, ref := range refs.Symbols {
 		err := checkSymbolCycle(M, ref, prev[0:top])
 		if err != nil {
 			return err
@@ -795,9 +918,10 @@ func checkSymbolCycle(M *ir.Module, d *ir.Symbol, prev []*ir.Symbol) *Error {
 	return nil
 }
 
-func syHasVisited(visited []*ir.Symbol, b *ir.Symbol) bool {
+func syHasVisited(visited []ir.SyField, b ir.SyField) bool {
 	for _, v := range visited {
-		if b.Name == v.Name {
+		if b.Sy.Name == v.Sy.Name &&
+			b.Field == v.Field {
 			return true
 		}
 	}

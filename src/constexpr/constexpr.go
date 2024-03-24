@@ -4,8 +4,8 @@ import (
 	"math/big"
 	. "mpc/core"
 	mod "mpc/core/module"
+	gk "mpc/core/module/globalkind"
 	lk "mpc/core/module/lexkind"
-	sk "mpc/core/module/symbolkind"
 	util "mpc/core/util"
 	msg "mpc/messages"
 	T "mpc/pir/types"
@@ -85,7 +85,7 @@ func evalModule(m *mod.Module) *Error {
 	m.ResetVisitedSymbols()
 	for _, sy := range m.Globals {
 		if !sy.External {
-			err = evalSymbol(m, sy)
+			err = evalSymbol(m, mod.FromSymbol(sy))
 			if err != nil {
 				return err
 			}
@@ -94,21 +94,30 @@ func evalModule(m *mod.Module) *Error {
 	return nil
 }
 
-func evalSymbol(m *mod.Module, sy *mod.Symbol) *Error {
-	if sy.Visited {
+func evalSymbol(m *mod.Module, sf mod.SyField) *Error {
+	if sf.IsVisited() {
 		return nil
 	}
-	sy.Visited = true
-	err := evalDeps(m, sy)
+	sf.SetVisited(true)
+	err := evalDeps(m, sf)
 	if err != nil {
 		return err
 	}
 
-	switch sy.T {
-	case sk.Const:
-		err = evalConst(m, sy)
-	case sk.Data:
-		err = evalData(m, sy)
+	if sf.IsField() {
+		f := sf.GetField()
+		num, err := compute(m, f.Offset)
+		f.Offset.Value = num
+		if err != nil {
+			return err
+		}
+	}
+
+	switch sf.Sy.Kind {
+	case gk.Const:
+		err = evalConst(m, sf.Sy)
+	case gk.Data:
+		err = evalData(m, sf.Sy)
 	}
 	if err != nil {
 		return err
@@ -116,8 +125,9 @@ func evalSymbol(m *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
-func evalDeps(m *mod.Module, sy *mod.Symbol) *Error {
-	for _, ref := range sy.Refs {
+func evalDeps(m *mod.Module, sy mod.SyField) *Error {
+	refs := sy.GetRefs()
+	for _, ref := range refs.Symbols {
 		err := evalSymbol(m, ref)
 		if err != nil {
 			return err
@@ -126,8 +136,8 @@ func evalDeps(m *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
-func evalConst(m *mod.Module, sy *mod.Symbol) *Error {
-	v, err := compute(m, sy.N.Leaves[1])
+func evalConst(m *mod.Module, sy *mod.Global) *Error {
+	v, err := compute(m, sy.N.Leaves[2])
 	if err != nil {
 		return err
 	}
@@ -135,7 +145,7 @@ func evalConst(m *mod.Module, sy *mod.Symbol) *Error {
 	return nil
 }
 
-func evalData(m *mod.Module, sy *mod.Symbol) *Error {
+func evalData(m *mod.Module, sy *mod.Global) *Error {
 	arg := sy.N.Leaves[2]
 	switch arg.Lex {
 	case lk.STRING_LIT:
@@ -155,7 +165,7 @@ func evalData(m *mod.Module, sy *mod.Symbol) *Error {
 	}
 }
 
-func evalBlob(m *mod.Module, sy *mod.Symbol, n *mod.Node) *Error {
+func evalBlob(m *mod.Module, sy *mod.Global, n *mod.Node) *Error {
 	blob := n.Leaves[1]
 
 	nums := make([]*big.Int, len(blob.Leaves))
@@ -167,7 +177,7 @@ func evalBlob(m *mod.Module, sy *mod.Symbol, n *mod.Node) *Error {
 		nums[i] = num
 	}
 	sy.Data.Nums = nums
-	sy.Data.Size = big.NewInt(int64(sy.Data.DataType.Size() * len(nums)))
+	sy.Data.Size = big.NewInt(int64(sy.Data.Type.Size() * len(nums)))
 	return nil
 }
 
@@ -345,7 +355,7 @@ func getIDValue(M *mod.Module, n *mod.Node) *big.Int {
 	if sy == nil {
 		panic("symbol not found")
 	}
-	if sy.T != sk.Const {
+	if sy.Kind != gk.Const {
 		panic("not const")
 	}
 	return sy.Const.Value
@@ -372,10 +382,10 @@ func getExternalSymbol(M *mod.Module, n *mod.Node) *big.Int {
 	module := n.Leaves[0].Text
 	id := n.Leaves[1].Text
 	sy := M.GetExternalSymbol(module, id)
-	switch sy.T {
-	case sk.Data:
+	switch sy.Kind {
+	case gk.Data:
 		return sy.Data.Size
-	case sk.Const:
+	case gk.Const:
 		return sy.Const.Value
 	}
 	panic("should not reach here")

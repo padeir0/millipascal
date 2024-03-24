@@ -3,15 +3,15 @@ var a, b, c, d:i32,
     e, f, g, h:i32,
     neg:bool
 begin
-    set a = 5l;
-    set b = ~1l;
-    set c = ~1l;
-    set d = 10l;
+    set a = 5;
+    set b = ~1;
+    set c = ~1;
+    set d = 10;
 
-    set e = 5l;
-    set f = ~1l;
-    set g = ~1l;
-    set h = ~10l;
+    set e = 5;
+    set f = ~1;
+    set g = ~1;
+    set h = ~10;
     
     set neg = mult_signal[is_neg[a], is_neg[b]];
     if not neg begin
@@ -72,7 +72,7 @@ end
 
 proc is_neg[a:i32] bool
 begin
-    return a < 0l;
+    return a < 0;
 end
 
 proc mult_4signals[a, b, c, d:bool] bool

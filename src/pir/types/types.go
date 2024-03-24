@@ -1,10 +1,17 @@
 package Type
 
-import "strings"
+import (
+	"fmt"
+	"math/big"
+	"strings"
+)
 
+// Struct can only be not nil if BasicType is ptr
+// otherwise, it might as well be ignored.
 type Type struct {
-	Basic BasicType
-	Proc  *ProcType
+	Basic  BasicType
+	Proc   *ProcType
+	Struct *Struct
 }
 
 func (t *Type) String() string {
@@ -42,7 +49,18 @@ func (t *Type) String() string {
 }
 
 func (this *Type) Equals(other *Type) bool {
+	return this._equals(other, true)
+}
+
+func (this *Type) _equals(other *Type, structs bool) bool {
 	if IsBasic(this) && IsBasic(other) {
+		if this.Basic == Ptr && other.Basic == Ptr && structs {
+			if this.Struct != nil && other.Struct != nil {
+				return this.Struct._equals(other.Struct)
+			} else {
+				return this.Struct == other.Struct
+			}
+		}
 		return this.Basic == other.Basic
 	}
 	// one is basic and the other is not
@@ -50,13 +68,12 @@ func (this *Type) Equals(other *Type) bool {
 		return false
 	}
 	if this.Proc != nil && other.Proc != nil {
-		return this.Proc.Equals(other.Proc)
+		return this.Proc._equals(other.Proc, structs)
 	}
 	panic("cannot compare " + this.String() + " with " + other.String())
 }
 
 // returns the size of this type in bytes
-// panics if the type is special
 func (this *Type) Size() int {
 	if IsBasic(this) {
 		switch this.Basic {
@@ -76,6 +93,38 @@ func (this *Type) Size() int {
 	}
 	if IsProc(this) {
 		return 8
+	}
+	panic("unsizeable type")
+}
+
+var one = big.NewInt(1)
+var two = big.NewInt(2)
+var four = big.NewInt(4)
+var eight = big.NewInt(8)
+
+// returns what sizeof[T] would return
+func (this *Type) Sizeof() *big.Int {
+	if IsBasic(this) && this.Struct == nil {
+		switch this.Basic {
+		case Bool:
+			return one
+		case I8, U8:
+			return one
+		case I16, U16:
+			return two
+		case I32, U32:
+			return four
+		case I64, U64:
+			return eight
+		case Ptr:
+			return eight
+		}
+	}
+	if IsBasic(this) && this.Struct != nil {
+		return this.Struct.Size
+	}
+	if IsProc(this) {
+		return eight
 	}
 	panic("unsizeable type")
 }
@@ -100,18 +149,18 @@ func (this *ProcType) String() string {
 	return output
 }
 
-func (this *ProcType) Equals(other *ProcType) bool {
+func (this *ProcType) _equals(other *ProcType, structs bool) bool {
 	if len(this.Args) != len(other.Args) ||
 		len(this.Rets) != len(other.Rets) {
 		return false
 	}
 	for i := range this.Args {
-		if !this.Args[i].Equals(other.Args[i]) {
+		if !this.Args[i]._equals(other.Args[i], structs) {
 			return false
 		}
 	}
 	for i := range this.Rets {
-		if !this.Rets[i].Equals(other.Rets[i]) {
+		if !this.Rets[i]._equals(other.Rets[i], structs) {
 			return false
 		}
 	}
@@ -216,4 +265,72 @@ func IsUnsigned(t *Type) bool {
 
 func IsPtr(t *Type) bool {
 	return IsBasic(t) && t.Basic == Ptr
+}
+
+func IsStruct(t *Type) bool {
+	return IsBasic(t) && t.Basic == Ptr && t.Struct != nil
+}
+
+type Struct struct {
+	Module   string
+	Name     string
+	Fields   []Field
+	FieldMap map[string]int
+	Size     *big.Int
+}
+
+// IMPROVBOOT: move all toggle constants to a separate module
+const sanityCheck = true
+
+func (this *Struct) _equals(other *Struct) bool {
+	if sanityCheck {
+		if this.Module == other.Module &&
+			this.Name == other.Name {
+			if len(this.Fields) != len(other.Fields) {
+				fmt.Printf("%v =?= %v", this, other)
+				panic("equal names, different underlying structure")
+			}
+			for i := range this.Fields {
+				if !this.Fields[i]._equals(other.Fields[i]) {
+					fmt.Printf("%v =?= %v", this, other)
+					panic("equal names, different underlying structure")
+				}
+			}
+		}
+	}
+	return this.Module == other.Module && this.Name == other.Name
+}
+
+func (this *Struct) Field(name string) (Field, bool) {
+	i, ok := this.FieldMap[name]
+	if !ok {
+		return Field{}, false
+	}
+	return this.Fields[i], true
+}
+
+func (this *Struct) Offsetof(name string) *big.Int {
+	i, ok := this.FieldMap[name]
+	if !ok {
+		return nil
+	}
+	return this.Fields[i].Offset
+}
+
+func (this *Struct) Typeof(name string) *Type {
+	i, ok := this.FieldMap[name]
+	if !ok {
+		return nil
+	}
+	return this.Fields[i].Type
+}
+
+type Field struct {
+	Name   string
+	Type   *Type
+	Offset *big.Int
+}
+
+func (this Field) _equals(other Field) bool {
+	return this.Name == other.Name && this.Type._equals(other.Type, false)
 }

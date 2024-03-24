@@ -1,5 +1,5 @@
 proc main
-var a, b:i64
+var a, b:i32
 begin
 	set a = 0;
 	set a += 1;
@@ -13,7 +13,7 @@ begin
 	set b = a;
 end
 
-proc f[a:i64]
+proc f[a:i32]
 begin
 	# does nothing UwU
 end

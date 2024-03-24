@@ -72,12 +72,16 @@ func ErrorExpectedProcedure(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedProcedure, n, "is not a procedure (type: "+n.T.String()+")")
 }
 
+func ErrorExpectedStruct(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.ExpectedStruct, n, "is not a struct")
+}
+
 func ErrorExpectedBasicOrProc(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedBasicOrProcType, n, "is not of a basic or proc type (type: "+n.T.String()+")")
 }
 
 func ErrorInvalidNumberOfReturns(M *ir.Module, proc *ir.Proc, n *ir.Node) *Error {
-	return NewSemanticError(M, et.InvalidNumberOfReturns, n, "invalid number of returns for procedure: "+proc.T.String())
+	return NewSemanticError(M, et.InvalidNumberOfReturns, n, "invalid number of returns for procedure: "+proc.Type.String())
 }
 
 func ErrorUnmatchingReturns(M *ir.Module, proc *ir.Proc, retN *ir.Node, i int) *Error {
@@ -89,13 +93,13 @@ func ErrorExpectedData(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedData, n, "is not a data region")
 }
 
-func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Symbol, n *ir.Node, left *ir.Node) *Error {
+func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Global, n *ir.Node, left *ir.Node) *Error {
 	has := strconv.Itoa(len(left.Leaves))
 	expected := strconv.Itoa(len(proc.Proc.Rets))
 	return NewSemanticError(M, et.MismatchedMultiRetAssignment, n, "invalid number of assignments: "+has+", expected: "+expected)
 }
 
-func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *ir.Symbol, assignee *ir.Node, i int) *Error {
+func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *ir.Global, assignee *ir.Node, i int) *Error {
 	ret := proc.Proc.Rets[i]
 	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, assignee, "mismatched type in assignment, has type: "+assignee.T.String()+", expected type: "+ret.String())
 }
@@ -120,8 +124,8 @@ func ErrorCanOnlyUseNormalAssignment(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.CanOnlyUseNormalAssignment, n, "can only use normal assignment '=' when assigning multiple values")
 }
 
-func ExpectedNumber(M *ir.Module, op *ir.Node, t *T.Type) *Error {
-	return NewSemanticError(M, et.ExpectedNumber, op, "operation can only be done on numbers (type: "+t.String()+")")
+func ExpectedInteger(M *ir.Module, n *ir.Node, t *T.Type) *Error {
+	return NewSemanticError(M, et.ExpectedIntegers, n, "expected integer (instead got: "+t.String()+")")
 }
 
 func ExitMustBeI8(M *ir.Module, exp *ir.Node) *Error {
@@ -140,7 +144,7 @@ func NotAllCodePathsReturnAValue(M *ir.Module, p *ir.Proc) *Error {
 	return NewSemanticError(M, et.NotAllCodePathsReturnAValue, p.N, "not all code paths return a value")
 }
 
-func InvalidMain(M *ir.Module, sy *ir.Symbol) *Error {
+func InvalidMain(M *ir.Module, sy *ir.Global) *Error {
 	return NewSemanticError(M, et.InvalidMain, sy.N, "invalid type for main function: must be proc[][]")
 }
 
@@ -181,13 +185,13 @@ func ErrorInvalidDependencyCycle(M *ir.Module, prev []*ir.Dependency, dep *ir.De
 	return NewSemanticError(M, et.InvalidDependencyCycle, dep.Source, msg)
 }
 
-func ErrorInvalidSymbolCycle(M *ir.Module, prev []*ir.Symbol, sy *ir.Symbol) *Error {
-	msg := "'" + sy.Name + "' forms a invalid cycle ("
+func ErrorInvalidSymbolCycle(M *ir.Module, prev []ir.SyField, sf ir.SyField) *Error {
+	msg := "'" + sf.Name() + "' forms a invalid cycle ("
 	for _, item := range prev {
-		msg += item.Name + ", "
+		msg += item.Name() + ", "
 	}
-	msg += sy.Name + ")"
-	return NewSemanticError(M, et.InvalidSymbolCycle, sy.N, msg)
+	msg += sf.Name() + ")"
+	return NewSemanticError(M, et.InvalidSymbolCycle, sf.Sy.N, msg)
 }
 
 func ExpectedBool(M *ir.Module, n *ir.Node) *Error {
@@ -222,4 +226,24 @@ func ErrorBadType(M *ir.Module, n *ir.Node) *Error {
 
 func CantImportAll(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.CantImportAll, n, "you can't import all modules in existence")
+}
+
+func ErrorOffsetInMultipleFields(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.OffsetInMultipleFields, n, "explicit offset being applied to multiple fields")
+}
+
+func ErrorInvalidUseForStruct(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidUseForStruct, n, "invalid use for struct in expression")
+}
+
+func FieldNotDefined(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.FieldNotDefined, n, "Field not defined in struct")
+}
+
+func ErrorInvalidSizeof(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidSizeof, n, "invalid sizeof")
+}
+
+func ErrorInvalidNumberOfAssignees(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidNumOfAssignees, n, "invalid number of assignees")
 }

@@ -11,7 +11,7 @@ begin
     end
 end
 
-proc F[a:bool, b:bool] i64
+proc F[a:bool, b:bool] i32
 begin
     if not a and not b begin
         return 0;

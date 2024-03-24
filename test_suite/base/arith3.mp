@@ -9,12 +9,12 @@ proc test_1[]
 var a:i64, b:i32, c:i16, d:i8,
     e:u64, f:u32, g:u16, h:u8
 begin
-    set a = ((17ll%9ll)*(4ll+1ll))/(11ll-1ll);
-    if a != 4ll begin
+    set a = ((17l%9l)*(4l+1l))/(11l-1l);
+    if a != 4l begin
         exit 1ss;
     end
-    set b = ((17l%9l)*(4l+1l))/(11l-1l);
-    if b != 4l begin
+    set b = ((17%9)*(4+1))/(11-1);
+    if b != 4 begin
         exit 2ss;
     end
     set c = ((17s%9s)*(4s+1s))/(11s-1s);
@@ -26,12 +26,12 @@ begin
         exit 4ss;
     end
 
-    set e = ((17ull%9ull)*(4ull+1ull))/(11ull-1ull);
-    if e != 4ull begin
+    set e = ((17ul%9ul)*(4ul+1ul))/(11ul-1ul);
+    if e != 4ul begin
         exit 5ss;
     end
-    set f = ((17ul%9ul)*(4ul+1ul))/(11ul-1ul);
-    if f != 4ul begin
+    set f = ((17u%9u)*(4u+1u))/(11u-1u);
+    if f != 4u begin
         exit 6ss;
     end
     set g = ((17us%9us)*(4us+1us))/(11us-1us);
@@ -45,8 +45,8 @@ begin
 end
 
 proc test_2[]
-var a, b, c, d, e, f:i64,
-    res:i64
+var a, b, c, d, e, f:i32,
+    res:i32
 begin
     set a = 17;
     set b = 9;

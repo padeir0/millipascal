@@ -22,7 +22,9 @@ const (
 
 	// symbols
 	PLUS
+	PLUS_PLUS
 	MINUS
+	MINUS_MINUS
 	NEG
 	DIVISION
 	MULTIPLICATION
@@ -39,8 +41,8 @@ const (
 	MOREEQ
 	MORE
 	DIFFERENT
-	CARET
 	QUESTION
+	SWAP
 
 	LEFTPAREN
 	RIGHTPAREN
@@ -60,8 +62,8 @@ const (
 
 	BITWISEAND
 	BITWISEOR
-	BITWISEXOR
 	BITWISENOT
+	BITWISEXOR
 	SHIFTLEFT
 	SHIFTRIGHT
 
@@ -76,6 +78,7 @@ const (
 	ELSE
 	ELSEIF
 	WHILE
+	DO
 	RETURN
 	PROC
 	DATA
@@ -90,9 +93,8 @@ const (
 	CONST
 	ATTR
 	AS
-	IS
 	ALL
-	TYPE
+	STRUCT
 	ASM
 
 	I8
@@ -164,7 +166,9 @@ var Tktosrc = map[LexKind]string{
 	IDENTIFIER: "identifier",
 
 	PLUS:                  "+",
+	PLUS_PLUS:             "++",
 	MINUS:                 "-",
+	MINUS_MINUS:           "--",
 	NEG:                   "~",
 	AT:                    "@",
 	DIVISION:              "/",
@@ -194,14 +198,14 @@ var Tktosrc = map[LexKind]string{
 	ASSIGNMENT:            "=",
 	DOT:                   ".",
 	ARROW:                 "->",
-	BITWISEAND:            "&&",
-	BITWISEOR:             "||",
-	BITWISEXOR:            "|^",
+	BITWISEAND:            "&",
+	BITWISEOR:             "|",
 	BITWISENOT:            "!",
+	BITWISEXOR:            "^",
 	SHIFTLEFT:             "<<",
 	SHIFTRIGHT:            ">>",
-	CARET:                 "^",
 	QUESTION:              "?",
+	SWAP:                  "<>",
 
 	VAR:    "vars",
 	TRUE:   "true",
@@ -212,6 +216,7 @@ var Tktosrc = map[LexKind]string{
 	IF:     "if",
 	ELSE:   "else",
 	WHILE:  "while",
+	DO:     "do",
 	RETURN: "return",
 	ELSEIF: "elseif",
 	PROC:   "proc",
@@ -238,10 +243,9 @@ var Tktosrc = map[LexKind]string{
 	CONST:  "const",
 	ATTR:   "attr",
 	AS:     "as",
-	IS:     "is",
 	ALL:    "all",
-	TYPE:   "type",
 	ASM:    "asm",
+	STRUCT: "struct",
 
 	IDLIST:    "id list",
 	ALIASLIST: "alias list",

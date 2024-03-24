@@ -50,7 +50,7 @@ quite a few symbols too.
 =   ==  !=  >   >=  <   <=  +
 -   *   /   %   -=  +=  *=  /=
 %=  .   @   ::  ~   &   |   !
-^   >>  <<  ->  ?   '   "   <->
+^   >>  <<  ->  ?   '   "   <>
 ++  --
 ```
 
@@ -66,7 +66,7 @@ binary = '0b' binDigits {binDigits} [numEnding].
 decDigits = digits | '_'.
 hexDigits = digits | 'A'|'B'|'C'|'D'|'E'|'F'|'a'|'b'|'c'|'d'|'e'|'f'|'_'.
 binDigits = '0'|'1'|'_'.
-numEnding = 'p'|'s'|'ss'|'l'|'ll'|'us'|'uss'|'ul'|'ull'.
+numEnding = 'p'|'s'|'ss'|'l'|'u'|'us'|'uss'|'ul'.
 ```
 
 Literals can be written in three bases: decimal, hexadecimal and binary.
@@ -75,14 +75,14 @@ a type. Underscore is ignored, and can be used to group digits.
 Literal type is defined like the following:
 
  - `p`: `ptr`
- - `s`: `i16` (short)
  - `ss`: `i8` (shorter short)
- - `l`: `i32` (long)
- - `ll`: `i64` (longer long)
- - `us`: `u16` (unsigned short)
+ - `s`: `i16` (short)
+ - no suffix: `i32`
+ - `l`: `i64` (long)
  - `uss`: `u8` (unsigned shorter short)
- - `ul`: `u32` (unsigned long)
- - `ull`: `u64` (unsigned longer long)
+ - `us`: `u16` (unsigned short)
+ - `u`: `u32` (unsigned)
+ - `ul`: `u64` (unsigned long)
 
 Notice that this has not much to do with how C does integers,
 that's because i don't care.
@@ -416,7 +416,7 @@ for debugging, and should be turned off in "release" builds.
 Set = 'set' ExprList (Assign|IncDec).
 IncDec = '++' | '--'.
 Assign = assignOp Expr.
-assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<->'.
+assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<>'.
 ```
 
 Set statements are quite complex and complexity must be justified.
@@ -439,7 +439,7 @@ before the RHS, and if multiple expressions are in the LHS,
 they are evaluated from left to right.
 
 The expressions in the LHS must be *assignable* in all cases,
-the RHS must be *assignable* only in swap (`<->`) operations.
+the RHS must be *assignable* only in swap (`<>`) operations.
 
 We define an **assignable** expression simply by the
 top-level expression type. If the expression is a simple identifier,
@@ -467,7 +467,7 @@ marvelously with two and three-address instructions.
 They work the same as `set LHS = LHS <op> RHS;`,
 but the LHS is evaluated only once.
 
-Last, but not least, is the swap operator `<->`, which is
+Last, but not least, is the swap operator `<>`, which is
 included for brevity and performance. Swapping two values
 is a common operation, and should have built-in support.
 In this case both the LHS and RHS must be *assignable*,
@@ -691,9 +691,9 @@ ponctuation =
     '='  | '=='  | '!=' | '>'  | '>=' | '<' |
     '<=' | '+'   | '-'  | '*'  | '/'  | '%' |
     '-=' | '+='  | '*=' | '/=' | '%=' | '.' |
-    '@'  | '::'  | '~'  | '&'  |  '|' | '!' |
+    '@'  | '::'  | '~'  | '&'  | '|'  | '!' |
     '^'  | '>>'  | '<<' | '->' | '?'  | '\''|
-    '"'  | '<->' | '++' | '--'.
+    '"'  | '<>'  | '++' | '--'.
 
 basicType =
     'i8' | 'i16' | 'i32' | 'i64' | 'ptr' | 'bool' |
@@ -714,10 +714,7 @@ AttSymbol = [Attributes] Symbol [';'].
 Attributes = 'attr' IdList.
 IdList = id {',' id} [','].
 
-Symbol = Procedure
-    | Data
-    | Const
-    | Struct.
+Symbol = Procedure | Data | Const | Struct.
 
 Const = 'const' (SingleConst|MultipleConst).
 SingleConst = id [Annot] '=' Expr.
@@ -782,7 +779,7 @@ Else = 'else' Block.
 Set = 'set' ExprList (Assign|IncDec).
 IncDec = '++' | '--'.
 Assign = assignOp Expr.
-assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<->'.
+assignOp = '=' | '-=' | '+=' | '/=' | '*=' | '%=' | '<>'.
 
 Return = 'return' [ExprList].
 Exit = 'exit' ['?'] [Expr].

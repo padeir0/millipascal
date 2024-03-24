@@ -1,16 +1,16 @@
 export Pi, Tau, Phi
 
-proc Pi[] i64
+proc Pi[] i32
 begin
 	return 3;
 end
 
-proc Tau[] i64
+proc Tau[] i32
 begin
 	return 6;
 end
 
-proc Phi[] i64
+proc Phi[] i32
 begin
 	return 2;
 end

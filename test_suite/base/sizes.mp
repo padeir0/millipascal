@@ -1,5 +1,5 @@
 proc main
-var a:i64
+var a:i32
 begin
 	set a = sizeof[i8];
 	if a != 1 begin

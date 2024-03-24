@@ -1,5 +1,5 @@
 proc main
-var i:i64
+var i:i32
 begin
 	set i = 0;
 	while i < 10 begin

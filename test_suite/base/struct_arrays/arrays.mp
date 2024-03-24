@@ -1,3 +1,5 @@
+export all
+
 struct AI64 begin
     O:i64;
 end
