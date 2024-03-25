@@ -5,13 +5,13 @@ import (
 
 	"mpc/pir"
 	pirc "mpc/pir/class"
-	IT "mpc/pir/instrkind"
+	IK "mpc/pir/instrkind"
 	T "mpc/pir/types"
 	RIU "mpc/pir/util"
 
 	mod "mpc/core/module"
 	GK "mpc/core/module/globalkind"
-	lk "mpc/core/module/lexkind"
+	LK "mpc/core/module/lexkind"
 	msg "mpc/messages"
 
 	"fmt"
@@ -175,18 +175,18 @@ func setReturn(b *pir.BasicBlock) {
 func genBlock(M *mod.Module, c *context, body *mod.Node) {
 	for _, code := range body.Leaves {
 		switch code.Lex {
-		case lk.IF:
+		case LK.IF:
 			genIf(M, c, code)
-		case lk.WHILE:
+		case LK.WHILE:
 			genWhile(M, c, code)
-		case lk.DO:
+		case LK.DO:
 			genDoWhile(M, c, code)
-		case lk.SET:
+		case LK.SET:
 			genSet(M, c, code)
-		case lk.RETURN:
+		case LK.RETURN:
 			genReturn(M, c, code)
 			return
-		case lk.EXIT:
+		case LK.EXIT:
 			genExit(M, c, code)
 			return
 		default:
@@ -309,28 +309,30 @@ func genSet(M *mod.Module, c *context, set *mod.Node) {
 	expr := set.Leaves[2]
 
 	switch op.Lex {
-	case lk.PLUS_PLUS, lk.MINUS_MINUS:
+	case LK.PLUS_PLUS, LK.MINUS_MINUS:
 		genIncDec(M, c, assignees.Leaves[0], op)
-	case lk.SWAP:
-		genSwap(M, c, set)
-	case lk.ASSIGNMENT:
+		return
+	case LK.SWAP:
+		genSwap(M, c, assignees, expr)
+		return
+	case LK.ASSIGNMENT:
 		if len(assignees.Leaves) > 1 {
 			genMultiProcAssign(M, c, assignees, expr)
 			return
 		}
-		genSingleAssign(M, c, assignees.Leaves[0], expr, op.Lex)
+		genNormalSingleAssign(M, c, assignees.Leaves[0], expr, op.Lex)
 		return
-	case lk.PLUS_ASSIGN, lk.MINUS_ASSIGN,
-		lk.MULTIPLICATION_ASSIGN, lk.DIVISION_ASSIGN,
-		lk.REMAINDER_ASSIGN:
-		genSingleAssign(M, c, assignees.Leaves[0], expr, op.Lex)
+	case LK.PLUS_ASSIGN, LK.MINUS_ASSIGN,
+		LK.MULTIPLICATION_ASSIGN, LK.DIVISION_ASSIGN,
+		LK.REMAINDER_ASSIGN:
+		genOpSingleAssign(M, c, assignees.Leaves[0], expr, op.Lex)
 		return
 	}
-	panic("unreachable")
+	panic("unreachable 329")
 }
 
 func genMultiProcAssign(M *mod.Module, c *context, assignees, call *mod.Node) {
-	if call.Lex != lk.CALL {
+	if call.Lex != LK.CALL {
 		panic("must be CALL:\n" + call.String())
 	}
 	// TODO: OPT: pass assignees to genCall so that no copying needs to happen
@@ -342,17 +344,13 @@ func genMultiProcAssign(M *mod.Module, c *context, assignees, call *mod.Node) {
 func genLoadAssignRets(M *mod.Module, c *context, assignees *mod.Node, ops []pir.Operand) {
 	for i, ass := range assignees.Leaves {
 		op := ops[i]
-		switch ass.Lex {
-		case lk.IDENTIFIER:
-			genCallAssign(M, c, ass, op)
-			continue
-		case lk.AT:
-			genCallDerefAssign(M, c, ass, op)
-			continue
-		case lk.ARROW:
-			genCallArrowAssign(M, c, ass, op)
-		default:
-			panic("unreachable")
+		dest, direct := genLValue(M, c, ass)
+		if direct {
+			copyRet := RIU.Copy(op, dest)
+			c.CurrBlock.AddInstr(copyRet)
+		} else {
+			loadPtr := RIU.StorePtr(op, dest)
+			c.CurrBlock.AddInstr(loadPtr)
 		}
 	}
 }
@@ -361,7 +359,7 @@ func genCallInstr(c *context, proc pir.Operand, args, rets []pir.Operand) {
 	operands := []pir.Operand{proc}
 	operands = append(operands, args...)
 	iCall := pir.Instr{
-		T:           IT.Call,
+		T:           IK.Call,
 		Operands:    operands,
 		Destination: rets,
 	}
@@ -386,121 +384,170 @@ func genRets(M *mod.Module, c *context, proc pir.Operand) []pir.Operand {
 	return output
 }
 
-func genCallAssign(M *mod.Module, c *context, ass *mod.Node, op pir.Operand) {
-	dest := genExprID(M, c, ass)
-	// TODO: OPT: try to avoid this COPY instruction
-	loadRet := RIU.Copy(op, dest)
-	c.CurrBlock.AddInstr(loadRet)
-}
-
 func genCallDerefAssign(M *mod.Module, c *context, ass *mod.Node, op pir.Operand) {
-	ptrOp := genExpr(M, c, ass.Leaves[1])
-	loadPtr := RIU.StorePtr(op, ptrOp)
-	c.CurrBlock.AddInstr(loadPtr)
 }
 
 func genCallArrowAssign(M *mod.Module, c *context, ass *mod.Node, op pir.Operand) {
-	panic("unimplemented")
 }
 
-func genIncDec(M *mod.Module, c *context, ass, op *mod.Node) pir.Operand {
-	switch ass.Lex {
-	case lk.IDENTIFIER:
-		panic("unimplemented")
-	case lk.AT:
-		panic("unimplemented")
-	case lk.ARROW:
-		panic("unimplemented")
-	default:
-		panic("unreachable")
+func genIncDec(M *mod.Module, c *context, ass, op *mod.Node) {
+	instrKind := incDecInstr(op)
+	size := incDecSize(ass)
+	a, direct := genLValue(M, c, ass)
+	if direct {
+		instr := RIU.Bin(instrKind, a, size, a)
+		c.CurrBlock.AddInstr(instr)
+	} else {
+		genLoadOpStore(M, c, instrKind, a, size)
 	}
 }
 
-func genSwap(M *mod.Module, c *context, op *mod.Node) pir.Operand {
-	panic("unimplemented")
+var one = big.NewInt(1)
+
+func incDecSize(ass *mod.Node) pir.Operand {
+	if T.IsStruct(ass.Type) {
+		return newNumLit(ass.Type.Sizeof(), T.T_I32)
+	}
+	return newNumLit(one, ass.Type)
 }
 
-func genSingleAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op lk.LexKind) {
-	switch assignee.Lex {
-	case lk.IDENTIFIER:
-		genNormalAssign(M, c, assignee, expr, op)
-		return
-	case lk.AT:
-		genDerefAssign(M, c, assignee, expr, op)
-		return
-	case lk.ARROW:
-		genArrowAssign(M, c, assignee, expr, op)
-		return
-	default:
-		panic("unreachable")
+func incDecInstr(op *mod.Node) IK.InstrKind {
+	switch op.Lex {
+	case LK.PLUS_PLUS:
+		return IK.Add
+	case LK.MINUS_MINUS:
+		return IK.Sub
+	}
+	panic("unreachable 419")
+}
+
+func genSwap(M *mod.Module, c *context, assignees, expr *mod.Node) {
+	LHS := assignees.Leaves[0]
+	RHS := expr
+	lhs, lhsDirect := genLValue(M, c, LHS)
+	rhs, rhsDirect := genLValue(M, c, RHS)
+
+	if lhsDirect && rhsDirect {
+		// copy rhs -> t1
+		// copy lhs -> rhs
+		// copy t1 -> lhs
+		t1 := c.AllocTemp(RHS.Type)
+		c.CurrBlock.AddInstr(RIU.Copy(rhs, t1))
+		c.CurrBlock.AddInstr(RIU.Copy(lhs, rhs))
+		c.CurrBlock.AddInstr(RIU.Copy(t1, lhs))
+	} else if lhsDirect && !rhsDirect {
+		// load rhs -> t1
+		// store lhs, rhs
+		// copy t1 -> lhs
+		t1 := c.AllocTemp(RHS.Type)
+		c.CurrBlock.AddInstr(RIU.LoadPtr(rhs, t1))
+		c.CurrBlock.AddInstr(RIU.StorePtr(lhs, rhs))
+		c.CurrBlock.AddInstr(RIU.Copy(t1, lhs))
+	} else if !lhsDirect && rhsDirect {
+		// load lhs -> t1
+		// store rhs, lhs
+		// copy t1 -> rhs
+		t1 := c.AllocTemp(LHS.Type)
+		c.CurrBlock.AddInstr(RIU.LoadPtr(lhs, t1))
+		c.CurrBlock.AddInstr(RIU.StorePtr(rhs, lhs))
+		c.CurrBlock.AddInstr(RIU.Copy(t1, rhs))
+	} else { // both indirect
+		// load lhs -> t1
+		// load rhs -> t2
+		// store t2, lhs
+		// store t1, rhs
+		t1 := c.AllocTemp(LHS.Type)
+		t2 := c.AllocTemp(RHS.Type)
+		c.CurrBlock.AddInstr(RIU.LoadPtr(lhs, t1))
+		c.CurrBlock.AddInstr(RIU.LoadPtr(rhs, t2))
+		c.CurrBlock.AddInstr(RIU.StorePtr(t2, lhs))
+		c.CurrBlock.AddInstr(RIU.StorePtr(t1, rhs))
 	}
 }
 
-func genNormalAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op lk.LexKind) {
-	dest := genExprID(M, c, assignee)
-	exp := genExpr(M, c, expr)
-	if op == lk.ASSIGNMENT {
-		// TODO: OPT: Try to avoid this COPY instruction
-		cp := RIU.Copy(exp, dest)
+// returns Operand and whether that operand
+// only points to a memory location (ie, is an lvalue)
+// or is directly assignable
+// basically, if it returns (op, true) we can just "copy value -> op"
+// but if it returns (op, false), we need to "storeptr value, op"
+func genLValue(M *mod.Module, c *context, left *mod.Node) (pir.Operand, bool) {
+	switch left.Lex {
+	case LK.IDENTIFIER: // guaranteed to be a local
+		return genExprID(M, c, left), true
+	case LK.AT:
+		// we take the inner expression inside the deref
+		leftExpr := left.Leaves[1]
+		return genExpr(M, c, leftExpr), false
+	case LK.ARROW:
+		leftExpr := left.Leaves[1] // we take the inner expression inside the deref
+		leftOp := genExpr(M, c, leftExpr)
+		field := left.Leaves[0].Text
+		return genOffset(M, c, leftOp, field), false
+	default:
+		fmt.Println("\n", left)
+		panic("unreachable 486")
+	}
+}
+
+func genNormalSingleAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op LK.LexKind) {
+	RHS := genExpr(M, c, expr)
+	LHS, direct := genLValue(M, c, assignee)
+	if direct {
+		cp := RIU.Copy(RHS, LHS)
 		c.CurrBlock.AddInstr(cp)
 		return
-	}
-	instrT := mapOpToInstr(op)
-	instr := pir.Instr{
-		T:           instrT,
-		Type:        dest.Type,
-		Operands:    []pir.Operand{dest, exp},
-		Destination: []pir.Operand{dest},
-	}
-	c.CurrBlock.AddInstr(instr)
-}
-
-func mapOpToInstr(l lk.LexKind) IT.InstrKind {
-	switch l {
-	case lk.PLUS_ASSIGN:
-		return IT.Add
-	case lk.MINUS_ASSIGN:
-		return IT.Sub
-	case lk.MULTIPLICATION_ASSIGN:
-		return IT.Mult
-	case lk.DIVISION_ASSIGN:
-		return IT.Div
-	case lk.REMAINDER_ASSIGN:
-		return IT.Rem
-	}
-	panic(l)
-}
-func genArrowAssign(M *mod.Module, c *context, left, right *mod.Node, op lk.LexKind) {
-	panic("unimplemented")
-}
-
-func genDerefAssign(M *mod.Module, c *context, left, right *mod.Node, op lk.LexKind) {
-	leftExpr := left.Leaves[1]
-	leftType := left.Leaves[0]
-	rightOp := genExpr(M, c, right)
-	leftOp := genExpr(M, c, leftExpr)
-	if op == lk.ASSIGNMENT {
-		store := RIU.StorePtr(rightOp, leftOp)
+	} else {
+		store := RIU.StorePtr(RHS, LHS)
 		c.CurrBlock.AddInstr(store)
 		return
 	}
+}
 
-	temp := c.AllocTemp(leftType.Type)
-	load := RIU.LoadPtr(leftOp, temp)
-	c.CurrBlock.AddInstr(load) // load left -> temp
-
+// order of evaluation is RIGHT then LEFT
+func genOpSingleAssign(M *mod.Module, c *context, assignee, expr *mod.Node, op LK.LexKind) {
+	RHS := genExpr(M, c, expr)
 	instrT := mapOpToInstr(op)
-	temp2 := c.AllocTemp(leftType.Type)
-	instr := pir.Instr{
-		T:           instrT,
-		Type:        temp.Type,
-		Operands:    []pir.Operand{temp, rightOp},
-		Destination: []pir.Operand{temp2},
+	LHS, direct := genLValue(M, c, assignee)
+	if direct {
+		instr := RIU.Bin(instrT, LHS, RHS, LHS)
+		c.CurrBlock.AddInstr(instr)
+		return
+	} else {
+		genLoadOpStore(M, c, instrT, LHS, RHS)
+		return
 	}
-	c.CurrBlock.AddInstr(instr) // op temp, right -> temp2
+}
 
-	store := RIU.StorePtr(temp2, leftOp)
-	c.CurrBlock.AddInstr(store) // store temp2 -> left
+func mapOpToInstr(l LK.LexKind) IK.InstrKind {
+	switch l {
+	case LK.PLUS_ASSIGN:
+		return IK.Add
+	case LK.MINUS_ASSIGN:
+		return IK.Sub
+	case LK.MULTIPLICATION_ASSIGN:
+		return IK.Mult
+	case LK.DIVISION_ASSIGN:
+		return IK.Div
+	case LK.REMAINDER_ASSIGN:
+		return IK.Rem
+	}
+	panic(l)
+}
+
+func genLoadOpStore(M *mod.Module, c *context, kind IK.InstrKind, target, rightop pir.Operand) {
+	// load target -> t1;
+	// add t1, size -> t2;
+	// store t2 -> target;
+	t1 := c.AllocTemp(rightop.Type)
+	loadI := RIU.LoadPtr(target, t1)
+	c.CurrBlock.AddInstr(loadI)
+
+	t2 := c.AllocTemp(t1.Type)
+	addI := RIU.Bin(kind, t1, rightop, t2)
+	c.CurrBlock.AddInstr(addI)
+
+	storeI := RIU.StorePtr(t2, target)
+	c.CurrBlock.AddInstr(storeI)
 }
 
 func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
@@ -508,28 +555,29 @@ func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
 		panic("invalid type at: " + exp.Text)
 	}
 	switch exp.Lex {
-	case lk.IDENTIFIER:
+	case LK.IDENTIFIER:
 		return genExprID(M, c, exp)
-	case lk.SIZEOF:
+	case LK.SIZEOF:
 		return genSizeOfNum(M, c, exp)
-	case lk.DOUBLECOLON:
+	case LK.DOUBLECOLON:
 		return genExternalID(c, M, exp)
-	case lk.FALSE, lk.TRUE:
+	case LK.FALSE, LK.TRUE:
 		return genBoolLit(M, c, exp)
-	case lk.PTR_LIT, lk.I64_LIT, lk.I32_LIT, lk.I16_LIT, lk.I8_LIT,
-		lk.U64_LIT, lk.U32_LIT, lk.U16_LIT, lk.U8_LIT, lk.CHAR_LIT:
+	case LK.PTR_LIT, LK.I64_LIT, LK.I32_LIT, LK.I16_LIT, LK.I8_LIT,
+		LK.U64_LIT, LK.U32_LIT, LK.U16_LIT, LK.U8_LIT, LK.CHAR_LIT:
 		return genNumLit(exp)
-	case lk.PLUS, lk.MINUS:
-		return genBinaryOp(M, c, exp)
-	case lk.MULTIPLICATION, lk.DIVISION, lk.REMAINDER,
-		lk.EQUALS, lk.DIFFERENT,
-		lk.MORE, lk.MOREEQ, lk.LESS, lk.LESSEQ,
-		lk.AND, lk.OR, lk.SHIFTLEFT, lk.SHIFTRIGHT,
-		lk.BITWISEAND, lk.BITWISEOR, lk.BITWISEXOR:
-		return genBinaryOp(M, c, exp)
-	case lk.COLON:
+	case LK.MULTIPLICATION, LK.DIVISION, LK.REMAINDER,
+		LK.SHIFTLEFT, LK.SHIFTRIGHT,
+		LK.BITWISEAND, LK.BITWISEOR, LK.BITWISEXOR, LK.PLUS, LK.MINUS:
+		return genArithOp(M, c, exp)
+	case LK.AND, LK.OR:
+		return genLogicalOp(M, c, exp)
+	case LK.EQUALS, LK.DIFFERENT,
+		LK.MORE, LK.MOREEQ, LK.LESS, LK.LESSEQ:
+		return genCompOp(M, c, exp)
+	case LK.COLON:
 		return genConversion(M, c, exp)
-	case lk.CALL:
+	case LK.CALL:
 		callee := exp.Leaves[1]
 		if T.IsStruct(callee.Type) {
 			return genIndexing(M, c, exp)
@@ -540,15 +588,15 @@ func genExpr(M *mod.Module, c *context, exp *mod.Node) pir.Operand {
 			}
 			return pir.Operand{}
 		} else {
-			panic("495 unreachable")
+			panic("unreachable 589")
 		}
-	case lk.AT:
+	case LK.AT:
 		return genDeref(M, c, exp)
-	case lk.NOT, lk.NEG, lk.BITWISENOT:
+	case LK.NOT, LK.NEG, LK.BITWISENOT:
 		return genUnaryOp(M, c, exp)
-	case lk.DOT:
+	case LK.DOT:
 		return genDotAccess(M, c, exp)
-	case lk.ARROW:
+	case LK.ARROW:
 		return genArrowAccess(M, c, exp)
 	}
 	panic("invalid or unimplemented expression type: " + exp.Text)
@@ -592,7 +640,7 @@ func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 	decl, ok := c.ModProc.Vars[id.Text]
 	if ok {
 		return pir.Operand{
-			Class: pirc.Local,
+			Class: pirc.Variable,
 			Type:  id.Type,
 			ID:    int64(decl.Position),
 		}
@@ -618,13 +666,13 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Global) pir.Operand 
 	case GK.Proc:
 		return pir.Operand{
 			Class: pirc.Global,
-			Type:  global.N.Type,
+			Type:  global.GetType(),
 			ID:    i,
 		}
 	case GK.Data:
 		return pir.Operand{
 			Class: pirc.Global,
-			Type:  T.T_Ptr,
+			Type:  global.GetType(),
 			ID:    i,
 		}
 	case GK.Const:
@@ -639,14 +687,17 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Global) pir.Operand 
 }
 
 func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
+	if sizeof.Type == nil {
+		panic("size was nil")
+	}
 	op := sizeof.Leaves[0]
 	dot := sizeof.Leaves[1]
 	if dot != nil {
 		var sy *mod.Global
 		switch op.Lex {
-		case lk.IDENTIFIER: // struct
+		case LK.IDENTIFIER: // struct
 			sy = M.GetSymbol(op.Text)
-		case lk.DOUBLECOLON: // external struct
+		case LK.DOUBLECOLON: // external struct
 			mod := op.Leaves[0].Text
 			id := op.Leaves[1].Text
 			sy = M.GetExternalSymbol(mod, id)
@@ -662,9 +713,9 @@ func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
 	}
 	var sy *mod.Global
 	switch op.Lex {
-	case lk.IDENTIFIER:
+	case LK.IDENTIFIER:
 		sy = M.GetSymbol(op.Text)
-	case lk.DOUBLECOLON:
+	case LK.DOUBLECOLON:
 		module := op.Leaves[0].Text
 		id := op.Leaves[1].Text
 		sy = M.GetExternalSymbol(module, id)
@@ -686,7 +737,7 @@ func genSizeOfNum(M *mod.Module, c *context, sizeof *mod.Node) pir.Operand {
 		}
 		return newNumLit(sy.Struct.Type.Sizeof(), sizeof.Type)
 	default:
-		panic("unreachable")
+		panic("unreachable 738")
 	}
 }
 
@@ -718,7 +769,7 @@ func genNumLit(lit *mod.Node) pir.Operand {
 
 func genBoolLit(M *mod.Module, c *context, lit *mod.Node) pir.Operand {
 	value := big.NewInt(0)
-	if lit.Lex == lk.TRUE {
+	if lit.Lex == LK.TRUE {
 		value.SetInt64(1)
 	}
 	return pir.Operand{
@@ -729,17 +780,32 @@ func genBoolLit(M *mod.Module, c *context, lit *mod.Node) pir.Operand {
 	}
 }
 
-func genBinaryOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
+func genArithOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	it := lexToBinaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	b := genExpr(M, c, op.Leaves[1])
 	dest := c.AllocTemp(op.Type)
-	instr := pir.Instr{
-		T:           it,
-		Type:        a.Type,
-		Operands:    []pir.Operand{a, b},
-		Destination: []pir.Operand{dest},
-	}
+	instr := RIU.Bin(it, a, b, dest)
+	c.CurrBlock.AddInstr(instr)
+	return dest
+}
+
+func genCompOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
+	it := lexToBinaryOp(op.Lex)
+	a := genExpr(M, c, op.Leaves[0])
+	b := genExpr(M, c, op.Leaves[1])
+	dest := c.AllocTemp(op.Type)
+	instr := RIU.BinOut(it, a, b, dest)
+	c.CurrBlock.AddInstr(instr)
+	return dest
+}
+
+func genLogicalOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
+	it := lexToBinaryOp(op.Lex)
+	a := genExpr(M, c, op.Leaves[0])
+	b := genExpr(M, c, op.Leaves[1])
+	dest := c.AllocTemp(op.Type)
+	instr := RIU.Bin(it, a, b, dest)
 	c.CurrBlock.AddInstr(instr)
 	return dest
 }
@@ -754,140 +820,138 @@ func genIndexing(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	size := newNumLit(callee.Type.Sizeof(), index.Type)
 
 	dest1 := c.AllocTemp(index.Type)
-	mult := pir.Instr{
-		T:           IT.Mult,
-		Type:        index.Type,
-		Operands:    []pir.Operand{iOp, size},
-		Destination: []pir.Operand{dest1},
-	}
+	mult := RIU.Bin(IK.Mult, iOp, size, dest1)
 	c.CurrBlock.AddInstr(mult)
 
 	dest2 := c.AllocTemp(op.Type)
-	instr := pir.Instr{
-		T:           IT.Add,
-		Type:        a.Type,
-		Operands:    []pir.Operand{a, dest1},
-		Destination: []pir.Operand{dest2},
-	}
+	instr := RIU.Bin(IK.Add, a, dest1, dest2)
 	c.CurrBlock.AddInstr(instr)
 	return dest2
 }
 
 // (p+STRUCT.FIELD)
 func genDotAccess(M *mod.Module, c *context, op *mod.Node) pir.Operand {
-	obj := op.Leaves[0]
-	id := op.Leaves[1].Text
-	a := genExpr(M, c, obj)
+	obj := op.Leaves[1]
+	id := op.Leaves[0].Text
 
-	field, ok := obj.Type.Struct.Field(id)
-	if !ok {
-		panic("should be safe 751")
+	var sy *mod.Global
+	switch obj.Lex {
+	case LK.IDENTIFIER: // data declaration
+		sy = M.GetSymbol(obj.Text)
+	case LK.DOUBLECOLON: // external data declaration
+		modName := obj.Leaves[0].Text
+		symName := obj.Leaves[1].Text
+		sy = M.GetExternalSymbol(modName, symName)
+	default:
+		a := genExpr(M, c, obj)
+		return genOffset(M, c, a, id)
 	}
-	b := newNumLit(field.Offset, T.T_I32)
 
-	dest := c.AllocTemp(obj.Type)
-	instr := pir.Instr{
-		T:           IT.Add,
-		Type:        a.Type,
-		Operands:    []pir.Operand{a, b},
-		Destination: []pir.Operand{dest},
+	if sy.Kind == GK.Struct {
+		t := sy.Struct.Type
+		field, ok := t.Struct.Field(id)
+		if !ok {
+			panic("should be safe 852")
+		}
+		return newNumLit(field.Offset, T.T_I32)
+	} else { // data
+		a := genExpr(M, c, obj)
+		return genOffset(M, c, a, id)
 	}
-	c.CurrBlock.AddInstr(instr)
-	return dest
 }
 
 // (p+STRUCT.FIELD)@FIELDTYPE
 func genArrowAccess(M *mod.Module, c *context, op *mod.Node) pir.Operand {
-	obj := op.Leaves[0]
-	id := op.Leaves[1].Text
+	obj := op.Leaves[1]
+	id := op.Leaves[0].Text
 	a := genExpr(M, c, obj)
 
-	field, ok := obj.Type.Struct.Field(id)
-	if !ok {
-		panic("should be safe 792")
-	}
-	b := newNumLit(field.Offset, T.T_I32)
-
-	dest1 := c.AllocTemp(obj.Type)
-	instr := pir.Instr{
-		T:           IT.Add,
-		Type:        a.Type,
-		Operands:    []pir.Operand{a, b},
-		Destination: []pir.Operand{dest1},
-	}
-	c.CurrBlock.AddInstr(instr)
+	fieldOffset := genOffset(M, c, a, id)
+	field, _ := a.Type.Struct.Field(id)
 
 	dest2 := c.AllocTemp(field.Type)
-	loadPtr := RIU.LoadPtr(dest1, dest2)
+	loadPtr := RIU.LoadPtr(fieldOffset, dest2)
 	c.CurrBlock.AddInstr(loadPtr)
 
 	return dest2
 }
 
-func lexToBinaryOp(op lk.LexKind) IT.InstrKind {
-	switch op {
-	case lk.MINUS:
-		return IT.Sub
-	case lk.PLUS:
-		return IT.Add
-	case lk.MULTIPLICATION:
-		return IT.Mult
-	case lk.DIVISION:
-		return IT.Div
-	case lk.REMAINDER:
-		return IT.Rem
-	case lk.EQUALS:
-		return IT.Eq
-	case lk.DIFFERENT:
-		return IT.Diff
-	case lk.MORE:
-		return IT.More
-	case lk.MOREEQ:
-		return IT.MoreEq
-	case lk.LESS:
-		return IT.Less
-	case lk.LESSEQ:
-		return IT.LessEq
-	case lk.AND:
-		return IT.And
-	case lk.OR:
-		return IT.Or
-	case lk.SHIFTLEFT:
-		return IT.ShiftLeft
-	case lk.SHIFTRIGHT:
-		return IT.ShiftRight
-	case lk.BITWISEAND:
-		return IT.And
-	case lk.BITWISEOR:
-		return IT.Or
-	case lk.BITWISEXOR:
-		return IT.Xor
+func genOffset(M *mod.Module, c *context, op pir.Operand, fieldID string) pir.Operand {
+	if !T.IsStruct(op.Type) {
+		fmt.Println(op.Type)
+		panic("should be struct!!123")
 	}
-	panic("lexToBinaryOp: unexpected binOp: " + lk.FmtTypes(op))
+	field, ok := op.Type.Struct.Field(fieldID)
+	if !ok {
+		panic("should be safe!!2!")
+	}
+	b := newNumLit(field.Offset, T.T_I32)
+
+	dest := c.AllocTemp(T.T_Ptr)
+	instr := RIU.Bin(IK.Add, op, b, dest)
+	c.CurrBlock.AddInstr(instr)
+	return dest
+}
+
+func lexToBinaryOp(op LK.LexKind) IK.InstrKind {
+	switch op {
+	case LK.MINUS:
+		return IK.Sub
+	case LK.PLUS:
+		return IK.Add
+	case LK.MULTIPLICATION:
+		return IK.Mult
+	case LK.DIVISION:
+		return IK.Div
+	case LK.REMAINDER:
+		return IK.Rem
+	case LK.EQUALS:
+		return IK.Eq
+	case LK.DIFFERENT:
+		return IK.Diff
+	case LK.MORE:
+		return IK.More
+	case LK.MOREEQ:
+		return IK.MoreEq
+	case LK.LESS:
+		return IK.Less
+	case LK.LESSEQ:
+		return IK.LessEq
+	case LK.AND:
+		return IK.And
+	case LK.OR:
+		return IK.Or
+	case LK.SHIFTLEFT:
+		return IK.ShiftLeft
+	case LK.SHIFTRIGHT:
+		return IK.ShiftRight
+	case LK.BITWISEAND:
+		return IK.And
+	case LK.BITWISEOR:
+		return IK.Or
+	case LK.BITWISEXOR:
+		return IK.Xor
+	}
+	panic("lexToBinaryOp: unexpected binOp: " + LK.FmtTypes(op))
 }
 
 func genUnaryOp(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	it := lexToUnaryOp(op.Lex)
 	a := genExpr(M, c, op.Leaves[0])
 	dest := c.AllocTemp(op.Type)
-	instr := pir.Instr{
-		T:           it,
-		Type:        op.Type,
-		Operands:    []pir.Operand{a},
-		Destination: []pir.Operand{dest},
-	}
+	instr := RIU.Un(it, a, dest)
 	c.CurrBlock.AddInstr(instr)
 	return dest
 }
 
-func lexToUnaryOp(op lk.LexKind) IT.InstrKind {
+func lexToUnaryOp(op LK.LexKind) IK.InstrKind {
 	switch op {
-	case lk.NEG:
-		return IT.Neg
-	case lk.NOT:
-		return IT.Not
-	case lk.BITWISENOT:
-		return IT.Not
+	case LK.NEG:
+		return IK.Neg
+	case LK.NOT:
+		return IK.Not
+	case LK.BITWISENOT:
+		return IK.Not
 	}
 	panic("lexToUnaryOp: unexpected unaryOp")
 }

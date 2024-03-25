@@ -8,8 +8,8 @@ func (c Class) String() string {
 		return "temp"
 	case Lit:
 		return "lit"
-	case Local:
-		return "local"
+	case Variable:
+		return "variable"
 	case Arg:
 		return "arg"
 	case Global:
@@ -23,7 +23,7 @@ const (
 
 	Temp
 	Lit
-	Local
+	Variable
 	Arg
 	Global
 )
@@ -31,13 +31,17 @@ const (
 func IsOperable(c Class) bool {
 	return c == Temp ||
 		c == Lit ||
-		c == Local ||
+		c == Variable ||
 		c == Arg ||
 		c == Global
 }
 
 func IsResult(c Class) bool {
 	return c == Temp ||
-		c == Local ||
+		c == Variable ||
 		c == Arg
+}
+
+func IsLocal(c Class) bool {
+	return c == Variable || c == Arg
 }

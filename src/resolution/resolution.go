@@ -705,20 +705,9 @@ func resolveGlobalDepGraph(M *mod.Module) *Error {
 			}
 		}
 		if sy.Kind == GK.Data {
-			contents := sy.N.Leaves[2]
-			var err *Error
-			if contents != nil {
-				switch contents.Lex {
-				case lex.STRING_LIT:
-				case lex.BLOB:
-					err = resBlobExpr(M, sy, contents)
-				default:
-					err = resDepExpr(M, mod.FromSymbol(sy), contents)
-				}
-
-				if err != nil {
-					return err
-				}
+			err := resData(M, sy)
+			if err != nil {
+				return err
 			}
 		}
 		if sy.Kind == GK.Struct {
@@ -762,6 +751,39 @@ func resStruct(M *mod.Module, sy *mod.Global) *Error {
 					return err
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func resData(M *mod.Module, sy *mod.Global) *Error {
+	annot := sy.N.Leaves[1]
+	contents := sy.N.Leaves[2]
+	if annot != nil {
+		t := annot.Leaves[0]
+		if t.Lex == lex.IDENTIFIER { // we don't care about the case '::'
+			err := resDepID(M, mod.FromSymbol(sy), t, false)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	var err *Error
+	if contents != nil {
+		switch contents.Lex {
+		case lex.STRING_LIT:
+		case lex.BLOB:
+			err = resBlobExpr(M, sy, contents)
+		default:
+			err = resDepExpr(M, mod.FromSymbol(sy), contents)
+		}
+
+		if err != nil {
+			return err
+		}
+	} else {
+		if annot == nil {
+			return msg.InvalidDataDecl(M, sy.N)
 		}
 	}
 	return nil

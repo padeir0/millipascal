@@ -19,5 +19,5 @@ end
 
 proc F[] i64, List
 begin
-    return 1, Head;
+    return 1l, Head;
 end

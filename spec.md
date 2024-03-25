@@ -432,8 +432,8 @@ left, this is can lead to careless mistakes.
 
 If instead an assignment operator is being used, we speak of the
 values at the left hand side of the operator as LHS, and 
-the values at the right hand side as RHS. LHS always evaluates
-before the RHS, and if multiple expressions are in the LHS,
+the values at the right hand side as RHS. RHS always evaluates
+before the LHS, and if multiple expressions are in the LHS,
 they are evaluated from left to right.
 
 The expressions in the LHS must be *assignable* in all cases,
@@ -466,14 +466,10 @@ They work the same as `set LHS = LHS <op> RHS;`,
 but the LHS is evaluated only once.
 
 Last, but not least, is the swap operator `<>`, which is
-included for brevity and performance. Swapping two values
+included for brevity. Swapping two values
 is a common operation, and should have built-in support.
 In this case both the LHS and RHS must be *assignable*,
-and LHS is still evaluated before the RHS.
-It may improve performance because x86_64
-allows `xchg r1, r2` to exchange two regiters,
-this would map directly to assembly without an optimization
-pass.
+and RHS is still evaluated before the LHS.
 
 ### expressions
 

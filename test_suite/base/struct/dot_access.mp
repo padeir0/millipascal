@@ -12,10 +12,10 @@ begin
     if P->X != 1l or P->Y != 2l begin
         exit 1ss;
     end
-    if P.X != P + Point.X begin
+    if P.X != P:ptr + Point.X begin
         exit 2ss;
     end
-    if P.Y != P + Point.Y begin
+    if P.Y != P:ptr + Point.Y begin
         exit 3ss;
     end
 end

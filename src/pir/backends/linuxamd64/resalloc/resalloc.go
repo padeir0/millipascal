@@ -217,7 +217,7 @@ func (s *state) Mark(v value) {
 	if !ok {
 		panic("marking dead value!")
 	}
-	if v.Class == pc.Local || v.Class == pc.Arg {
+	if v.Class == pc.Variable || v.Class == pc.Arg {
 		info.Mutated = true
 		s.LiveValues[v] = info
 	}
@@ -479,7 +479,7 @@ func findUses(s *state) {
 
 	// check if value is returned or used in branching
 	for i, op := range s.hirBlock.Out.V {
-		if op.Class == pc.Temp || op.Class == pc.Local || op.Class == pc.Arg {
+		if op.Class == pc.Temp || op.Class == pc.Variable || op.Class == pc.Arg {
 			v := toValue(op)
 			s.valueUse[v] = retIndex + i
 		}
@@ -489,12 +489,12 @@ func findUses(s *state) {
 func getUsedValues(instr pir.Instr) []value {
 	output := []value{}
 	for _, op := range instr.Operands {
-		if op.Class == pc.Temp || op.Class == pc.Local || op.Class == pc.Arg {
+		if op.Class == pc.Temp || op.Class == pc.Variable || op.Class == pc.Arg {
 			output = append(output, toValue(op))
 		}
 	}
 	for _, dest := range instr.Destination {
-		if dest.Class == pc.Temp || dest.Class == pc.Local || dest.Class == pc.Arg {
+		if dest.Class == pc.Temp || dest.Class == pc.Variable || dest.Class == pc.Arg {
 			output = append(output, toValue(dest))
 		}
 	}
@@ -618,7 +618,7 @@ func allocCopy(s *state, instr pir.Instr, index int) {
 			// LOAD source -> dest
 			outInstr.T = mik.Load
 			outInstr.A = toMircOpt(s, source)
-			outInstr.Dest = toMircOpt(s, dest)
+			outInstr.Dest = mir.OptOperand_(ensureImmediate(s, index, dest))
 			s.Mark(toValue(dest))
 
 			s.AddInstr(outInstr)
@@ -635,13 +635,17 @@ func allocCopy(s *state, instr pir.Instr, index int) {
 		} else {
 			// COPY source -> dest
 			outInstr.A = toMircOpt(s, source)
-			outInstr.Dest = toMircOpt(s, dest)
+			outInstr.Dest = mir.OptOperand_(ensureImmediate(s, index, dest))
 			s.Mark(toValue(dest))
 
 			s.AddInstr(outInstr)
 		}
 	}
 	res, ok := freeIfNotNeeded(s, index, toValue(source))
+	if ok {
+		s.AddInstr(res)
+	}
+	res, ok = freeIfNotNeeded(s, index, toValue(dest))
 	if ok {
 		s.AddInstr(res)
 	}
@@ -690,7 +694,7 @@ func allocCall(s *state, instr pir.Instr, index int) {
 			arg := callerInterproc(v.ID)
 			store := storeArg(r, arg, dest.Type)
 			s.AddInstr(store)
-		case pc.Local:
+		case pc.Variable:
 			load, op := loadCalleeInterproc(s, callee, v, dest.Type, index)
 			s.AddInstr(load)
 			r := reg(op.ID)
@@ -742,10 +746,10 @@ func isAddressable(s *state, o pir.Operand) bool {
 		if ok {
 			return info.Place.IsAddressable()
 		}
-		panic("isAddressable: temp is not alive")
+		return false
 	case pc.Lit, pc.Global:
 		return false
-	case pc.Local, pc.Arg:
+	case pc.Variable, pc.Arg:
 		return true
 	}
 	panic("isAddressable: wtf")
@@ -763,7 +767,7 @@ func toMirc(s *state, o pir.Operand) mir.Operand {
 			return newOp(o.Type, info.Place.ToMirc(), info.Num, nil)
 		}
 		panic("toMirc: temp is not alive")
-	case pc.Local:
+	case pc.Variable:
 		return newOp(o.Type, mc.Local, o.ID, o.Num)
 	case pc.Arg:
 		return newOp(o.Type, mc.CallerInterproc, o.ID, o.Num)
@@ -778,7 +782,7 @@ func toMirc(s *state, o pir.Operand) mir.Operand {
 func storeLiveLocals(s *state) {
 	for val, info := range s.LiveValues {
 		if info.Place == Register && info.Mutated {
-			if val.Class == pc.Local {
+			if val.Class == pc.Variable {
 				r := reg(info.Num)
 				instr := storeLocal(r, val.ID, info.T)
 				s.AddInstr(instr)
@@ -821,7 +825,7 @@ func spillAllLiveRegisters(s *state, index int) {
 	for val, info := range s.LiveValues {
 		if info.Place == Register && (isNeeded(s, index, val) || info.Mutated) {
 			switch val.Class {
-			case pc.Local:
+			case pc.Variable:
 				r := reg(info.Num)
 				s.AddInstr(storeLocal(r, val.ID, info.T))
 			case pc.Arg:
@@ -874,7 +878,7 @@ func _ensureImmediate(s *state, index int, v value, t *T.Type) mir.Operand {
 	switch v.Class {
 	case pc.Temp:
 		return _allocReg(s, v, t, index)
-	case pc.Local:
+	case pc.Variable:
 		instr, op := _loadLocal(s, v, t, index)
 		s.AddInstr(instr)
 		return op
@@ -956,7 +960,7 @@ func _allocReg(s *state, v value, t *T.Type, index int) mir.Operand {
 	switch val.Class {
 	case pc.Temp:
 		s.AddInstr(spillTemp(s, reg(info.Num), info.T))
-	case pc.Local:
+	case pc.Variable:
 		if info.Mutated {
 			s.AddInstr(storeLocal(reg(info.Num), val.ID, info.T))
 		}
@@ -1068,7 +1072,7 @@ func freeIfNotNeeded(s *state, index int, v value) (mir.Instr, bool) {
 	}
 	s.Free(v)
 	if !s.hirBlock.IsTerminal() { // no need to restore if is terminal
-		if v.Class == pc.Local && useInfo.Mutated {
+		if v.Class == pc.Variable && useInfo.Mutated {
 			r := reg(useInfo.Num)
 			instr := storeLocal(r, v.ID, useInfo.T)
 			return instr, true

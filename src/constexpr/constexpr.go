@@ -128,7 +128,10 @@ func evalSymbol(m *mod.Module, sf mod.SyField) *Error {
 }
 
 func evalDeps(m *mod.Module, sy mod.SyField) *Error {
-	refs := sy.GetRefs()
+	return evalRefs(m, sy.GetRefs())
+}
+
+func evalRefs(m *mod.Module, refs mod.Refs) *Error {
 	for _, ref := range refs.Symbols {
 		err := evalSymbol(m, ref)
 		if err != nil {
@@ -142,7 +145,8 @@ func evalStruct(m *mod.Module, sy *mod.Global) *Error {
 	t := sy.Struct.Type
 	if t.Struct.WellBehaved {
 		size := 0
-		for _, field := range t.Struct.Fields {
+		for i, field := range t.Struct.Fields {
+			t.Struct.Fields[i].Offset = big.NewInt(int64(size))
 			size += field.Type.Size()
 		}
 		t.Struct.Size = big.NewInt(int64(size))
@@ -153,6 +157,20 @@ func evalStruct(m *mod.Module, sy *mod.Global) *Error {
 			return err
 		}
 		t.Struct.Size = value
+		for i, field := range sy.Struct.Fields {
+			if !field.Visited {
+				field.Visited = true
+				err := evalRefs(m, field.Refs)
+				if err != nil {
+					return err
+				}
+				offset, err := computeExpr(m, field.Offset)
+				if err != nil {
+					return err
+				}
+				t.Struct.Fields[i].Offset = offset
+			}
+		}
 	}
 	return nil
 }
@@ -185,7 +203,11 @@ func evalData(m *mod.Module, sy *mod.Global) *Error {
 		if err != nil {
 			return err
 		}
-		sy.Data.Size = v
+		if T.IsStruct(sy.Data.Type) {
+			sy.Data.Size = big.NewInt(0).Mul(v, sy.Data.Type.Sizeof())
+		} else {
+			sy.Data.Size = v
+		}
 		return nil
 	}
 }
@@ -423,8 +445,8 @@ func getSizeof(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
 }
 
 func getDotAccess(M *mod.Module, n *mod.Node) (*big.Int, *Error) {
-	op := n.Leaves[0]
-	id := n.Leaves[1].Text
+	op := n.Leaves[1]
+	id := n.Leaves[0].Text
 
 	var sy *mod.Global
 	switch op.Lex {

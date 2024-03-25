@@ -284,6 +284,9 @@ func genMem(mem *mir.DataDecl) *fasmData {
 			content: convertNums(mem.Nums),
 		}
 	}
+	if mem.Size == nil {
+		panic("size was nil")
+	}
 	return &fasmData{
 		label:   mem.Label,
 		content: " rb " + mem.Size.Text(10),

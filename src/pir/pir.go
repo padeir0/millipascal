@@ -273,14 +273,14 @@ func (this *Operand) String() string {
 	switch this.Class {
 	case hirc.Temp:
 		return "'" + value + ":" + this.Type.String()
-	case hirc.Local:
+	case hirc.Variable:
 		return "local#" + value + ":" + this.Type.String()
 	case hirc.Arg:
 		return "arg#" + value + ":" + this.Type.String()
 	case hirc.Global:
 		return "global#" + value + ":" + this.Type.String()
 	case hirc.Lit:
-		return this.Num.Text(10)
+		return this.Num.Text(10) + ":" + this.Type.String()
 	}
 	return "?"
 }
