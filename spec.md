@@ -425,12 +425,10 @@ In it's simplest form, `set a++;` or `set a--;` simply increment
 or decrement a numerical or pointer value. In special, if `a` is a
 struct type, it is incremented of decremented by `sizeof[STRUCT]`,
 that is, in this case, `set a++` would be the same as `set a += sizeof[STRUCT]`,
-if it were allowed,
 while for numbers and raw pointers, it is the same as `set a += 1;`.
-These exist because you can't do normal pointer arithmetic with structs,
-so that `set a += 1;` would slide the struct representation one byte to the
-left, this is weird and is forbidden to avoid careless mistakes, if
-sliding is what you want, cast the struct first.
+These exist to avoid doing pointer arithmetic with structs,
+ie, `set a += 1;` would slide the struct representation one byte to the
+left, this is can lead to careless mistakes.
 
 If instead an assignment operator is being used, we speak of the
 values at the left hand side of the operator as LHS, and 

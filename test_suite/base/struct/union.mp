@@ -15,21 +15,21 @@ data M:Base []
 proc main
 begin
     set M->tag = SIGNED;
-    set M->signed = ~1;
+    set M->signed = ~1l;
     verify[M];
     set M->tag = UNSIGNED;
-    set M->unsigned = 1;
+    set M->unsigned = 1ul;
     verify[M];
 end
 
 proc verify[p:Base]
 begin
     if M->tag == SIGNED begin
-        if M->signed != ~1 begin
+        if M->signed != ~1l begin
             exit 1ss;
         end
     end elseif M->tag == UNSIGNED begin
-        if M->unsigned != 1 begin
+        if M->unsigned != 1ul begin
             exit 2ss;
         end
     end else begin

@@ -12,21 +12,21 @@ end
 data Mi64:AI64 []
 proc test_i64
 begin
-    set Mi64->O = 1;
+    set Mi64->O = 1l;
 
-    if Mi64->O != 1 begin
+    if Mi64->O != 1l begin
         exit 1ss;
     end
 
-    set Mi64->O = 2;
+    set Mi64->O = 2l;
 
-    if (Mi64:ptr)@i64 != 2 begin
+    if (Mi64:ptr)@i64 != 2l begin
         exit 2ss;
     end
 
-    set (Mi64:ptr)@i64 = 3;
+    set (Mi64:ptr)@i64 = 3l;
 
-    if Mi64->O != 3 begin
+    if Mi64->O != 3l begin
         exit 3ss;
     end
 end
@@ -34,18 +34,18 @@ end
 data Mi32:AI32 []
 proc test_i32
 begin
-    set Mi32->O = 1l;
-    if Mi32->O != 1l begin
+    set Mi32->O = 1;
+    if Mi32->O != 1 begin
         exit 1ss;
     end
 
-    set Mi32->O = 2l;
-    if (Mi32:ptr)@i32 != 2l begin
+    set Mi32->O = 2;
+    if (Mi32:ptr)@i32 != 2 begin
         exit 2ss;
     end
 
-    set (Mi32:ptr)@i32 = 3l;
-    if Mi32->O != 3l begin
+    set (Mi32:ptr)@i32 = 3;
+    if Mi32->O != 3 begin
         exit 3ss;
     end
 end

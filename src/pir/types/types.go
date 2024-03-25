@@ -43,7 +43,11 @@ func (t *Type) String() string {
 	case Bool:
 		return "bool"
 	case Ptr:
-		return "ptr"
+		if t.Struct == nil {
+			return "ptr"
+		} else {
+			return t.Struct.String()
+		}
 	case Void:
 		return "void"
 	}
@@ -211,6 +215,10 @@ func IsInvalid(t *Type) bool {
 		t.Proc == nil
 }
 
+func IsSizeable(tt *Type) bool {
+	return tt.Basic != Void
+}
+
 func IsVoid(tt *Type) bool {
 	return tt.Basic == Void
 }
@@ -284,6 +292,10 @@ type Struct struct {
 	Size     *big.Int
 
 	WellBehaved bool // whether it can be used to typecheck blobs
+}
+
+func (this *Struct) String() string {
+	return this.Module + "::" + this.Name
 }
 
 // IMPROVBOOT: move all toggle constants to a separate module

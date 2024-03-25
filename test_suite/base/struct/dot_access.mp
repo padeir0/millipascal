@@ -7,9 +7,9 @@ data P:Point []
 
 proc main
 begin
-    set (P.X)@i64 = 1;
-    set (P.Y)@i64 = 2;
-    if P->X != 1 or P->Y != 2 begin
+    set (P.X)@i64 = 1l;
+    set (P.Y)@i64 = 2l;
+    if P->X != 1l or P->Y != 2l begin
         exit 1ss;
     end
     if P.X != P + Point.X begin

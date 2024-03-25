@@ -59,13 +59,13 @@ func ErrorCannotUseMultipleValuesInExpr(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidType, n, "cannot use multi returns in expressions")
 }
 
-func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg *T.Type) *Error {
-	return NewSemanticError(M, et.MismatchedTypeForArgument, param, "mismatched type in Call, has type: "+param.Type.String()+", expected: "+arg.String())
+func ErrorMismatchedTypeForArgument(M *ir.Module, param *ir.Node, arg string) *Error {
+	return NewSemanticError(M, et.MismatchedTypeForArgument, param, "mismatched type in Call, has type: "+param.Type.String()+", expected: "+arg)
 }
 
-func ErrorInvalidNumberOfArgs(M *ir.Module, callee *T.ProcType, n *ir.Node) *Error {
-	expected := strconv.Itoa(len(callee.Args))
-	return NewSemanticError(M, et.InvalidNumberOfArgs, n, "invalid number of arguments, expected: "+expected)
+func ErrorInvalidNumberOfArgs(M *ir.Module, expected int, n *ir.Node) *Error {
+	exp := strconv.Itoa(expected)
+	return NewSemanticError(M, et.InvalidNumberOfArgs, n, "invalid number of arguments, expected: "+exp)
 }
 
 func ErrorNotCallable(M *ir.Module, n *ir.Node) *Error {
@@ -254,4 +254,8 @@ func InvalidDataDecl(M *ir.Module, n *ir.Node) *Error {
 
 func InvalidStructDecl(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidStructDecl, n, "invalid struct declaration (either fully explicit or fully implicit)")
+}
+
+func UnsizeableType(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.UnsizeableType, n, "type is not sizeable")
 }

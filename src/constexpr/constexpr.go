@@ -118,6 +118,8 @@ func evalSymbol(m *mod.Module, sf mod.SyField) *Error {
 		err = evalConst(m, sf.Sy)
 	case gk.Data:
 		err = evalData(m, sf.Sy)
+	case gk.Struct:
+		err = evalStruct(m, sf.Sy)
 	}
 	if err != nil {
 		return err
@@ -132,6 +134,25 @@ func evalDeps(m *mod.Module, sy mod.SyField) *Error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func evalStruct(m *mod.Module, sy *mod.Global) *Error {
+	t := sy.Struct.Type
+	if t.Struct.WellBehaved {
+		size := 0
+		for _, field := range t.Struct.Fields {
+			size += field.Type.Size()
+		}
+		t.Struct.Size = big.NewInt(int64(size))
+	} else {
+		size := sy.N.Leaves[1]
+		value, err := computeExpr(m, size)
+		if err != nil {
+			return err
+		}
+		t.Struct.Size = value
 	}
 	return nil
 }

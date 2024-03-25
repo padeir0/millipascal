@@ -8,7 +8,7 @@ data Head:List []
 proc main
 begin
     set Head->Value, Head->Next = F[];
-    if Head->Value != 1 begin
+    if Head->Value != 1l begin
         exit 1ss;
     end
     if Head->Next != Head begin
@@ -18,5 +18,5 @@ end
 
 proc F[] i64, List
 begin
-    return 1, Head;
+    return 1l, Head;
 end

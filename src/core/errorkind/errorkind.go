@@ -69,6 +69,7 @@ const (
 	InvalidNumOfAssignees
 	InvalidDataDecl
 	InvalidStructDecl
+	UnsizeableType
 )
 
 func (et ErrorKind) String() string {
@@ -141,4 +142,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidNumOfAssignees:          "E062",
 	InvalidDataDecl:                "E063",
 	InvalidStructDecl:              "E064",
+	UnsizeableType:                 "E065",
 }

@@ -17,8 +17,7 @@ begin
     if sizeof[B] != sizeof[A] begin
         exit 3ss;
     end
-    if sizeof[A] != sizeof[B] or
-        sizeof[A] != sizeof[ptr]
+    if sizeof[A] != sizeof[B]
     begin
         exit 4ss;
     end
