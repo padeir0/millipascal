@@ -538,22 +538,51 @@ func checkExports(M *mod.Module) *Error {
 }
 
 func declareSymbol(M *mod.Module, n *mod.Node) *Error {
-	switch n.Lex {
+	sy := n
+	idlist := []string{}
+	if n.Lex == lex.ATTR {
+		var ok bool
+		idlist, ok = idlistToStr(n.Leaves[0])
+		if !ok {
+			return msg.InvalidFlag(M, n)
+		}
+		sy = n.Leaves[1]
+	}
+	switch sy.Lex {
 	case lex.PROC:
-		return declProcSymbol(M, n)
+		return declProcSymbol(M, sy, idlist)
 	case lex.DATA:
-		return declMemSymbol(M, n)
+		return declMemSymbol(M, sy, idlist)
 	case lex.CONST:
-		return declConstSymbol(M, n)
+		return declConstSymbol(M, sy, idlist)
 	case lex.STRUCT:
-		return declStructSymbol(M, n)
+		return declStructSymbol(M, sy, idlist)
 	default:
 		panic("impossible")
 	}
 }
 
-func declProcSymbol(M *mod.Module, n *mod.Node) *Error {
-	sy := getProcSymbol(M, n)
+func idlistToStr(list *mod.Node) ([]string, bool) {
+	out := make([]string, len(list.Leaves))
+	for i, id := range list.Leaves {
+		if !validFlag(id.Text) {
+			return nil, false
+		}
+		out[i] = id.Text
+	}
+	return out, true
+}
+
+func validFlag(flag string) bool {
+	switch flag {
+	case "x64", "linux", "abi_stack":
+		return true
+	}
+	return false
+}
+
+func declProcSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
+	sy := getProcSymbol(M, n, idlist)
 	_, ok := M.Globals[sy.Name]
 	if ok {
 		return msg.ErrorNameAlreadyDefined(M, n, sy.Name)
@@ -562,48 +591,49 @@ func declProcSymbol(M *mod.Module, n *mod.Node) *Error {
 	return nil
 }
 
-func declMemSymbol(M *mod.Module, n *mod.Node) *Error {
+func declMemSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	leaf := n.Leaves[0]
 	switch leaf.Lex {
 	case lex.BEGIN:
 		for _, single := range leaf.Leaves {
-			err := setMemSymbol(M, single)
+			err := setMemSymbol(M, single, idlist)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	case lex.SINGLE:
-		return setMemSymbol(M, leaf)
+		return setMemSymbol(M, leaf, idlist)
 	default:
 		panic("impossible")
 	}
 }
 
-func declConstSymbol(M *mod.Module, n *mod.Node) *Error {
+func declConstSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	leaf := n.Leaves[0]
 	switch leaf.Lex {
 	case lex.BEGIN:
 		for _, single := range leaf.Leaves {
-			err := setConstSymbol(M, single)
+			err := setConstSymbol(M, single, idlist)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	case lex.SINGLE:
-		return setConstSymbol(M, leaf)
+		return setConstSymbol(M, leaf, idlist)
 	default:
 		panic("impossible")
 	}
 }
 
-func getProcSymbol(M *mod.Module, n *mod.Node) *mod.Global {
+func getProcSymbol(M *mod.Module, n *mod.Node, idlist []string) *mod.Global {
 	name := n.Leaves[0].Text
 	return &mod.Global{
 		Kind:       GK.Proc,
 		Name:       name,
 		ModuleName: M.Name,
+		Attr:       idlist,
 		Proc: &mod.Proc{
 			Name:   name,
 			ArgMap: map[string]mod.PositionalLocal{},
@@ -614,7 +644,7 @@ func getProcSymbol(M *mod.Module, n *mod.Node) *mod.Global {
 	}
 }
 
-func setMemSymbol(M *mod.Module, n *mod.Node) *Error {
+func setMemSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	name := n.Leaves[0].Text
 	mem := &mod.Data{
 		Name: name,
@@ -625,6 +655,7 @@ func setMemSymbol(M *mod.Module, n *mod.Node) *Error {
 		Name:       name,
 		ModuleName: M.Name,
 		Data:       mem,
+		Attr:       idlist,
 		N:          n,
 	}
 	_, ok := M.Globals[sy.Name]
@@ -635,13 +666,14 @@ func setMemSymbol(M *mod.Module, n *mod.Node) *Error {
 	return nil
 }
 
-func setConstSymbol(M *mod.Module, n *mod.Node) *Error {
+func setConstSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	name := n.Leaves[0].Text
 	sy := &mod.Global{
 		Kind:       GK.Const,
 		Name:       name,
 		ModuleName: M.Name,
 		N:          n,
+		Attr:       idlist,
 		Const: &mod.Const{
 			Value: nil,
 		},
@@ -654,13 +686,14 @@ func setConstSymbol(M *mod.Module, n *mod.Node) *Error {
 	return nil
 }
 
-func declStructSymbol(M *mod.Module, n *mod.Node) *Error {
+func declStructSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	id := n.Leaves[0].Text
 	sy := &mod.Global{
 		Kind:       GK.Struct,
 		Name:       id,
 		ModuleName: M.Name,
 		N:          n,
+		Attr:       idlist,
 		Struct: &mod.Struct{
 			Fields:   []mod.Field{},
 			FieldMap: map[string]int{},

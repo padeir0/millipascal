@@ -1256,14 +1256,12 @@ func clobberSet(s *Lexer) (*mod.Node, *Error) {
 
 // AsmLine := Label | Instruction.
 func asmLine(s *Lexer) (*mod.Node, *Error) {
-	err := check(s, lk.DOT, lk.IDENTIFIER)
-	if err != nil {
-		return nil, err
-	}
 	if s.Word.Lex == lk.DOT {
 		return label(s)
-	} else {
+	} else if s.Word.Lex == lk.IDENTIFIER {
 		return instruction(s)
+	} else {
+		return nil, nil // used in repeat()
 	}
 }
 

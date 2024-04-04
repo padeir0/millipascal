@@ -582,6 +582,8 @@ func identifier(st *Lexer) *ir.Node {
 		tp = T.VOID
 	case "attr":
 		tp = T.ATTR
+	case "asm":
+		tp = T.ASM
 	}
 	return genNode(st, tp)
 }

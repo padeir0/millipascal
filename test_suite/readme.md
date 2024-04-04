@@ -3,4 +3,7 @@
 Tests in the `base` folder do not use asm procedures,
 and are (should be) architecture independent.
 
-Tests in `linux_amd64` should work on OS linux and arch amd64.
+Tests in `linux` should work on linux.
+
+Tests in `stdlib` are also meant to work on linux,
+but are much larger programs.

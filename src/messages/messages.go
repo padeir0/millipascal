@@ -259,3 +259,7 @@ func InvalidStructDecl(M *ir.Module, n *ir.Node) *Error {
 func UnsizeableType(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.UnsizeableType, n, "type is not sizeable")
 }
+
+func InvalidFlag(M *ir.Module, n *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidFlag, n, "invalid flag")
+}

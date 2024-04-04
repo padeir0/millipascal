@@ -70,6 +70,7 @@ const (
 	InvalidDataDecl
 	InvalidStructDecl
 	UnsizeableType
+	InvalidFlag
 )
 
 func (et ErrorKind) String() string {
@@ -143,4 +144,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidDataDecl:                "E063",
 	InvalidStructDecl:              "E064",
 	UnsizeableType:                 "E065",
+	InvalidFlag:                    "E066",
 }

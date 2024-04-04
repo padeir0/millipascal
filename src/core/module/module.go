@@ -161,6 +161,7 @@ type Global struct {
 	N          *Node
 	External   bool
 	Refs       Refs
+	Attr       []string
 	Visited    bool
 
 	Proc   *Proc

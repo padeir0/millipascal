@@ -105,7 +105,9 @@ char = '\'' (ascii|escapes) '\''.
 
 Strings and characters are ascii, no fuzz here.
 If you need to encode other UTF8 codepoints use blobs and
-number literals. These two require a little smartness
+number literals.
+
+Strings and chars require a little smartness
 in the lexer, because of escapes and arbitrary ascii
 values, but can be dealt easily.
 
@@ -135,6 +137,40 @@ AliasList = Alias {',' Alias} [','].
 Alias = id ['as' id].
 ```
 
+When importing a module, the name of the module is the name of
+the file up to the first dot ('.'). That is: if `abc.E001.mp`
+is your library, then you'd import it with `import abc`.
+The same goes for `from abc import ...`.
+
+The compiler expects all modules to be in the same folder.
+
+Suppose `M.mp` is your library, defined as follows:
+
+```
+export One, Two
+
+const begin
+  One = 1;
+  Two = 2;
+  Three = 3;
+end
+```
+
+If in another file (in the same folder) you write `import M`,
+then you can access the value of `One` by `M::One`,
+while `M::Three` should yield an error, as it is not
+exported by `M`. In other languages you'd write `public int One = 1;`,
+the explicit `export ...` makes sure the whole module-to-module
+interface is directly documented in the top of each file, this
+is my preferred approach.
+
+If you write `from M import One`, then the value of `One`
+is available as if it was a global defined in the current module,
+and can be accessed as usual. If you write `from M import all`,
+then **all exported symbols** are brought into global scope,
+in this case, you'd be able to access `One` and `Two` as global
+constants, but not `Three`.
+
 Aliases work as you expect, similar to declarations.
 
 ```
@@ -142,27 +178,33 @@ import M as N
 ```
 
 Here, the module `M` is imported, but the name `M` is shadowed
-in favor of the name `N`.
+in favor of the name `N`. So that you'd do `N::One` instead of
+`M::One`.
 
 ```
-from M import p as q, r as s
+from M import One as Um, Two as Dois
 ```
 
 Something similar happens here, the module `M` is imported
-and the items `p` and `r` are brought into global scope,
-but their names are shadowed in favour of `q` and `s`,
+and the items `One` and `Two` are brought into global scope,
+but their names are shadowed in favour of `Um` and `Dois`,
 respectively.
 
+
+If `M` exported `One` and `Two` in the following way:
+
 ```
-export P as Q, R as S
+export One as Um, Two as Dois
 ```
 
-Finally, in the `export` clause, we have `P` and `R` being exposed
-externally, but they must be imported as `Q` and `S`, respectively.
+Then `One` and `Two` are exposed externally,
+but they must be imported or used as `Um` and `Dois`, respectively.
+That is, `M::Um` or `from M import Um` instead of the way done previously.
 
 Note that modules are imported by name, and names must be identifiers,
 so file names must obey identifier restrictions, otherwise it is
-not possible to import it.
+not possible to import it. A file named `import.mp` can't be imported
+as `import import`, be sure to use the power of common sense.
 
 ### Symbols and Attributes
 
@@ -180,7 +222,7 @@ Symbol = Procedure
 Symbols may be preceded by attributes, these are simply
 identifiers that are recognized by the compiler, and can
 be used to perform conditional compilation for different targets,
-setting padding, etc.
+setting padding, changing ABI, etc.
 
 ### Data
 
@@ -219,7 +261,7 @@ MultipleConst = 'begin' {SingleConst ';'} 'end'.
 Constants works basically as `define` in C, but they are evaluated
 at compile time with arbitrary precision arithmetic, when casting
 the value to the actual type, values should saturate instead of
-overflowing, that is: if `300` is assigned to an `i8`, the value
+overflow, that is: if `300` is assigned to an `i8`, the value
 is set to the largest `i8` value, ie, `127`, instead of overflowing.
 
 ### Structs
@@ -267,10 +309,8 @@ end
 Structs behave just like constants in a sense, they specify
 offset tables and object size, and these must be verified for circularity.
 The size of a struct is a constant in itself, just like each field,
-if the field offset refers to the struct size in
-any way, shape or form, that should be considered a cycle, and
-should be reported. The following struct is misbehaving in this
-regard:
+and cycles between size and field offset should be checked.
+The following struct is misbehaving in this regard:
 
 ```
 const size = A.X + 8;
@@ -299,7 +339,7 @@ In the above example, `sizeof[M1]` is `8 * sizeof[B]` while
 `sizeof[M2]` is `8 * sizeof[ptr]` (`sizeof[ptr] == sizeof[refB]`),
 that is, the second buffer has only pointers to these `B` objects.
 
-If multiple field names precede a type `a, b, c:i64`, then all those fields
+If multiple field names precede a type (`a, b, c:i64`), then all those fields
 are of that type, a single offset can't be applied to all of them at the same time,
 `a, b, c:i64 {0}` should result in an error.
 
@@ -329,13 +369,11 @@ It is possible to write `a,b,c:i64` in a declaration,
 which means all preceding variables have that type.
 
 The body of the procedure can be of two types, one is
-in a high level language, with a handful of features,
-while the other is a low level language, architecture specific,
-that can encode specific instructions of the target machine.
+in a high level code, while the other is amd64 assembly.
 
 ### Blocks
 
-```
+```ebnf
 Block = 'begin' {Statement} 'end'.
 
 Statement = If [';']
@@ -357,7 +395,7 @@ All of these statements, except expressions, begin with a keyword.
 
 ### If Statements
 
-```
+```ebnf
 If = 'if' Expr Block {ElseIf} [Else].
 ElseIf = 'elseif' Expr Block.
 Else = 'else' Block.
@@ -371,7 +409,7 @@ if present, is executed.
 
 ### While and Do-While Statements
 
-```
+```ebnf
 While = 'while' Expr Block.
 DoWhile = 'do' Block 'while' Expr.
 ```
@@ -388,7 +426,7 @@ looping back if true, continuing if false.
 
 ### Return and Exit Statements
 
-```
+```ebnf
 Return = 'return' [ExprList].
 Exit = 'exit' ['?'] [Expr].
 ```
@@ -412,7 +450,7 @@ for debugging, and should be turned off in "release" builds.
 
 ### Set Statements
 
-```
+```ebnf
 Set = 'set' ExprList (Assign|IncDec).
 IncDec = '++' | '--'.
 Assign = assignOp Expr.
@@ -423,7 +461,7 @@ Set statements are quite complex and complexity must be justified.
 
 In it's simplest form, `set a++;` or `set a--;` simply increment
 or decrement a numerical or pointer value. In special, if `a` is a
-struct type, it is incremented of decremented by `sizeof[STRUCT]`,
+struct type, it is incremented or decremented by `sizeof[STRUCT]`,
 that is, in this case, `set a++` would be the same as `set a += sizeof[STRUCT]`,
 while for numbers and raw pointers, it is the same as `set a += 1;`.
 These exist to avoid doing pointer arithmetic with structs,
@@ -455,9 +493,10 @@ the assignment operator is `=` and the RHS contains an expression
 that is multi-valued, ie, a procedure with multiple returns. If
 these conditions are not met, the compiler should yield an error.
 We allow this so that procedures can return multiple values freely.
-In case multiple expressions are allowed, types should be checked
-in order, from left to right, so that each type on the LHS
-corresponts to the same type from the multi-valued expression.
+In case multiple expressions are present in the LHS,
+types should be checked in order,
+from left to right, so that each type on the LHS
+corresponds to the same type from the multi-valued expression.
 
 Arithmetical operators ('-=', '+=', '/=', '*=' and '%=')
 are included for the sake of brevity, and because they fit
@@ -473,12 +512,11 @@ and RHS is still evaluated before the LHS.
 
 ### expressions
 
-Expressions can be statements, or can appear in other statements,
-it's allowed to be a statement so that we can evaluate procedures
-that return no values, or those who values are being
-ignored.
+Expressions can be statements, or can appear in other statements.
+It's allowed to be a statement so that we can evaluate procedures
+that return no values, or those whose values are being ignored.
 
-```
+```ebnf
 ExprList = Expr {',' Expr} [','].
 Expr = And {'or' And}.
 And = Comp {'and' Comp}.
@@ -562,7 +600,7 @@ this applies to all other arithmetical operations;
 and should accept any integer;
  - The difference between type annotattion and cast is between a no-op and actual conversion.
 Given `a:T`, if `a` is already of type `T`, nothing is done, while if `a` is of another type,
-a cast is one;
+a cast is done;
  - With unsigned integers casting a big integer type to a smaller integer type is allowed,
 and should truncate the value accordingly, ie, copy only the least significant bits.
  - Dereference asks for a type `a@T`, where `T` can be any type.
@@ -593,7 +631,7 @@ given `a:T`, with `T` being a struct with a field `b:U`:
 
 ### Factors
 
-```
+```ebnf
 Factor = Name
     | Literal
     | NestedExpr
@@ -627,7 +665,7 @@ or pass it around;
  - If it refers to a struct, it may only be in the compound expression `STRUCT.FIELD`,
 which has type `i32` and evaluates to the offset of that field;
  - If it refers to a constant, it will have the type inferred or annotatted in that constant,
-and if will evaluate to the value of the constant. That value is expected to be evaluated
+and will evaluate to the value of the constant. That value is expected to be evaluated
 at compile time.
 
 Of course, if the expression occurs in the LHS of an assignment, the local identifier
@@ -641,6 +679,239 @@ The "Sizeof" expression has different semantics based on the thing it is applied
  - `sizeof[T]`: evaluates to the *byte* size of the type `T`;
 
 That is, `sizeof` always computes the *byte* size.
+
+### Asm
+
+```ebnf
+Asm = 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
+ClobberSet = '[' idList ']'.
+AsmLine = Label | Instruction.
+Label = '.' id ':'.
+Instruction = InstrName [OpList] ';'.
+InstrName = id.
+OpList = Op {',' Op} ','.
+Op = Name | Addressing | ConstOp | Literal.
+Addressing = '[' OpList ']' ['@' id].
+ConstOp = '{' Expr '}'.
+```
+
+Assembly blocks allows you to write assembly, interfacing with the
+rest of the language almost seamlessly. They exist mostly to:
+ - Allow you to write syscalls;
+ - Allow you to optimize code at the instruction level;
+ - Allow you to write SIMD code (TBD);
+
+The **clobber set** is a list of registers that the current procedure
+is corrupting (clobbing), if you clob a register that is not specified
+here, the behaviour is **unspecified**, ie, the compiler may
+optimize assuming you know what you're doing.
+
+### Instructions (asm)
+
+The compiler is not required to implement the full ISA specification,
+and must warn of any unknown instructions.
+For this compiler, the following instructions will be implemented:
+
+```
+mov movsx movzx movsxd
+xor or and not shl shr sal sar
+cmp syscall call ret
+push pop
+jmp
+je jne
+jl jle jg jge
+jb jbe ja jae
+add sub neg idiv div
+sete setne
+setg setge setl setle
+seta setae setb setbe
+```
+
+### abi_stack (asm)
+
+When a procedure has `abi_stack` as an attribute, arguments and variables
+used in instructions will evaluate to their respective offset.
+That is: `mov r0, [rbp, arg]@dword` will eval to `mov r0, [rbp, offset]@dword`,
+and `mov r0, arg` will evaluate to `mov r0, offset`.
+
+Identifiers related to return addresses will also be available:
+`_ret0`, `_ret1`, `_ret2`, etc.
+So that you can `mov [rbp, _ret0]@dword, r0` to return `r0` as the
+first return of the procedure.
+You can, alternatively, use `_arg0`, `_arg1`, etc to access
+the arguments, but it is preferred to use their actual names.
+
+To pass an argument to a procedure that is `abi_stack`,
+there are identifiers:`_call_arg0`, `_call_arg1`, `_call_arg2`, etc.
+To receive the return arguments of that procedure,
+you can use `_call_ret0`, `_call_ret1`, `_call_ret2`, etc.
+So that you can:
+
+```
+  mov [rbp, _call_arg0]@dword, 2;
+  call square;
+  mov r0, [rbp, _call_ret0]@dword;
+```
+
+Variables will also evaluate to offsets, it may be wise instead to keep
+the values in registers at all times and, when needed, spill to locals.
+
+### registers (asm)
+
+Registers follow the AMD convention, and ignores most cursed names from Intel:
+ - Quad-word registers: `r0`, `r1`, ..., `r15`;
+ - Double-word registers: `r0d`, `r1d`, ..., `r15d`;
+ - Word registers: `r0w`, `r1w`, ..., `r15w`;
+ - Byte registers: `r0b`, `r1b`, ..., `r15b`;
+ - `rsp` = `r4`;
+ - `rbp` = `r5`;
+ - Instruction pointer: `rip`.
+
+The registers `rbp` and `rsp` are special because they hold, respectively,
+the base pointer and the stack pointer. The base pointer is used in the 
+`abi_stack` to keep the activation record pointer (ARP).
+
+The following table can be useful:
+
+|Intel| AMD |
+|:---:|:---:|
+| rax | r0  |
+| rcx | r1  |
+| rdx | r2  |
+| rbx | r3  |
+| rsp | r4  |
+| rbp | r5  |
+| rsi | r6  |
+| rdi | r7  |
+| r8  | r8  |
+| r9  | r9  |
+| r10 | r10 |
+| r11 | r11 |
+| r12 | r12 |
+| r13 | r13 |
+| r14 | r14 |
+| r15 | r15 |
+
+### Addressing (asm)
+
+Addressing can be done with square brackets and, in Intel's syntax, correspond directly
+to `[r + offset]`:
+
+```
+  mov r0, [r1, offset];
+```
+
+Addressing is only supported for immediate values. That is:
+
+```
+  mov r0, [rbp, _arg0];
+  mov r1, [r13, {sizeof[i64]}];
+  mov r2, [r13, {STRUCT.FIELD}];
+```
+
+Addressing in the form of `[r0 + r1]` and `[r0 + r1 * 4]` are forbidden,
+even though AMD64 allows it.
+
+### Constant expressions (asm)
+
+Constant expressions can be used inside asm blocks with curly brackets,
+but they are purely numerical (as they are everywhere else).
+For example, to load the size of a structure `B` in a register:
+
+```
+  mov r0, {sizeof[B]};
+```
+
+If the expression exceeds the maximum value expected in the instruction,
+the compiler should raise an error.
+
+### Globals (asm)
+
+Procedures and data declarations inside assembly blocks can be
+used by name directly. Given `data M:B []`, we can pass the address
+of `M` to a register:
+
+```
+  mov r0, M;
+```
+
+Similarly, with procedures, we can call them as it's normally done
+in asm. Given a procedure P, we call it:
+
+```
+  call P;
+```
+
+All arguments are passed according to the ABI of `P`, and registers
+must be saved accordingly. If `P` is also an asm procedure with
+clobber set, then the specified clobbered registers may need
+to be saved. If the procedure is not an asm procedure, then you must
+assume all registers may be clobbered.
+
+### Labels (asm)
+
+Labels evaluate to the address of the following instruction, they can
+be used directly as operands: 
+
+```
+.L0:
+  mov r0, L0;
+  jmp L0;
+```
+
+### Names (asm)
+
+There's a lot of new names in assembly, to make sure all identifiers are
+correctly being used, they must be specified.
+
+ - No arguments, variables or labels can have the same name as a register;
+ - No arguments, variables and labels can be of the form `_argN`, `_retN`, `_call_argN` or`_call_retN`;
+ - Two Labels must not be identical;
+
+Scopes are: global, local, labels and reserved. Each identifier must be checked
+if it is in a scope in order:
+ - Reserved are special identifiers like registers and abi_stack offsets, if a name
+is not on this set, then it must be tested as a label;
+ - Labels can shadow locals and globals, and are tested second. If a name is not
+a label, then it must be tested as a local;
+ - Locals can only shadow globals, and are tested after labels. If a name is not
+a local, then it must be tested as a global;
+ - Globals are the last scope, if the name fails to be tested as a global,
+the compiler should raise an error declaring that the name does not exist.
+
+### write syscall (asm)
+
+The following is just an example to ilustrate how asm blocks are useful,
+it defines a procedure `print` that calls the `SYS_WRITE` syscall
+with the given buffer, so that it can be printed to `STDOUT`.
+
+```
+export print
+
+const begin
+    SYS_WRITE = 1;
+    STDOUT = 1;
+end
+
+attr abi_stack
+proc print[p:ptr, size:i32] i32
+asm [r0, r2, r6, r7]
+begin
+    push rbp;
+    mov rbp, rsp;
+
+    mov r0, {SYS_WRITE};
+    mov r2, [rbp, size]@dword;
+    mov r6, [rbp, p]@qword;
+    mov r7, {STDOUT};
+    syscall;
+
+    mov [rbp, _out0], r0;
+    mov rsp, rbp;
+    pop rbp;
+    ret;
+end
+```
 
 ## Full Grammar
 
