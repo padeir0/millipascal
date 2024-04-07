@@ -3,12 +3,14 @@ package constexpr
 import (
 	"math/big"
 	. "mpc/core"
+	"mpc/core/asm"
+	au "mpc/core/asm/util"
 	mod "mpc/core/module"
 	gk "mpc/core/module/globalkind"
 	lk "mpc/core/module/lexkind"
+	T "mpc/core/types"
 	util "mpc/core/util"
 	msg "mpc/messages"
-	T "mpc/pir/types"
 )
 
 var i8_min = big.NewInt(-(1 << 7))
@@ -213,16 +215,16 @@ func evalData(m *mod.Module, sy *mod.Global) *Error {
 }
 
 func evalBlob(m *mod.Module, sy *mod.Global, blob *mod.Node) *Error {
-	nums := make([]T.DataEntry, len(blob.Leaves))
+	nums := make([]asm.DataEntry, len(blob.Leaves))
 	size := 0
 	for i, leaf := range blob.Leaves {
 		num, err := compute(m, leaf)
 		if err != nil {
 			return err
 		}
-		nums[i] = T.DataEntry{
+		nums[i] = asm.DataEntry{
 			Num:  num,
-			Type: leaf.Type,
+			Type: au.TypeToTsize(leaf.Type),
 		}
 		size += leaf.Type.Size()
 	}

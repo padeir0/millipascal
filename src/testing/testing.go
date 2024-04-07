@@ -64,7 +64,7 @@ func S_MirGeneration(filename string, outname string) (string, *Error) {
 }
 
 func S_FasmGeneration(filename string, outname string) (string, *Error) {
-	_, err := pipelines.Fasm(filename, outname)
+	_, err := pipelines.Asm(filename, outname)
 	return "", err
 }
 

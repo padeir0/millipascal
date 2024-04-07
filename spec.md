@@ -190,7 +190,6 @@ and the items `One` and `Two` are brought into global scope,
 but their names are shadowed in favour of `Um` and `Dois`,
 respectively.
 
-
 If `M` exported `One` and `Two` in the following way:
 
 ```
@@ -346,7 +345,9 @@ are of that type, a single offset can't be applied to all of them at the same ti
 ### Procedure
 
 ```ebnf
-Procedure = 'proc' id Signature [Vars] (Asm|Block).
+Procedure = 'proc' id [CC] [Signature] [Vars] (Asm|Block).
+
+CC := '<' id '>'.
 
 Signature = DArgs [Rets].
 DArgs = '[' [DeclList] ']'.
@@ -370,6 +371,17 @@ which means all preceding variables have that type.
 
 The body of the procedure can be of two types, one is
 in a high level code, while the other is amd64 assembly.
+
+The `CC` specified is the calling convention, one of:
+ - `stack` arguments and returns are passed on the stack, only `rsp` and `rbp` preserved (default);
+ - `reg` (TBD) arguments and returns are passed in registers, only `rsp` and `rbp` preserved;
+ - `cdecl` (TBD) C calling convention, guarantees to save `rsp` and `rbp` too, amongst other registers;
+ - `gc` (TBD) Garbage collector compatible calling convention;
+ - `reg_a`, `reg_b`, `reg_c` (TBD) register based, with disjoint clobber sets;
+
+If no CC is specified, it defaults to `stack`. Calling convetion
+is part of the type of a procedure, assigning a `stack` procedure
+to a `reg` procedure should yield a compile time error.
 
 ### Blocks
 
@@ -727,9 +739,9 @@ setg setge setl setle
 seta setae setb setbe
 ```
 
-### abi_stack (asm)
+### stack calling convention (asm)
 
-When a procedure has `abi_stack` as an attribute, arguments and variables
+When a procedure has CC `stack`, arguments and variables
 used in instructions will evaluate to their respective offset.
 That is: `mov r0, [rbp, arg]@dword` will eval to `mov r0, [rbp, offset]@dword`,
 and `mov r0, arg` will evaluate to `mov r0, offset`.
@@ -741,7 +753,7 @@ first return of the procedure.
 You can, alternatively, use `_arg0`, `_arg1`, etc to access
 the arguments, but it is preferred to use their actual names.
 
-To pass an argument to a procedure that is `abi_stack`,
+To pass an argument to a procedure with `stack` CC,
 there are identifiers:`_call_arg0`, `_call_arg1`, `_call_arg2`, etc.
 To receive the return arguments of that procedure,
 you can use `_call_ret0`, `_call_ret1`, `_call_ret2`, etc.
@@ -756,6 +768,71 @@ So that you can:
 Variables will also evaluate to offsets, it may be wise instead to keep
 the values in registers at all times and, when needed, spill to locals.
 
+### reg calling convention (asm)
+
+A procedure with `reg` calling convention must not exceed 6 arguments
+or 6 returns. Arguments and returns are passed in registers
+and are placed in order from `r10` to `r15`.
+Registers `r4` and `r5` must be preserved on procedure return.
+Registers from `r0` to `r3` and `r6` to `r9`
+can be freely used as scratch space.
+This can be viewed in a table:
+
+| Register | Status |
+|:--------:|:------:|
+| r0       |   X    |
+| r1       |   X    |
+| r2       |   X    |
+| r3       |   X    |
+| r4 (rsp) | saved  |
+| r5 (rbp) | saved  |
+| r6       |   X    |
+| r7       |   X    |
+| r8       |   X    |
+| r9       |   X    |
+| r10      |   AR   |
+| r11      |   AR   |
+| r12      |   AR   |
+| r13      |   AR   |
+| r14      |   AR   |
+| r15      |   AR   |
+
+Where `AR` indicates Argument/Return passing,
+`X` indicates scratch space (may be clobbered),
+and `saved` must be preserved accross procedure calls.
+If a procedure does not use all `AR` registers,
+the remaining registers may be clobbered.
+
+All live values in registers that can be clobbered must be saved
+by the caller before a procedure call.
+
+In this case, the special identifiers are aliases to registers
+so that `retN`, `argN`, `_call_argN` and `_call_retN`
+all represent the register `r(10+N)`, ie, `arg0` is `r10`,
+`ret1` is `r11`, etc. This means you can write `add arg0, arg0`
+to double `r10`.
+
+If `square`, has type `proc<reg>[i64]i64`, then you
+write `return square[2]` like:
+
+```
+  mov _call_arg0, 2;
+  call square;
+  mov ret0, _call_ret0; # can be omitted, this is just: mov r10, r10
+```
+
+Similarly, `square` can be implemented like:
+
+```
+proc square<reg>[a:i64] i64
+asm [r10]
+begin
+  imul a, a;
+  mov _ret0, a; # can be omitted also
+  ret;
+end
+```
+
 ### registers (asm)
 
 Registers follow the AMD convention, and ignores most cursed names from Intel:
@@ -769,7 +846,7 @@ Registers follow the AMD convention, and ignores most cursed names from Intel:
 
 The registers `rbp` and `rsp` are special because they hold, respectively,
 the base pointer and the stack pointer. The base pointer is used in the 
-`abi_stack` to keep the activation record pointer (ARP).
+`stack` CC to keep the activation record pointer (ARP).
 
 The following table can be useful:
 
@@ -842,7 +919,7 @@ in asm. Given a procedure P, we call it:
   call P;
 ```
 
-All arguments are passed according to the ABI of `P`, and registers
+All arguments are passed according to the calling convention of `P`, and registers
 must be saved accordingly. If `P` is also an asm procedure with
 clobber set, then the specified clobbered registers may need
 to be saved. If the procedure is not an asm procedure, then you must
@@ -870,7 +947,7 @@ correctly being used, they must be specified.
 
 Scopes are: global, local, labels and reserved. Each identifier must be checked
 if it is in a scope in order:
- - Reserved are special identifiers like registers and abi_stack offsets, if a name
+ - Reserved are special identifiers like registers and stack offsets, if a name
 is not on this set, then it must be tested as a label;
  - Labels can shadow locals and globals, and are tested second. If a name is not
 a label, then it must be tested as a local;
@@ -893,8 +970,7 @@ const begin
     STDOUT = 1;
 end
 
-attr abi_stack
-proc print[p:ptr, size:i32] i32
+proc print<mpc>[p:ptr, size:i32] i32
 asm [r0, r2, r6, r7]
 begin
     push rbp;
@@ -996,7 +1072,9 @@ Size = '[' Expr ']'.
 Field = IdList Annot [Offset].
 Offset = '{' Expr '}'.
 
-Procedure = 'proc' id [Signature] [Vars] (Asm|Block).
+Procedure = 'proc' id [CC] [Signature] [Vars] (Asm|Block).
+
+CC := '<' id '>'.
 
 Signature = DArgs [Rets].
 DArgs = '[' [DeclList] ']'.
@@ -1010,7 +1088,7 @@ Decl = IdList Annot.
 Annot = ':' Type.
 
 Type = basicType | ProcType | Name.
-ProcType = 'proc' ProcTTList ProcTTList.
+ProcType = 'proc' [CC] ProcTTList ProcTTList.
 ProcTTList = '[' [TypeList] ']'.
 
 Asm = 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.

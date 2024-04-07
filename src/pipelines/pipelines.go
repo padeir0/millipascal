@@ -1,22 +1,26 @@
 package pipelines
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 
-	constexpr "mpc/constexpr"
-	"mpc/pir"
-	amd64 "mpc/pir/backends/linuxamd64/fasm"
-	mir "mpc/pir/backends/linuxamd64/mir"
-	mirchecker "mpc/pir/backends/linuxamd64/mir/checker"
-	resalloc "mpc/pir/backends/linuxamd64/resalloc"
-	pirchecker "mpc/pir/checker"
+	gen "mpc/backend0/gen"
+	mir "mpc/backend0/mir"
+	mirchecker "mpc/backend0/mir/checker"
+	resalloc "mpc/backend0/resalloc"
+	"mpc/core/asm"
+	fasm "mpc/fasm"
+
+	"mpc/core/pir"
+	pirchecker "mpc/core/pir/checker"
 
 	. "mpc/core"
 	mod "mpc/core/module"
 
+	"mpc/constexpr"
 	"mpc/lexer"
 	"mpc/linearization"
 	"mpc/parser"
@@ -101,7 +105,7 @@ func Pir(file string) (*pir.Program, *Error) {
 		return nil, err
 	}
 
-	err = ProcessPirError(pirchecker.Check(p))
+	err = pirchecker.Check(p)
 	if err != nil {
 		fmt.Println(p)
 		return nil, err
@@ -110,7 +114,7 @@ func Pir(file string) (*pir.Program, *Error) {
 	return p, nil
 }
 
-var NumRegisters = len(amd64.Registers)
+var NumRegisters = len(gen.Registers)
 
 // processes a file and all it's dependencies
 // generates MIR or an error
@@ -120,7 +124,7 @@ func Mir(file string) (*mir.Program, *Error) {
 		return nil, err
 	}
 	mirP := resalloc.Allocate(p, NumRegisters)
-	err = ProcessPirError(mirchecker.Check(mirP))
+	err = mirchecker.Check(mirP)
 	if err != nil {
 		return nil, err
 	}
@@ -128,20 +132,33 @@ func Mir(file string) (*mir.Program, *Error) {
 }
 
 // processes a file and all it's dependencies
-// generates Fasm program or an error
-func Fasm(file string, outname string) (*amd64.FasmProgram, *Error) {
+// generates Asm program or an error
+func Asm(file string, outname string) (*asm.Program, *Error) {
 	mirP, err := Mir(file)
 	if err != nil {
 		return nil, err
 	}
-	out := amd64.Generate(mirP, outname)
+	out := gen.Generate(mirP)
+	if outname != "" {
+		out.FileName = outname
+	} else {
+		out.FileName = mirP.Name
+	}
 	return out, nil
+}
+
+func Fasm(file string) (string, *Error) {
+	p, err := Asm(file, "")
+	if err != nil {
+		return "", err
+	}
+	return fasm.Generate(p), nil
 }
 
 // processes a Millipascal program and saves a binary
 // into disk
 func Compile(file string, outname string) (string, *Error) {
-	fp, err := Fasm(file, outname)
+	fp, err := Asm(file, outname)
 	if err != nil {
 		return "", err
 	}
@@ -149,23 +166,25 @@ func Compile(file string, outname string) (string, *Error) {
 	if ioerr != nil {
 		return "", ProcessFileError(ioerr)
 	}
-	return fp.Name, nil
+	return fp.FileName, nil
 }
 
-func genBinary(fp *amd64.FasmProgram) error {
+func genBinary(fp *asm.Program) error {
 	f, oserr := os.CreateTemp("", "mpc_*")
 	if oserr != nil {
 		return oserr
 	}
 	defer os.Remove(f.Name())
-	_, oserr = f.WriteString(fp.Contents)
+	_, oserr = f.WriteString(fasm.Generate(fp))
 	if oserr != nil {
 		return oserr
 	}
-	cmd := exec.Command("fasm", f.Name(), "./"+fp.Name)
-	_, oserr = cmd.Output()
+	name := "./" + fp.FileName
+	cmd := exec.Command("fasm", f.Name(), name)
+
+	s, oserr := cmd.CombinedOutput()
 	if oserr != nil {
-		return oserr
+		return errors.New(string(s) + "\n" + oserr.Error())
 	}
 	return nil
 }

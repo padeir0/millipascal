@@ -456,7 +456,8 @@ func dExpr(s *Lexer) (*mod.Node, *Error) {
 	return expr, nil
 }
 
-// Procedure := 'proc' id [Signature] [Vars] (Asm|Block).
+// Procedure = 'proc' id [CC] [Signature] [Vars] (Asm|Block).
+// CC := '<' id '>'.
 // Signature := DArgs [Rets].
 func procDef(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "Procedure")
@@ -464,10 +465,16 @@ func procDef(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	var id, args, rets, vars *mod.Node
+	var id, CC, args, rets, vars *mod.Node
 	id, err = expect(s, lk.IDENTIFIER)
 	if err != nil {
 		return nil, err
+	}
+	if s.Word.Lex == lk.LESS {
+		CC, err = cc(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if s.Word.Lex == lk.LEFTBRACKET {
 		args, err = procArgs(s)
@@ -497,7 +504,7 @@ func procDef(s *Lexer) (*mod.Node, *Error) {
 			return nil, err
 		}
 	}
-	kw.SetLeaves([]*mod.Node{id, args, rets, vars, body})
+	kw.SetLeaves([]*mod.Node{id, args, rets, vars, body, CC})
 	return kw, nil
 }
 
@@ -577,12 +584,35 @@ func _type(s *Lexer) (*mod.Node, *Error) {
 	}
 }
 
-// ProcType := 'proc' ProcTTList ProcTTList.
+func cc(s *Lexer) (*mod.Node, *Error) {
+	_, err := consume(s)
+	if err != nil {
+		return nil, err
+	}
+	cc, err := expect(s, lk.IDENTIFIER)
+	if err != nil {
+		return nil, err
+	}
+	_, err = expect(s, lk.MORE)
+	if err != nil {
+		return nil, err
+	}
+	return cc, nil
+}
+
+// ProcType := 'proc' [CC] ProcTTList ProcTTList.
 func procType(s *Lexer) (*mod.Node, *Error) {
 	Track(s, "procType")
 	keyword, err := expect(s, lk.PROC)
 	if err != nil {
 		return nil, err
+	}
+	var CC *mod.Node
+	if s.Word.Lex == lk.LESS {
+		CC, err = cc(s)
+		if err != nil {
+			return nil, err
+		}
 	}
 	args, err := procTTList(s)
 	if err != nil {
@@ -592,7 +622,7 @@ func procType(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	keyword.SetLeaves([]*mod.Node{args, rets})
+	keyword.SetLeaves([]*mod.Node{args, rets, CC})
 	return keyword, err
 }
 

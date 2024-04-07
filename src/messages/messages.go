@@ -6,8 +6,8 @@ import (
 	et "mpc/core/errorkind"
 	ir "mpc/core/module"
 	sv "mpc/core/severity"
+	T "mpc/core/types"
 	. "mpc/core/util"
-	T "mpc/pir/types"
 	"strconv"
 	"strings"
 )
@@ -262,4 +262,8 @@ func UnsizeableType(M *ir.Module, n *ir.Node) *Error {
 
 func InvalidFlag(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidFlag, n, "invalid flag")
+}
+
+func InvalidCC(M *ir.Module, cc *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidCC, cc, "invalid calling convention")
 }

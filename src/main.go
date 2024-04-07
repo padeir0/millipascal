@@ -91,9 +91,9 @@ func normalMode(filename string) {
 		OkOrBurst(err)
 		fmt.Println(mirP)
 	case *asm:
-		fp, err := pipelines.Fasm(filename, *outname)
+		s, err := pipelines.Fasm(filename)
 		OkOrBurst(err)
-		fmt.Println(fp.Contents)
+		fmt.Println(s)
 	case *_format:
 		n, err := pipelines.Ast(filename)
 		OkOrBurst(err)

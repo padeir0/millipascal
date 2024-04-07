@@ -2,12 +2,12 @@ package linearization
 
 import (
 	. "mpc/core"
+	T "mpc/core/types"
 
-	"mpc/pir"
-	pirc "mpc/pir/class"
-	IK "mpc/pir/instrkind"
-	T "mpc/pir/types"
-	RIU "mpc/pir/util"
+	"mpc/core/pir"
+	pirc "mpc/core/pir/class"
+	IK "mpc/core/pir/instrkind"
+	RIU "mpc/core/pir/util"
 
 	mod "mpc/core/module"
 	GK "mpc/core/module/globalkind"

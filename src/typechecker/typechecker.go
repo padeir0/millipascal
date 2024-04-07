@@ -6,8 +6,8 @@ import (
 	GK "mpc/core/module/globalkind"
 	LxK "mpc/core/module/lexkind"
 	LcK "mpc/core/module/localkind"
+	T "mpc/core/types"
 	msg "mpc/messages"
-	T "mpc/pir/types"
 )
 
 func Check(M *mod.Module) *Error {
@@ -336,6 +336,7 @@ func checkProc(M *mod.Module, proc *mod.Proc) *Error {
 	nArgs := proc.N.Leaves[1]
 	nRets := proc.N.Leaves[2]
 	nVars := proc.N.Leaves[3]
+	cc := proc.N.Leaves[5]
 	var err *Error
 	var args, rets []*T.Type
 
@@ -360,7 +361,17 @@ func checkProc(M *mod.Module, proc *mod.Proc) *Error {
 			return err
 		}
 	}
-	t := &T.Type{Proc: &T.ProcType{Args: args, Rets: rets}}
+	var cckind T.CCKind
+	if cc == nil {
+		cckind = T.Stack
+	} else {
+		cckind = T.ConvertCC(cc.Text)
+		if cckind == T.InvalidCCKind {
+			return msg.InvalidCC(M, cc)
+		}
+	}
+
+	t := &T.Type{Proc: &T.ProcType{CC: cckind, Args: args, Rets: rets}}
 	proc.Type = t
 	proc.N.Type = t
 	return nil
@@ -481,8 +492,12 @@ func getType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 }
 
 func getProcType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
+	args := n.Leaves[0]
+	rets := n.Leaves[1]
+	CC := n.Leaves[2]
+
 	argTypes := make([]*T.Type, 0)
-	if n.Leaves[0] != nil {
+	if args != nil {
 		args := n.Leaves[0].Leaves
 		argTypes = make([]*T.Type, len(args))
 		for i, arg := range args {
@@ -495,7 +510,7 @@ func getProcType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 	}
 
 	retTypes := make([]*T.Type, 0)
-	if len(n.Leaves) > 1 && n.Leaves[1] != nil {
+	if rets != nil {
 		rets := n.Leaves[1].Leaves
 		retTypes = make([]*T.Type, len(rets))
 		for i, ret := range rets {
@@ -507,8 +522,19 @@ func getProcType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 		}
 	}
 
+	var cckind T.CCKind
+	if CC != nil {
+		cckind = T.ConvertCC(CC.Text)
+		if cckind == T.InvalidCCKind {
+			return nil, msg.InvalidCC(M, CC)
+		}
+	} else {
+		cckind = T.Stack
+	}
+
 	return &T.Type{
 		Proc: &T.ProcType{
+			CC:   cckind,
 			Args: argTypes,
 			Rets: retTypes,
 		},

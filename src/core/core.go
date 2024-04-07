@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	et "mpc/core/errorkind"
 	sv "mpc/core/severity"
-	pErr "mpc/pir/errors"
 	"strconv"
 )
 
@@ -139,15 +138,4 @@ func ProcessFileError(e error) *Error {
 		Severity: sv.Error,
 		Message:  e.Error(),
 	}
-}
-
-func ProcessPirError(e *pErr.Error) *Error {
-	if e != nil {
-		return &Error{
-			Code:     et.InternalCompilerError,
-			Severity: sv.InternalError,
-			Message:  string(*e),
-		}
-	}
-	return nil
 }

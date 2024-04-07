@@ -2,10 +2,11 @@ package module
 
 import (
 	. "mpc/core"
+	"mpc/core/asm"
 	GK "mpc/core/module/globalkind"
 	LxK "mpc/core/module/lexkind"
 	LcK "mpc/core/module/localkind"
-	T "mpc/pir/types"
+	T "mpc/core/types"
 
 	"fmt"
 	"strings"
@@ -380,7 +381,7 @@ type Data struct {
 	Contents string
 
 	// blob
-	Nums []T.DataEntry
+	Nums []asm.DataEntry
 }
 
 // a constant can either be a integer or a symbol

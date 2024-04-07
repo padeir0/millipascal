@@ -575,7 +575,7 @@ func idlistToStr(list *mod.Node) ([]string, bool) {
 
 func validFlag(flag string) bool {
 	switch flag {
-	case "x64", "linux", "abi_stack":
+	case "pedantic", "rec_pedantic", "align_pack", "c_pad":
 		return true
 	}
 	return false

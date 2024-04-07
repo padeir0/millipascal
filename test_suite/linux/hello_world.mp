@@ -1,5 +1,12 @@
 export print
 
+data hello "Hello, World!\n"
+
+proc main
+begin
+    print[hello, sizeof[hello]];
+end
+
 const begin
     SYS_WRITE = 1;
     STDOUT = 1;

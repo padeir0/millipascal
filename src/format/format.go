@@ -7,6 +7,7 @@ import (
 )
 
 func Format(n *mod.Node) string {
+	panic("outdated")
 	ctx := _context()
 	module(ctx, n)
 	return ctx.String()

@@ -1,7 +1,6 @@
 # TEST SUITE
 
-Tests in the `base` folder do not use asm procedures,
-and are (should be) architecture independent.
+Tests in the `base` folder do not use asm procedures.
 
 Tests in `linux` should work on linux.
 

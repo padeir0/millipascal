@@ -1,4 +1,4 @@
-from io import write
+from io import print
 
 from utf8
 import utf8_encode, MAX_RUNE_SIZE
@@ -6,7 +6,7 @@ import utf8_encode, MAX_RUNE_SIZE
 export
     put_int, put_uint, put_u8, put_u16,
     put_bool, put_char, put_ln, put_rune,
-    write_line,
+    println,
     fatal, debug, oom
 
 data DEBUG_MSG "debug: "
@@ -14,15 +14,15 @@ data Debug [sizeof[i64]] # inits as zero
 
 proc debug[]
 begin
-	write[DEBUG_MSG, sizeof[DEBUG_MSG]];
+	print[DEBUG_MSG, sizeof[DEBUG_MSG]];
 	put_int[Debug@i64];
 	put_char['\n'];
-	set Debug@i64 += 1;
+	set Debug@i64 += 1l;
 end
 
-proc fatal[p:ptr, size:i64]
+proc fatal[p:ptr, size:i32]
 begin
-	write_line[p, size];
+	println[p, size];
 	exit 1ss;
 end
 
@@ -30,17 +30,17 @@ data ERR_OOM "out of memory!\n"
 
 proc oom[]
 begin
-	write_line[ERR_OOM, sizeof[ERR_OOM]];
+	println[ERR_OOM, sizeof[ERR_OOM]];
 	exit 123ss;
 end
 
 data PutRuneBuff [MAX_RUNE_SIZE]
 
 proc put_rune[r:i32]
-var size:i64
+var size:i32
 begin
 	set size = utf8_encode[r, PutRuneBuff];
-	write[PutRuneBuff, size];
+	print[PutRuneBuff, size];
 end
 
 data PutCharBuff [sizeof[i8]]
@@ -48,7 +48,7 @@ data PutCharBuff [sizeof[i8]]
 proc put_char[n:i8]
 begin
 	set PutCharBuff@i8 = n;
-	write[PutCharBuff, sizeof[PutCharBuff]];
+	print[PutCharBuff, sizeof[PutCharBuff]];
 end
 
 proc put_ln[]
@@ -57,77 +57,84 @@ begin
 end
 
 proc put_uint[n:u64]
-var p:ptr, size:i64
+var p:ptr, size:i32
 begin
 	set p, size = u64_to_dec[n, ConvBuff, sizeof[ConvBuff]];
-	write[p, size];
+	print[p, size];
 end
 
 proc put_int[n:i64]
-var p:ptr, size:i64
+var p:ptr, size:i32
 begin
 	set p, size = i64_to_dec[n, ConvBuff, sizeof[ConvBuff]];
-	write[p, size];
+	print[p, size];
 end
 
 proc put_u8[b:u8]
-var p:ptr, size:i64
+var p:ptr, size:i32
 begin
 	set p, size = u8_to_bin[b, ConvBuff, sizeof[ConvBuff]];
-	write[p, size];
+	print[p, size];
 end
 
 proc put_u16[b:u16]
-var p:ptr, size:i64
+var p:ptr, size:i32
 begin
 	set p, size = u16_to_bin[b, ConvBuff, sizeof[ConvBuff]];
-	write[p, size];
+	print[p, size];
 end
 
 proc put_bool[b:bool]
-var p:ptr, size:i64
+var p:ptr, size:i32
 begin
 	set p, size = bool_to_text[b];
-	write[p, size];
+	print[p, size];
 end
 
-proc write_line[p:ptr, size:i64]
+proc println[p:ptr, size:i32]
 begin
-	write[p, size];
+	print[p, size];
 	put_char['\n'];
 end
 
 ####################### conversion functions
 
+data wtf "wtf\n"
 data BUFF_TOO_SMALL "Destination buffer is too small\n"
 data ConvBuff [80]
 
-proc u64_to_dec[n:u64, buff:ptr, buffSize:i64] ptr, i64
-var p:ptr
+proc u64_to_dec[n:u64, buff:ptr, buffSize:i32] ptr, i32
+var p:ptr, size:i64
 begin
-	if n == 0u begin
+	if n == 0ul begin
 		set ConvBuff@i8 = '0';
 		return ConvBuff, 1;
 	end
 
 	set p = buff + buffSize;
 
-	while n > 0u begin
+	while n > 0ul begin
 		set p -= 1;
-		set p@i8 = (n % 10u):i8 + '0';
-		set n /= 10u;
+		set p@i8 = (n % 10ul):i8 + '0';
+		set n /= 10ul;
 	end
 
-	return p, buffSize-(p:i64-buff:i64);
+	set size = (p:i64-buff:i64);
+	if size < 0l begin
+		fatal[wtf, sizeof[wtf]];
+	end
+
+	# downcasting i64 -> i32 should be ok as long as i64 is positive
+	return p, buffSize-(size:i32);
 end
 
 # do not modify the returned buffer
-proc i64_to_dec[n:i64, buff:ptr, buffSize:i64] ptr, i64
+proc i64_to_dec[n:i64, buff:ptr, buffSize:i32] ptr, i32
 var sign:i8
 begin
 	set sign = 0ss;
 
-	if n < 0 begin
+	if n < 0l begin
 		set sign = '~';
 		set n = ~n;
 	end
@@ -145,7 +152,7 @@ data _T "true"
 data _F "false"
 
 # do not modify the returned buffer
-proc bool_to_text[b:bool] ptr, i64
+proc bool_to_text[b:bool] ptr, i32
 begin
 	if b
 	begin
@@ -157,7 +164,7 @@ begin
 	end
 end
 
-proc u8_to_bin[b:u8, buff:ptr, buffSize:i64] ptr, i64
+proc u8_to_bin[b:u8, buff:ptr, buffSize:i32] ptr, i32
 begin
 	if buffSize < 9 begin
 		fatal[BUFF_TOO_SMALL, sizeof[BUFF_TOO_SMALL]];
@@ -177,8 +184,8 @@ begin
 	return buff, 9;
 end
 
-proc u16_to_bin[b:u16, buff:ptr, buffSize:i64] ptr, i64
-var i, j:i64,
+proc u16_to_bin[b:u16, buff:ptr, buffSize:i32] ptr, i32
+var i, j:i32,
 	mask:u16
 begin
 	set i = 0;
