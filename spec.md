@@ -746,18 +746,6 @@ first return of the procedure.
 You can, alternatively, use `_arg0`, `_arg1`, etc to access
 the arguments, but it is preferred to use their actual names.
 
-To pass an argument to a procedure with `stack` CC,
-there are identifiers:`_call_arg0`, `_call_arg1`, `_call_arg2`, etc.
-To receive the return arguments of that procedure,
-you can use `_call_ret0`, `_call_ret1`, `_call_ret2`, etc.
-So that you can:
-
-```
-  mov [rbp, _call_arg0]@dword, 2;
-  call square;
-  mov r0, [rbp, _call_ret0]@dword;
-```
-
 Variables will also evaluate to offsets, it may be wise instead to keep
 the values in registers at all times and, when needed, spill to locals.
 
@@ -800,18 +788,18 @@ All live values in registers that can be clobbered must be saved
 by the caller before a procedure call.
 
 In this case, the special identifiers are aliases to registers
-so that `retN`, `argN`, `_call_argN` and `_call_retN`
-all represent the register `r(10+N)`, ie, `arg0` is `r10`,
-`ret1` is `r11`, etc. This means you can write `add arg0, arg0`
+so that `_retN` and `_argN`
+all represent the register `r(10+N)`, ie, `_arg0` is `r10`,
+`_ret1` is `r11`, etc. This means you can write `add _arg0, _arg0`
 to double `r10`.
 
 If `square`, has type `proc<reg>[i64]i64`, then you
 write `return square[2]` like:
 
 ```
-  mov _call_arg0, 2;
+  mov r10, 2;
   call square;
-  mov ret0, _call_ret0; # can be omitted, this is just: mov r10, r10
+  mov _ret0, r10; # can be omitted, this is just: mov r10, r10
 ```
 
 Similarly, `square` can be implemented like:
@@ -932,7 +920,7 @@ There's a lot of new names in assembly, to make sure all identifiers are
 correctly being used, they must be specified.
 
  - No arguments, variables or labels can have the same name as a register;
- - No arguments, variables and labels can be of the form `_argN`, `_retN`, `_call_argN` or`_call_retN`;
+ - No arguments, variables and labels can be of the form `_argN`, `_retN`;
  - Two Labels must not be identical;
 
 Scopes are: global, local, labels and reserved. Each identifier must be checked
@@ -945,39 +933,6 @@ a label, then it must be tested as a local;
 a local, then it must be tested as a global;
  - Globals are the last scope, if the name fails to be tested as a global,
 the compiler should raise an error declaring that the name does not exist.
-
-### write syscall (asm)
-
-The following is just an example to ilustrate how asm blocks are useful,
-it defines a procedure `print` that calls the `SYS_WRITE` syscall
-with the given buffer, so that it can be printed to `STDOUT`.
-
-```
-export print
-
-const begin
-    SYS_WRITE = 1;
-    STDOUT = 1;
-end
-
-proc print<mpc>[p:ptr, size:i32] i32
-asm [r0, r2, r6, r7]
-begin
-    push rbp;
-    mov rbp, rsp;
-
-    mov r0, {SYS_WRITE};
-    mov r2, [rbp, size]@dword;
-    mov r6, [rbp, p]@qword;
-    mov r7, {STDOUT};
-    syscall;
-
-    mov [rbp, _out0], r0;
-    mov rsp, rbp;
-    pop rbp;
-    ret;
-end
-```
 
 ## Full Grammar
 
