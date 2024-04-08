@@ -5,6 +5,7 @@ import (
 	"mpc/core/asm"
 	. "mpc/core/asm/instrkind"
 	T "mpc/core/types"
+	"strconv"
 )
 
 var RSP = asm.Operand{
@@ -79,6 +80,16 @@ func LabelLine(lbl string) asm.Line {
 	}
 }
 
+func InstrLine(kind InstrKind, ops []asm.Operand) asm.Line {
+	return asm.Line{
+		Instr: asm.Instr{
+			Kind:     kind,
+			Operands: ops,
+		},
+		IsLabel: false,
+	}
+}
+
 func AddrFrame(a int, size asm.TypeSize) asm.Operand {
 	return asm.Operand{
 		Kind: asm.Addressing,
@@ -129,6 +140,10 @@ func Plain(kind InstrKind) asm.Line {
 	}
 }
 
+func BadOp() asm.Operand {
+	return asm.Operand{}
+}
+
 func TypeToTsize(t *T.Type) asm.TypeSize {
 	switch t.Size() {
 	case 1:
@@ -142,4 +157,82 @@ func TypeToTsize(t *T.Type) asm.TypeSize {
 	default:
 		return asm.InvalidTypeSize
 	}
+}
+
+func StringToReg(s string) (asm.Operand, bool) {
+	reg, ok := stringToReg(s)
+	if !ok {
+		return BadOp(), false
+	}
+	return asm.Operand{
+		Kind: asm.Simple,
+		A: asm.Value{
+			Kind: asm.Reg,
+			Reg:  reg,
+		},
+	}, true
+}
+
+// rN(d|w|b|\e)
+// rbp, rsp, rip
+func stringToReg(s string) (asm.Register, bool) {
+	if s == "" || s[0] != 'r' {
+		return asm.Register{}, false
+	}
+	switch s {
+	case "rsp":
+		return asm.Register{
+			ID:       4,
+			TypeSize: asm.QuadWord,
+		}, true
+	case "rbp":
+		return asm.Register{
+			ID:       5,
+			TypeSize: asm.QuadWord,
+		}, true
+	case "rip":
+		return asm.Register{
+			ID:       16,
+			TypeSize: asm.QuadWord,
+		}, true
+	}
+	start, end := FindDigits(s)
+	i, err := strconv.ParseInt(s[start:end+1], 10, 64)
+	if err != nil {
+		return asm.Register{}, false
+	}
+	var sz asm.TypeSize = asm.QuadWord
+	if end+1 < len(s) {
+		switch s[end+1] {
+		case 'd':
+			sz = asm.DoubleWord
+		case 'w':
+			sz = asm.Word
+		case 'b':
+			sz = asm.Byte
+		}
+	}
+	return asm.Register{
+		ID:       int(i),
+		TypeSize: sz,
+	}, true
+}
+
+func FindDigits(s string) (int, int) {
+	start := -1
+	end := -1
+	for i := range s {
+		digit := IsDigit(s[i])
+		if start == -1 && digit {
+			start = i
+		}
+		if digit {
+			end = i
+		}
+	}
+	return start, end
+}
+
+func IsDigit(c byte) bool {
+	return c >= '0' && c <= '9'
 }

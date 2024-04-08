@@ -637,8 +637,8 @@ func getProcSymbol(M *mod.Module, n *mod.Node, idlist []string) *mod.Global {
 		Attr:       idlist,
 		Proc: &mod.Proc{
 			Name:   name,
-			ArgMap: map[string]mod.PositionalLocal{},
-			Vars:   map[string]mod.PositionalLocal{},
+			ArgMap: map[string]int{},
+			VarMap: map[string]int{},
 			N:      n,
 		},
 		N: n,

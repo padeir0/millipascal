@@ -275,3 +275,11 @@ func DuplicatedLabel(M *ir.Module, lbl *ir.Node) *Error {
 func InvalidNestedAddr(M *ir.Module, op *ir.Node) *Error {
 	return NewSemanticError(M, et.NestedAddress, op, "invalid nested address")
 }
+
+func InvalidInstr(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidInstr, op, "invalid instruction")
+}
+
+func InvalidTypeSize(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidTypeSize, op, "invalid type size")
+}

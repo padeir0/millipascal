@@ -195,8 +195,8 @@ func (this *Global) ResetVisited() {
 	}
 }
 
-func (v *Global) String() string {
-	return v.Kind.String() + " " + v.Name
+func (this *Global) String() string {
+	return this.Kind.String() + " " + this.Name
 }
 
 func (this *Global) GetType() *T.Type {
@@ -214,27 +214,32 @@ func (this *Global) GetType() *T.Type {
 	}
 }
 
+/*
+All ABIs must respect this, no calling convention may
+alter the mangling of names.
+*/
+func (this *Global) Label() string {
+	return this.ModuleName + "_" + this.Name
+}
+
 type Local struct {
-	Kind LcK.LocalKind
-	Name string
-	N    *Node
-	T    *T.Type
+	Kind     LcK.LocalKind
+	Position int
+	Name     string
+	N        *Node
+	T        *T.Type
 }
 
 func (this *Local) String() string {
 	return this.Name + ":" + this.T.String()
 }
 
-type PositionalLocal struct {
-	Position int
-	Local    *Local
-}
-
 type Proc struct {
 	Name   string
-	ArgMap map[string]PositionalLocal
-	Vars   map[string]PositionalLocal
+	ArgMap map[string]int
+	VarMap map[string]int
 	Args   []*Local
+	Vars   []*Local
 	Rets   []*T.Type
 	Type   *T.Type
 	Asm    []asm.Line
@@ -242,32 +247,44 @@ type Proc struct {
 	N *Node
 }
 
-func (p *Proc) StrArgs() string {
+func (this *Proc) StrArgs() string {
 	output := []string{}
-	for _, decl := range p.ArgMap {
-		output = append(output, decl.Local.String())
+	for _, decl := range this.Args {
+		output = append(output, decl.String())
 	}
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) StrVars() string {
+func (this *Proc) StrVars() string {
 	output := []string{}
-	for _, decl := range p.Vars {
-		output = append(output, decl.Local.String())
+	for _, decl := range this.Vars {
+		output = append(output, decl.String())
 	}
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) StrRets() string {
+func (this *Proc) StrRets() string {
 	output := []string{}
-	for _, ret := range p.Rets {
+	for _, ret := range this.Rets {
 		output = append(output, ret.String())
 	}
 	return strings.Join(output, ", ")
 }
 
-func (p *Proc) DoesReturnSomething() bool {
-	return len(p.Rets) > 0
+func (this *Proc) DoesReturnSomething() bool {
+	return len(this.Rets) > 0
+}
+
+func (this *Proc) GetLocal(name string) *Local {
+	pos, ok := this.ArgMap[name]
+	if ok {
+		return this.Args[pos]
+	}
+	pos, ok = this.VarMap[name]
+	if ok {
+		return this.Vars[pos]
+	}
+	return nil
 }
 
 func FromSymbol(s *Global) SyField {

@@ -74,6 +74,8 @@ const (
 	InvalidCC
 	DupLabel
 	NestedAddress
+	InvalidInstr
+	InvalidTypeSize
 )
 
 func (et ErrorKind) String() string {
@@ -151,4 +153,6 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidCC:                      "E067",
 	DupLabel:                       "E068",
 	NestedAddress:                  "E069",
+	InvalidInstr:                   "E070",
+	InvalidTypeSize:                "E071",
 }

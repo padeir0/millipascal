@@ -401,10 +401,11 @@ func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Erro
 		idlist := decl.Leaves[0]
 		for _, id := range idlist.Leaves {
 			d := &mod.Local{
-				Name: id.Text,
-				N:    id,
-				Kind: LcK.Argument,
-				T:    tp,
+				Position: position,
+				Name:     id.Text,
+				N:        id,
+				Kind:     LcK.Argument,
+				T:        tp,
 			}
 			err := verifyIfDefined(M, proc, d)
 			if err != nil {
@@ -412,9 +413,7 @@ func checkProcArgs(M *mod.Module, proc *mod.Proc, n *mod.Node) ([]*T.Type, *Erro
 			}
 			decl.Type = d.T
 			tps = append(tps, d.T)
-			proc.ArgMap[d.Name] = mod.PositionalLocal{
-				Position: position, Local: d,
-			}
+			proc.ArgMap[d.Name] = position //hmm
 			proc.Args = append(proc.Args, d)
 			position++
 		}
@@ -432,19 +431,19 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		}
 		for _, id := range idlist.Leaves {
 			d := &mod.Local{
-				Name: id.Text,
-				N:    id,
-				Kind: LcK.Variable,
-				T:    tp,
+				Position: position,
+				Name:     id.Text,
+				N:        id,
+				Kind:     LcK.Variable,
+				T:        tp,
 			}
 			err := verifyIfDefined(M, proc, d)
 			if err != nil {
 				return err
 			}
 			decl.Type = d.T
-			proc.Vars[d.Name] = mod.PositionalLocal{
-				Position: position, Local: d,
-			}
+			proc.VarMap[d.Name] = position
+			proc.Vars = append(proc.Vars, d)
 			position++
 		}
 	}
@@ -452,7 +451,7 @@ func checkProcVars(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 }
 
 func verifyIfDefined(M *mod.Module, proc *mod.Proc, d *mod.Local) *Error {
-	l := getLocal(proc, d.Name)
+	l := proc.GetLocal(d.Name)
 	if l != nil {
 		return msg.ErrorNameAlreadyDefined(M, d.N, d.Name)
 	}
@@ -856,7 +855,7 @@ func isAssignable(proc *mod.Proc, n *mod.Node) bool {
 	switch n.Lex {
 	case LxK.IDENTIFIER:
 		id := n.Text
-		return getLocal(proc, id) != nil
+		return proc.GetLocal(id) != nil
 	case LxK.AT, LxK.ARROW:
 		return true
 	default:
@@ -891,7 +890,7 @@ func checkAssignees(M *mod.Module, proc *mod.Proc, left *mod.Node) *Error {
 }
 
 func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
-	d := getLocal(proc, assignee.Text)
+	d := proc.GetLocal(assignee.Text)
 	if d != nil {
 		assignee.Type = d.T
 		return nil
@@ -901,18 +900,6 @@ func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
 		return msg.ErrorCannotAssignGlobal(M, assignee)
 	}
 	return msg.ErrorNameNotDefined(M, assignee)
-}
-
-func getLocal(proc *mod.Proc, name string) *mod.Local {
-	posSy, ok := proc.ArgMap[name]
-	if ok {
-		return posSy.Local
-	}
-	def, ok := proc.Vars[name]
-	if ok {
-		return def.Local
-	}
-	return nil
 }
 
 func checkMultiAssignment(M *mod.Module, left *mod.Node, n *mod.Node) *Error {
@@ -1125,7 +1112,7 @@ func checkExternalID(M *mod.Module, dcolon *mod.Node) *Error {
 
 func checkID(M *mod.Module, proc *mod.Proc, id *mod.Node, disallow bool) *Error {
 	if proc != nil { // means we're inside a procedure
-		local := getLocal(proc, id.Text)
+		local := proc.GetLocal(id.Text)
 		if local != nil {
 			id.Type = local.T
 			return nil

@@ -14,6 +14,8 @@ import (
 	LK "mpc/core/module/lexkind"
 	msg "mpc/messages"
 
+	lck "mpc/core/module/localkind"
+
 	"fmt"
 	"math/big"
 	"strconv"
@@ -60,14 +62,15 @@ func (c *context) AllocTemp(t *T.Type) pir.Operand {
 	return op
 }
 
-func (c *context) GetSymbolID(modName string, name string) pir.SymbolID {
-	return c.symbolMap[modName+"_"+name]
+func (c *context) GetSymbolID(sy *mod.Global) pir.SymbolID {
+	return c.symbolMap[sy.Label()]
 }
 
-func (c *context) GetSymbol(modName string, name string) *pir.Symbol {
-	i, ok := c.symbolMap[modName+"_"+name]
+func (c *context) GetSymbol(sy *mod.Global) *pir.Symbol {
+	label := sy.Label()
+	i, ok := c.symbolMap[label]
 	if !ok {
-		fmt.Println(modName + "_" + name)
+		fmt.Println(label)
 		fmt.Println(c.symbolMap)
 		panic("name not found in symbol map")
 	}
@@ -92,7 +95,7 @@ func Generate(M *mod.Module) (*pir.Program, *Error) {
 		panic("UERES MAIN")
 	}
 
-	c.Program.Entry = c.GetSymbolID(sy.ModuleName, sy.Name)
+	c.Program.Entry = c.GetSymbolID(sy)
 	c.Program.Name = sy.ModuleName
 
 	return c.Program, nil
@@ -109,11 +112,11 @@ func declAll(c *context, M *mod.Module) {
 	for _, sy := range M.Globals {
 		if !sy.External {
 			if sy.Kind == GK.Proc {
-				p := newPirProc(M.Name, sy.Proc)
+				p := newPirProc(sy)
 				i := c.Program.AddProc(p)
 				c.symbolMap[p.Label] = pir.SymbolID(i)
 			} else if sy.Kind == GK.Data {
-				m := newPirMem(c, M.Name, sy.Data)
+				m := newPirMem(c, sy)
 				i := c.Program.AddMem(m)
 				c.symbolMap[m.Label] = pir.SymbolID(i)
 			}
@@ -135,7 +138,7 @@ func genAll(c *context, M *mod.Module) *Error {
 	for _, sy := range M.Globals {
 		if !sy.External {
 			if sy.Kind == GK.Proc {
-				err := genProc(c, M, sy.Proc)
+				err := genProc(c, M, sy)
 				if err != nil {
 					return err
 				}
@@ -145,9 +148,10 @@ func genAll(c *context, M *mod.Module) *Error {
 	return nil
 }
 
-func genProc(c *context, M *mod.Module, proc *mod.Proc) *Error {
+func genProc(c *context, M *mod.Module, sy *mod.Global) *Error {
+	proc := sy.Proc
 	c.ModProc = proc
-	c.PirProc = c.GetSymbol(M.Name, proc.Name).Proc
+	c.PirProc = c.GetSymbol(sy).Proc
 
 	startID, start := c.NewBlock()
 	c.PirProc.Start = startID
@@ -644,20 +648,22 @@ func genExternalID(c *context, M *mod.Module, dcolon *mod.Node) pir.Operand {
 }
 
 func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
-	decl, ok := c.ModProc.Vars[id.Text]
-	if ok {
-		return pir.Operand{
-			Class: pirc.Variable,
-			Type:  id.Type,
-			ID:    int64(decl.Position),
-		}
-	}
-	posSy, ok := c.ModProc.ArgMap[id.Text]
-	if ok {
-		return pir.Operand{
-			Class: pirc.Arg,
-			Type:  id.Type,
-			ID:    int64(posSy.Position),
+	local := c.ModProc.GetLocal(id.Text)
+	if local != nil {
+		if local.Kind == lck.Variable {
+			return pir.Operand{
+				Class: pirc.Variable,
+				Type:  id.Type,
+				ID:    int64(local.Position),
+			}
+		} else if local.Kind == lck.Argument {
+			return pir.Operand{
+				Class: pirc.Arg,
+				Type:  id.Type,
+				ID:    int64(local.Position),
+			}
+		} else {
+			panic("unreachable")
 		}
 	}
 	global := M.GetSymbol(id.Text)
@@ -668,7 +674,7 @@ func genExprID(M *mod.Module, c *context, id *mod.Node) pir.Operand {
 }
 
 func globalToOperand(c *context, M *mod.Module, global *mod.Global) pir.Operand {
-	i := int64(c.GetSymbolID(global.ModuleName, global.Name))
+	i := int64(c.GetSymbolID(global))
 	switch global.Kind {
 	case GK.Proc:
 		return pir.Operand{
@@ -963,17 +969,18 @@ func lexToUnaryOp(op LK.LexKind) IK.InstrKind {
 	panic("lexToUnaryOp: unexpected unaryOp")
 }
 
-func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
+func newPirProc(sy *mod.Global) *pir.Procedure {
+	P := sy.Proc
 	args := []*T.Type{}
 	for _, arg := range P.Args {
 		args = append(args, arg.T)
 	}
 	vars := make([]*T.Type, len(P.Vars))
 	for _, ps := range P.Vars {
-		vars[ps.Position] = ps.Local.T
+		vars[ps.Position] = ps.T
 	}
 	return &pir.Procedure{
-		Label: modName + "_" + P.Name,
+		Label: sy.Label(),
 		CC:    P.Type.Proc.CC,
 		Vars:  vars,
 		Rets:  P.Rets,
@@ -981,9 +988,10 @@ func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
 	}
 }
 
-func newPirMem(c *context, modName string, dt *mod.Data) *pir.DataDecl {
+func newPirMem(c *context, sy *mod.Global) *pir.DataDecl {
+	dt := sy.Data
 	return &pir.DataDecl{
-		Label:    modName + "_" + dt.Name,
+		Label:    sy.Label(),
 		Size:     dt.Size,
 		Data:     dt.Contents,
 		DataSize: dt.Type.Size(),
@@ -994,9 +1002,7 @@ func newPirMem(c *context, modName string, dt *mod.Data) *pir.DataDecl {
 func mapSymbols(c *context, symbols []*mod.Global) []pir.SymbolID {
 	out := make([]pir.SymbolID, len(symbols))
 	for i, sy := range symbols {
-		mod := sy.ModuleName
-		name := sy.Name
-		id := c.GetSymbolID(mod, name)
+		id := c.GetSymbolID(sy)
 		out[i] = id
 	}
 	return out
