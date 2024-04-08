@@ -79,7 +79,8 @@ func genMem(mem *mir.DataDecl) asm.Data {
 
 func genProc(P *mir.Program, proc *mir.Procedure) []asm.Line {
 	if proc.Asm != nil {
-		return proc.Asm
+		op := LabelLine(proc.Label)
+		return append([]asm.Line{op}, proc.Asm...)
 	}
 	stackReserve := 8 * (proc.NumOfVars + proc.NumOfSpills + proc.NumOfMaxCalleeArguments)
 	output := []asm.Line{
@@ -243,14 +244,14 @@ func genLoadStore(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Li
 func genLoadPtr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Line {
 	newA := convertOperandProc(P, proc, instr.A.Op())
 	newDest := convertOperandProc(P, proc, instr.Dest.Op())
-	a := Bin(Mov, newDest, Addr(newA, TypeToTsize(instr.Type)))
+	a := Bin(Mov, newDest, AddrSimple(newA, TypeToTsize(instr.Type)))
 	return []asm.Line{a}
 }
 
 func genStorePtr(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Line {
 	out, newA := resolveOperand(P, proc, instr.A.Operand)
 	newDest := convertOperandProc(P, proc, instr.B.Op())
-	addr := Addr(newDest, TypeToTsize(instr.Type))
+	addr := AddrSimple(newDest, TypeToTsize(instr.Type))
 	a := Bin(Mov, addr, newA)
 	out = append(out, a)
 	return out
@@ -771,9 +772,15 @@ func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumO
 		}
 		return Const(op.Num)
 	case mirc.Static:
-		sy := P.Symbols[op.ID]
+		sy := P.FindSymbol(mir.SymbolID(op.ID))
+		if sy == nil {
+			panic("symbol was nil")
+		}
 		if sy.Proc != nil {
 			return LabelOp(sy.Proc.Label)
+		}
+		if sy.Mem == nil && sy.Proc == nil {
+			panic("Mem and Proc were nil")
 		}
 		return LabelOp(sy.Mem.Label)
 	}
@@ -906,7 +913,6 @@ func signExtend(P *mir.Program, proc *mir.Procedure, instr mir.Instr, opnd mir.O
 func getReg(op mir.Operand) RegMap {
 	num := op.ID
 	if num > int64(len(Registers)) || num < 0 {
-		fmt.Println(op)
 		panic("oh no")
 	}
 	return Registers[num]

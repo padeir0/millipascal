@@ -5,7 +5,7 @@ begin
     end
 end
 
-const INT_MIN = (~(1<<63)):i64
+const VERY_SMALL = (~(1<<16)):i64
 
 data array {
     1, 5, ~4, 0, 7
@@ -16,25 +16,32 @@ var min:i64
 asm
 begin
 .start:
-    _load r9, array;
-    _load r10, {sizeof[array]};
+    push rbp;
+    mov rbp, rsp;
+
+    mov r9, [rbp, array]@qword;
+    mov r10, {sizeof[array]};
     mov r11, 0;
-    _store min, INT_MIN;
+    mov [rbp, min]@qword, {VERY_SMALL};
 .loop_check:
     cmp r11, r10;
     jge min_ret;
 .loop_body:
     mov r12, [r9, r11]@qword;
-    _load r13, min;
+    mov r13, [rbp, min]@qword;
     cmp r12, r13;
     jl loop_set_min; # execution continues as normal asm, falling into the next block
 .loop_end:
     add r11, {sizeof[i64]};
     jmp loop_check;
 .loop_set_min:
-    _store min, r12;
+    mov [rbp, min]@qword, r12;
     jmp loop_end;
 .min_ret:
-    _load r13, min;
-    _ret r13;
+    mov r13, [rbp, min]@qword;
+
+    mov [rbp, _ret0]@qword, r13;
+    mov rsp, rbp;
+    pop rbp;
+    ret;
 end

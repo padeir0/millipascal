@@ -283,3 +283,7 @@ func InvalidInstr(M *ir.Module, op *ir.Node) *Error {
 func InvalidTypeSize(M *ir.Module, op *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidTypeSize, op, "invalid type size")
 }
+
+func InvalidOperand(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.InvalidOperand, op, "invalid operand")
+}

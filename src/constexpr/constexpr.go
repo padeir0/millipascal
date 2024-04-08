@@ -262,7 +262,7 @@ func evalOpList(M *mod.Module, opList *mod.Node) *Error {
 			if err != nil {
 				return err
 			}
-			expr.Value = num
+			op.Value = num
 		}
 		if op.Lex == lk.LEFTBRACKET {
 			innerList := op.Leaves[0]

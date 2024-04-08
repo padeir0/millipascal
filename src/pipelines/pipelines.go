@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"mpc/asmproc"
 	gen "mpc/backend0/gen"
 	mir "mpc/backend0/mir"
 	mirchecker "mpc/backend0/mir/checker"
@@ -96,6 +97,11 @@ func Pir(file string) (*pir.Program, *Error) {
 	}
 
 	err = typechecker.CheckMain(m)
+	if err != nil {
+		return nil, err
+	}
+
+	err = asmproc.GenAsmProcs(m)
 	if err != nil {
 		return nil, err
 	}

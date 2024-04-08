@@ -102,13 +102,22 @@ func AddrFrame(a int, size asm.TypeSize) asm.Operand {
 	}
 }
 
-func Addr(op asm.Operand, size asm.TypeSize) asm.Operand {
+func AddrSimple(op asm.Operand, size asm.TypeSize) asm.Operand {
 	return asm.Operand{
 		Kind: asm.Addressing,
 		A:    op.A,
 		B: asm.Value{
 			Kind: asm.InvalidValueKind,
 		},
+		TypeSize: size,
+	}
+}
+
+func Addr(A asm.Operand, B asm.Operand, size asm.TypeSize) asm.Operand {
+	return asm.Operand{
+		Kind:     asm.Addressing,
+		A:        A.A,
+		B:        B.A,
 		TypeSize: size,
 	}
 }

@@ -76,6 +76,7 @@ const (
 	NestedAddress
 	InvalidInstr
 	InvalidTypeSize
+	InvalidOperand
 )
 
 func (et ErrorKind) String() string {
@@ -155,4 +156,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	NestedAddress:                  "E069",
 	InvalidInstr:                   "E070",
 	InvalidTypeSize:                "E071",
+	InvalidOperand:                 "E072",
 }

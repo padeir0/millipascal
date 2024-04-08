@@ -25,6 +25,7 @@ import (
 
 	cc "mpc/core/cc/stack"
 
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -47,7 +48,7 @@ func genProc(M *mod.Module, sy *mod.Global) *Error {
 	if body.Lex != lk.ASM {
 		return nil
 	}
-	lines := body.Leaves[1]
+	lines := body.Leaves[0]
 	labels, err := findLabels(M, lines)
 	if err != nil {
 		return err
@@ -142,6 +143,7 @@ func convertOp(ctx context, op *mod.Node, insideAddr bool) (asm.Operand, *Error)
 		lk.CHAR_LIT, lk.TRUE, lk.FALSE, lk.PTR_LIT:
 		return au.Const(op.Value), nil
 	default:
+		fmt.Println(op)
 		panic("unreachable")
 	}
 }
@@ -154,10 +156,27 @@ func convAddr(ctx context, op *mod.Node) (asm.Operand, *Error) {
 		return au.BadOp(), msg.InvalidTypeSize(ctx.M, op)
 	}
 	if len(ops.Leaves) == 1 { // [a]
+		a := ops.Leaves[0]
+		Aop, err := convertOp(ctx, a, true)
+		if err != nil {
+			return au.BadOp(), err
+		}
+		return au.AddrSimple(Aop, tsize), nil
 	}
 	if len(ops.Leaves) == 2 { // [a, b]
+		a := ops.Leaves[0]
+		Aop, err := convertOp(ctx, a, true)
+		if err != nil {
+			return au.BadOp(), err
+		}
+		b := ops.Leaves[1]
+		Bop, err := convertOp(ctx, b, true)
+		if err != nil {
+			return au.BadOp(), err
+		}
+		return au.Addr(Aop, Bop, tsize), nil
 	}
-	panic("unimplemented")
+	return au.BadOp(), msg.InvalidOperand(ctx.M, op)
 }
 
 func convertID(ctx context, op *mod.Node) (asm.Operand, *Error) {
@@ -194,7 +213,7 @@ func stringToSpecial(s string) (asm.Operand, bool) {
 	start, end := au.FindDigits(s)
 	var num int
 	if start != -1 && end != -1 {
-		n, err := strconv.ParseInt(s[start:end], 10, 64)
+		n, err := strconv.ParseInt(s[start:end+1], 10, 64)
 		if err != nil {
 			return au.BadOp(), false
 		}

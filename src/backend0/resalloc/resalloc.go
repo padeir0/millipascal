@@ -377,6 +377,9 @@ func Allocate(P *pir.Program, numRegs int) *mir.Program {
 
 func allocProc(Program *pir.Program, proc *pir.Procedure, numRegs int) *mir.Procedure {
 	outProc := hirToMirProc(proc)
+	if outProc.Asm != nil {
+		return outProc
+	}
 	outProc.AllBlocks = make([]*mir.BasicBlock, len(proc.AllBlocks))
 	outProc.NumOfSpills = 0
 	for i, curr := range proc.AllBlocks {
@@ -1108,6 +1111,7 @@ func hirToMirProc(proc *pir.Procedure) *mir.Procedure {
 		Args:                    proc.Args,
 		Rets:                    proc.Rets,
 		Start:                   mir.BlockID(proc.Start),
+		Asm:                     proc.Asm,
 		NumOfVars:               0,
 		NumOfSpills:             0,
 		NumOfMaxCalleeArguments: 0,

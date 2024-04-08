@@ -1350,7 +1350,7 @@ func op(s *Lexer) (*mod.Node, *Error) {
 	}
 }
 
-// Addressing := '[' OpList ']' ['@' id].
+// Addressing := '[' OpList ']' '@' id.
 func addressing(s *Lexer) (*mod.Node, *Error) {
 	bracket, err := expect(s, lk.LEFTBRACKET)
 	if err != nil {
@@ -1368,16 +1368,13 @@ func addressing(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	var mode *mod.Node
-	if s.Word.Lex == lk.AT {
-		_, err = consume(s)
-		if err != nil {
-			return nil, err
-		}
-		mode, err = expect(s, lk.IDENTIFIER)
-		if err != nil {
-			return nil, err
-		}
+	_, err = expect(s, lk.AT)
+	if err != nil {
+		return nil, err
+	}
+	mode, err := expect(s, lk.IDENTIFIER)
+	if err != nil {
+		return nil, err
 	}
 	bracket.SetLeaves([]*mod.Node{opList, mode})
 	return bracket, nil

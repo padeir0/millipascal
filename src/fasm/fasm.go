@@ -181,6 +181,9 @@ var zero = big.NewInt(0)
 var scratch = big.NewInt(0)
 
 func convNum(num *big.Int) string {
+	if num == nil {
+		return "nil" // easier to debug this way
+	}
 	sign := ""
 	if num.Cmp(zero) == -1 {
 		sign = "-"

@@ -560,10 +560,51 @@ func getIDType(M *mod.Module, n *mod.Node) (*T.Type, *Error) {
 }
 
 func checkBlock(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	if n.Lex == LxK.ASM {
+		lines := n.Leaves[0]
+		for _, line := range lines.Leaves {
+			err := checkLine(M, proc, line)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for _, code := range n.Leaves {
 		err := checkStatement(M, proc, code)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func checkLine(M *mod.Module, proc *mod.Proc, line *mod.Node) *Error {
+	if line.Lex == LxK.INSTR {
+		opList := line.Leaves[1]
+		err := resOpList(M, proc, opList)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resOpList(M *mod.Module, proc *mod.Proc, opList *mod.Node) *Error {
+	for _, op := range opList.Leaves {
+		if op.Lex == LxK.LEFTBRACE {
+			expr := op.Leaves[0]
+			err := checkExpr(M, proc, expr)
+			if err != nil {
+				return err
+			}
+		}
+		if op.Lex == LxK.LEFTBRACKET {
+			innerList := op.Leaves[0]
+			err := resOpList(M, proc, innerList)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
