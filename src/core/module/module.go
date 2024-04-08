@@ -237,6 +237,7 @@ type Proc struct {
 	Args   []*Local
 	Rets   []*T.Type
 	Type   *T.Type
+	Asm    []asm.Line
 
 	N *Node
 }

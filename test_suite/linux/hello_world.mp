@@ -13,8 +13,7 @@ const begin
 end
 
 proc print<stack>[p:ptr, size:i32] i32
-asm [r0, r2, r6, r7]
-begin
+asm begin
     push rbp;
     mov rbp, rsp;
 

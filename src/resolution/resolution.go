@@ -5,11 +5,12 @@ import (
 	"io/ioutil"
 	"strings"
 
-	. "mpc/core"
-	et "mpc/core/errorkind"
-	mod "mpc/core/module"
+	EK "mpc/core/errorkind"
 	GK "mpc/core/module/globalkind"
-	lex "mpc/core/module/lexkind"
+	LK "mpc/core/module/lexkind"
+
+	. "mpc/core"
+	mod "mpc/core/module"
 	"mpc/format"
 	"mpc/lexer"
 	msg "mpc/messages"
@@ -96,23 +97,23 @@ func resolveModule(s *state, modID string) (*mod.Module, *Error) {
 }
 
 func resolveDependencies(s *state, coupling *mod.Node, module *mod.Module) *Error {
-	if coupling.Lex != lex.COUPLINGS {
+	if coupling.Lex != LK.COUPLINGS {
 		panic("resolver: resolveDependencies: bad node")
 	}
 	s.RefModule = module
 	for _, n := range coupling.Leaves {
 		switch n.Lex {
-		case lex.IMPORT:
+		case LK.IMPORT:
 			err := multiImport(s, n, module)
 			if err != nil {
 				return err
 			}
-		case lex.FROM:
+		case LK.FROM:
 			err := fromImport(s, n, module)
 			if err != nil {
 				return err
 			}
-		case lex.EXPORT:
+		case LK.EXPORT:
 			// must run after the symbol resolution
 		}
 	}
@@ -133,12 +134,12 @@ func fromImport(s *state, n *mod.Node, dependentMod *mod.Module) *Error {
 }
 
 func multiImport(s *state, n *mod.Node, dependentMod *mod.Module) *Error {
-	if n.Lex != lex.IMPORT {
+	if n.Lex != LK.IMPORT {
 		panic("resolver: singleImport: bad node")
 	}
 
 	items := n.Leaves[0]
-	if items.Lex == lex.ALL {
+	if items.Lex == LK.ALL {
 		return msg.CantImportAll(dependentMod, items)
 	}
 
@@ -147,7 +148,7 @@ func multiImport(s *state, n *mod.Node, dependentMod *mod.Module) *Error {
 
 		impName := ""
 		name := ""
-		if n.Lex == lex.AS {
+		if n.Lex == LK.AS {
 			impName = n.Leaves[0].Text
 			name = n.Leaves[1].Text
 		} else {
@@ -200,14 +201,14 @@ func extractName(filePath string) (string, *Error) {
 		return name[0], nil
 	}
 	return "", &Error{
-		Code:    et.InvalidFileName,
+		Code:    EK.InvalidFileName,
 		Message: filePath + " : " + name[0],
 	}
 }
 
 func invalidModuleName(filePath string) *Error {
 	return &Error{
-		Code:    et.InvalidFileName,
+		Code:    EK.InvalidFileName,
 		Message: filePath,
 	}
 }
@@ -265,7 +266,7 @@ func findFile(s *state, modID string) (string, *Error) {
 
 func processFileError(e error) *Error {
 	return &Error{
-		Code:    et.FileError,
+		Code:    EK.FileError,
 		Message: e.Error(),
 	}
 }
@@ -370,7 +371,7 @@ func importSymbols(M *mod.Module, n *mod.Node) *Error {
 	for _, m := range items.Leaves {
 		impName := ""
 		name := ""
-		if m.Lex == lex.AS {
+		if m.Lex == LK.AS {
 			impName = m.Leaves[0].Text
 			name = m.Leaves[1].Text
 		} else {
@@ -404,12 +405,12 @@ func createImportedSymbols(M *mod.Module) *Error {
 	coupling := M.Root.Leaves[0]
 	for _, n := range coupling.Leaves {
 		switch n.Lex {
-		case lex.IMPORT:
+		case LK.IMPORT:
 			err := importSymbols(M, n)
 			if err != nil {
 				return err
 			}
-		case lex.FROM:
+		case LK.FROM:
 			err := fromImportSymbols(M, n)
 			if err != nil {
 				return err
@@ -426,7 +427,7 @@ func fromImportSymbols(M *mod.Module, n *mod.Node) *Error {
 		panic("dependency should have been found")
 	}
 	items := n.Leaves[1]
-	if items.Lex == lex.ALL {
+	if items.Lex == LK.ALL {
 		for name, sy := range dep.M.Exported {
 			err := defineExternalSymbol(M, items, sy, name, name)
 			if err != nil {
@@ -437,7 +438,7 @@ func fromImportSymbols(M *mod.Module, n *mod.Node) *Error {
 		for _, item := range items.Leaves {
 			impName := ""
 			name := ""
-			if item.Lex == lex.AS {
+			if item.Lex == LK.AS {
 				impName = item.Leaves[0].Text
 				name = item.Leaves[1].Text
 			} else {
@@ -489,9 +490,9 @@ func checkExports(M *mod.Module) *Error {
 	coupling := M.Root.Leaves[0]
 	exported := map[string]export{}
 	for _, exp := range coupling.Leaves {
-		if exp.Lex == lex.EXPORT {
+		if exp.Lex == LK.EXPORT {
 			items := exp.Leaves[0]
-			if items.Lex == lex.ALL {
+			if items.Lex == LK.ALL {
 				for name, sy := range M.Globals {
 					if !sy.External {
 						_, ok := exported[name]
@@ -508,7 +509,7 @@ func checkExports(M *mod.Module) *Error {
 				for _, item := range items.Leaves {
 					impName := ""
 					name := ""
-					if item.Lex == lex.AS {
+					if item.Lex == LK.AS {
 						impName = item.Leaves[0].Text
 						name = item.Leaves[1].Text
 					} else {
@@ -540,7 +541,7 @@ func checkExports(M *mod.Module) *Error {
 func declareSymbol(M *mod.Module, n *mod.Node) *Error {
 	sy := n
 	idlist := []string{}
-	if n.Lex == lex.ATTR {
+	if n.Lex == LK.ATTR {
 		var ok bool
 		idlist, ok = idlistToStr(n.Leaves[0])
 		if !ok {
@@ -549,13 +550,13 @@ func declareSymbol(M *mod.Module, n *mod.Node) *Error {
 		sy = n.Leaves[1]
 	}
 	switch sy.Lex {
-	case lex.PROC:
+	case LK.PROC:
 		return declProcSymbol(M, sy, idlist)
-	case lex.DATA:
+	case LK.DATA:
 		return declMemSymbol(M, sy, idlist)
-	case lex.CONST:
+	case LK.CONST:
 		return declConstSymbol(M, sy, idlist)
-	case lex.STRUCT:
+	case LK.STRUCT:
 		return declStructSymbol(M, sy, idlist)
 	default:
 		panic("impossible")
@@ -594,7 +595,7 @@ func declProcSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 func declMemSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	leaf := n.Leaves[0]
 	switch leaf.Lex {
-	case lex.BEGIN:
+	case LK.BEGIN:
 		for _, single := range leaf.Leaves {
 			err := setMemSymbol(M, single, idlist)
 			if err != nil {
@@ -602,7 +603,7 @@ func declMemSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 			}
 		}
 		return nil
-	case lex.SINGLE:
+	case LK.SINGLE:
 		return setMemSymbol(M, leaf, idlist)
 	default:
 		panic("impossible")
@@ -612,7 +613,7 @@ func declMemSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 func declConstSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 	leaf := n.Leaves[0]
 	switch leaf.Lex {
-	case lex.BEGIN:
+	case LK.BEGIN:
 		for _, single := range leaf.Leaves {
 			err := setConstSymbol(M, single, idlist)
 			if err != nil {
@@ -620,7 +621,7 @@ func declConstSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 			}
 		}
 		return nil
-	case lex.SINGLE:
+	case LK.SINGLE:
 		return setConstSymbol(M, leaf, idlist)
 	default:
 		panic("impossible")
@@ -731,8 +732,11 @@ func declStructSymbol(M *mod.Module, n *mod.Node, idlist []string) *Error {
 
 func resolveGlobalDepGraph(M *mod.Module) *Error {
 	for _, sy := range M.Globals {
+		if sy.External {
+			continue
+		}
 		if sy.Kind == GK.Const {
-			err := resDepExpr(M, mod.FromSymbol(sy), sy.N.Leaves[2])
+			err := resExpr(M, mod.FromSymbol(sy), sy.N.Leaves[2])
 			if err != nil {
 				return err
 			}
@@ -749,12 +753,18 @@ func resolveGlobalDepGraph(M *mod.Module) *Error {
 				return err
 			}
 		}
+		if sy.Kind == GK.Proc {
+			err := resProc(M, sy)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
 func resBaseType(M *mod.Module, sy *mod.Global, n *mod.Node) *Error {
-	if n.Lex == lex.IDENTIFIER {
+	if n.Lex == LK.IDENTIFIER {
 		return resDepID(M, mod.FromSymbol(sy), n, true)
 	}
 	return nil
@@ -763,7 +773,7 @@ func resBaseType(M *mod.Module, sy *mod.Global, n *mod.Node) *Error {
 func resStruct(M *mod.Module, sy *mod.Global) *Error {
 	size := sy.N.Leaves[1]
 	if size != nil {
-		err := resDepExpr(M, mod.FromSymbol(sy), size)
+		err := resExpr(M, mod.FromSymbol(sy), size)
 		if err != nil {
 			return err
 		}
@@ -779,10 +789,49 @@ func resStruct(M *mod.Module, sy *mod.Global) *Error {
 					Sy:    sy,
 					Field: field,
 				}
-				err := resDepExpr(M, sf, offset)
+				err := resExpr(M, sf, offset)
 				if err != nil {
 					return err
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func resProc(M *mod.Module, sy *mod.Global) *Error {
+	body := sy.N.Leaves[4]
+	// this code is just trying to find each
+	// const expression in the asm code :)
+	if body.Lex == LK.ASM {
+		lines := body.Leaves[0]
+		for _, line := range lines.Leaves {
+			if line.Lex == LK.INSTR {
+				opList := line.Leaves[1]
+				err := resOpList(M, sy, opList)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func resOpList(M *mod.Module, sy *mod.Global, opList *mod.Node) *Error {
+	for _, op := range opList.Leaves {
+		if op.Lex == LK.LEFTBRACE {
+			expr := op.Leaves[0]
+			err := resExpr(M, mod.FromSymbol(sy), expr)
+			if err != nil {
+				return err
+			}
+		}
+		if op.Lex == LK.LEFTBRACKET {
+			innerList := op.Leaves[0]
+			err := resOpList(M, sy, innerList)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -794,7 +843,7 @@ func resData(M *mod.Module, sy *mod.Global) *Error {
 	contents := sy.N.Leaves[2]
 	if annot != nil {
 		t := annot.Leaves[0]
-		if t.Lex == lex.IDENTIFIER { // we don't care about the case '::'
+		if t.Lex == LK.IDENTIFIER { // we don't care about the case '::'
 			err := resDepID(M, mod.FromSymbol(sy), t, false)
 			if err != nil {
 				return err
@@ -804,11 +853,11 @@ func resData(M *mod.Module, sy *mod.Global) *Error {
 	var err *Error
 	if contents != nil {
 		switch contents.Lex {
-		case lex.STRING_LIT:
-		case lex.BLOB:
+		case LK.STRING_LIT:
+		case LK.BLOB:
 			err = resBlobExpr(M, sy, contents)
 		default:
-			err = resDepExpr(M, mod.FromSymbol(sy), contents)
+			err = resExpr(M, mod.FromSymbol(sy), contents)
 		}
 
 		if err != nil {
@@ -825,7 +874,7 @@ func resData(M *mod.Module, sy *mod.Global) *Error {
 func resBlobExpr(M *mod.Module, sy *mod.Global, n *mod.Node) *Error {
 	blobContents := n.Leaves[1]
 	for _, leaf := range blobContents.Leaves {
-		err := resDepExpr(M, mod.FromSymbol(sy), leaf)
+		err := resExpr(M, mod.FromSymbol(sy), leaf)
 		if err != nil {
 			return err
 		}
@@ -833,39 +882,39 @@ func resBlobExpr(M *mod.Module, sy *mod.Global, n *mod.Node) *Error {
 	return nil
 }
 
-func resDepExpr(M *mod.Module, sy mod.SyField, n *mod.Node) *Error {
+func resExpr(M *mod.Module, sy mod.SyField, n *mod.Node) *Error {
 	switch n.Lex {
-	case lex.IDENTIFIER:
+	case LK.IDENTIFIER:
 		return resDepID(M, sy, n, true)
-	case lex.DOUBLECOLON:
+	case LK.DOUBLECOLON:
 		return resExternalID(M, n, true)
-	case lex.DOT:
+	case LK.DOT:
 		return resDotExpr(M, sy, n)
-	case lex.STRING_LIT:
+	case LK.STRING_LIT:
 		return msg.CannotUseStringInExpr(M, n)
-	case lex.CALL, lex.AT:
+	case LK.CALL, LK.AT:
 		return msg.NonConstExpr(M, n)
-	case lex.I64_LIT, lex.I32_LIT, lex.I16_LIT, lex.I8_LIT,
-		lex.U64_LIT, lex.U32_LIT, lex.U16_LIT, lex.U8_LIT,
-		lex.FALSE, lex.TRUE, lex.PTR_LIT, lex.CHAR_LIT:
+	case LK.I64_LIT, LK.I32_LIT, LK.I16_LIT, LK.I8_LIT,
+		LK.U64_LIT, LK.U32_LIT, LK.U16_LIT, LK.U8_LIT,
+		LK.FALSE, LK.TRUE, LK.PTR_LIT, LK.CHAR_LIT:
 		return nil // nothing to resolve here
-	case lex.SIZEOF:
+	case LK.SIZEOF:
 		return resSizeof(M, sy, n)
-	case lex.NEG, lex.BITWISENOT, lex.NOT:
-		return resDepExpr(M, sy, n.Leaves[0])
-	case lex.PLUS, lex.MINUS, lex.MULTIPLICATION,
-		lex.DIVISION, lex.REMAINDER, lex.BITWISEAND,
-		lex.BITWISEXOR, lex.BITWISEOR, lex.SHIFTLEFT,
-		lex.SHIFTRIGHT, lex.EQUALS, lex.DIFFERENT,
-		lex.MORE, lex.MOREEQ, lex.LESS, lex.LESSEQ,
-		lex.AND, lex.OR:
-		err := resDepExpr(M, sy, n.Leaves[0])
+	case LK.NEG, LK.BITWISENOT, LK.NOT:
+		return resExpr(M, sy, n.Leaves[0])
+	case LK.PLUS, LK.MINUS, LK.MULTIPLICATION,
+		LK.DIVISION, LK.REMAINDER, LK.BITWISEAND,
+		LK.BITWISEXOR, LK.BITWISEOR, LK.SHIFTLEFT,
+		LK.SHIFTRIGHT, LK.EQUALS, LK.DIFFERENT,
+		LK.MORE, LK.MOREEQ, LK.LESS, LK.LESSEQ,
+		LK.AND, LK.OR:
+		err := resExpr(M, sy, n.Leaves[0])
 		if err != nil {
 			return err
 		}
-		return resDepExpr(M, sy, n.Leaves[1])
-	case lex.COLON:
-		return resDepExpr(M, sy, n.Leaves[1])
+		return resExpr(M, sy, n.Leaves[1])
+	case LK.COLON:
+		return resExpr(M, sy, n.Leaves[1])
 	}
 	return nil
 }
@@ -875,9 +924,9 @@ func resSizeof(M *mod.Module, sy mod.SyField, n *mod.Node) *Error {
 	dot := n.Leaves[1]
 	if dot == nil {
 		switch op.Lex {
-		case lex.IDENTIFIER:
+		case LK.IDENTIFIER:
 			return resDepID(M, sy, op, false)
-		case lex.DOUBLECOLON:
+		case LK.DOUBLECOLON:
 			return resExternalID(M, op, false)
 		default:
 			return nil
@@ -892,7 +941,7 @@ func resDotExpr(M *mod.Module, sy mod.SyField, n *mod.Node) *Error {
 	field := n.Leaves[0]
 	expr := n.Leaves[1]
 
-	if expr.Lex == lex.IDENTIFIER {
+	if expr.Lex == LK.IDENTIFIER {
 		tsy := M.GetSymbol(expr.Text)
 		if tsy == nil {
 			return msg.ErrorNameNotDefined(M, expr)
@@ -914,9 +963,9 @@ func resDotExpr(M *mod.Module, sy mod.SyField, n *mod.Node) *Error {
 
 func getSymbolFromExpr(M *mod.Module, n *mod.Node) *mod.Global {
 	switch n.Lex {
-	case lex.IDENTIFIER:
+	case LK.IDENTIFIER:
 		return M.GetSymbol(n.Text)
-	case lex.DOUBLECOLON:
+	case LK.DOUBLECOLON:
 		return M.GetExternalSymbol(n.Leaves[0].Text, n.Leaves[1].Text)
 	}
 	return nil

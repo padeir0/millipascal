@@ -5,12 +5,13 @@ import (
 	. "mpc/core/asm/instrkind"
 	. "mpc/core/asm/util"
 
+	cc "mpc/core/cc/stack"
+	T "mpc/core/types"
+
 	"mpc/backend0/mir"
 	mirc "mpc/backend0/mir/class"
 	FT "mpc/backend0/mir/flowkind"
 	IT "mpc/backend0/mir/instrkind"
-
-	T "mpc/core/types"
 
 	"fmt"
 	"math/big"
@@ -274,7 +275,7 @@ func genNot(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Line {
 			Unary(Sete, newDest),
 		}
 	}
-	//TODO: is this reachable?
+	// bitwise not :)
 	out, newA := resolveOperand(P, proc, instr.A.Operand)
 	newDest := convertOperandProc(P, proc, instr.Dest.Op())
 	out = append(out, []asm.Line{
@@ -745,29 +746,24 @@ func resolveOperand(P *mir.Program, proc *mir.Procedure, op mir.Operand) ([]asm.
 }
 
 func convertOperandProc(P *mir.Program, proc *mir.Procedure, op mir.Operand) asm.Operand {
-	return convertOperand(P, op, int64(proc.NumOfVars), int64(proc.NumOfSpills), int64(proc.NumOfMaxCalleeArguments))
+	return convertOperand(P, op, proc.NumOfVars, proc.NumOfSpills, proc.NumOfMaxCalleeArguments)
 }
 
-func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments int64) asm.Operand {
+func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumOfMaxCalleeArguments int) asm.Operand {
 	switch op.Class {
 	case mirc.Register:
 		return genReg(op.ID, op.Type)
 	case mirc.CallerInterproc:
-		//            v must jump last rbp + return address
-		offset := int(16 + op.ID*8)
+		offset := cc.Arg(int(op.ID))
 		return AddrFrame(offset, TypeToTsize(op.Type))
 	case mirc.Local:
-		//             v begins at 8 because rbp points to the last rbp
-		offset := -int(8 + op.ID*8) // negative offset
+		offset := cc.Var(int(op.ID))
 		return AddrFrame(offset, TypeToTsize(op.Type))
 	case mirc.Spill:
-		offset := -int(8 + NumOfVars*8 + op.ID*8)
+		offset := cc.Spill(NumOfVars, int(op.ID))
 		return AddrFrame(offset, TypeToTsize(op.Type))
 	case mirc.CalleeInterproc:
-		offset := -int(8 + NumOfVars*8 +
-			NumOfSpills*8 +
-			// v count                   v index
-			(NumOfMaxCalleeArguments-1-op.ID)*8)
+		offset := cc.CallArg(NumOfVars, NumOfSpills, NumOfMaxCalleeArguments, int(op.ID))
 		return AddrFrame(offset, TypeToTsize(op.Type))
 	case mirc.Lit:
 		if op.Num == nil {

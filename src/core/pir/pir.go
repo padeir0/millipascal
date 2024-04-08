@@ -82,10 +82,12 @@ func (this *DataDecl) String() string {
 
 type Procedure struct {
 	Label string
+	CC    T.CCKind
 	Vars  []*T.Type
 	Args  []*T.Type
 	Rets  []*T.Type
 
+	Asm       []asm.Line
 	Start     BlockID
 	AllBlocks []*BasicBlock
 }

@@ -267,3 +267,11 @@ func InvalidFlag(M *ir.Module, n *ir.Node) *Error {
 func InvalidCC(M *ir.Module, cc *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidCC, cc, "invalid calling convention")
 }
+
+func DuplicatedLabel(M *ir.Module, lbl *ir.Node) *Error {
+	return NewSemanticError(M, et.DupLabel, lbl, "duplicated label")
+}
+
+func InvalidNestedAddr(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.NestedAddress, op, "invalid nested address")
+}

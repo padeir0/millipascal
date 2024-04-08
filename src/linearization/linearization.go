@@ -154,14 +154,21 @@ func genProc(c *context, M *mod.Module, proc *mod.Proc) *Error {
 	c.CurrBlock = start
 
 	body := proc.N.Leaves[4]
-	genBlock(M, c, body)
-	if !pir.ProperlyTerminates(c.PirProc) {
-		if proc.DoesReturnSomething() {
-			return msg.NotAllCodePathsReturnAValue(M, proc)
+	if body.Lex == LK.ASM {
+		if proc.Asm == nil {
+			panic("empty asm procedure")
 		}
-		for _, bb := range c.PirProc.AllBlocks {
-			if !bb.HasFlow() {
-				setReturn(bb)
+		c.PirProc.Asm = proc.Asm
+	} else {
+		genBlock(M, c, body)
+		if !pir.ProperlyTerminates(c.PirProc) {
+			if proc.DoesReturnSomething() {
+				return msg.NotAllCodePathsReturnAValue(M, proc)
+			}
+			for _, bb := range c.PirProc.AllBlocks {
+				if !bb.HasFlow() {
+					setReturn(bb)
+				}
 			}
 		}
 	}
@@ -967,6 +974,7 @@ func newPirProc(modName string, P *mod.Proc) *pir.Procedure {
 	}
 	return &pir.Procedure{
 		Label: modName + "_" + P.Name,
+		CC:    P.Type.Proc.CC,
 		Vars:  vars,
 		Rets:  P.Rets,
 		Args:  args,

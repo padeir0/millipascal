@@ -1234,18 +1234,11 @@ func name(s *Lexer) (*mod.Node, *Error) {
 	return id, nil
 }
 
-// Asm := 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
+// Asm := 'asm' 'begin' {AsmLine} 'end'.
 func _asm(s *Lexer) (*mod.Node, *Error) {
 	kw, err := expect(s, lk.ASM)
 	if err != nil {
 		return nil, err
-	}
-	var clobber *mod.Node
-	if s.Word.Lex == lk.LEFTBRACKET {
-		clobber, err = clobberSet(s)
-		if err != nil {
-			return nil, err
-		}
 	}
 	_, err = expect(s, lk.BEGIN)
 	if err != nil {
@@ -1263,7 +1256,7 @@ func _asm(s *Lexer) (*mod.Node, *Error) {
 	if err != nil {
 		return nil, err
 	}
-	kw.SetLeaves([]*mod.Node{clobber, asmlines})
+	kw.SetLeaves([]*mod.Node{asmlines})
 	return kw, nil
 }
 

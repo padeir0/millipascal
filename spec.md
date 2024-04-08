@@ -376,8 +376,7 @@ The `CC` specified is the calling convention, one of:
  - `stack` arguments and returns are passed on the stack, only `rsp` and `rbp` preserved (default);
  - `reg` (TBD) arguments and returns are passed in registers, only `rsp` and `rbp` preserved;
  - `cdecl` (TBD) C calling convention, guarantees to save `rsp` and `rbp` too, amongst other registers;
- - `gc` (TBD) Garbage collector compatible calling convention;
- - `reg_a`, `reg_b`, `reg_c` (TBD) register based, with disjoint clobber sets;
+ - `gc` (TBD) Garbage collector compatible calling convention, saves `rsp` and `rbp`.
 
 If no CC is specified, it defaults to `stack`. Calling convetion
 is part of the type of a procedure, assigning a `stack` procedure
@@ -695,8 +694,7 @@ That is, `sizeof` always computes the *byte* size.
 ### Asm
 
 ```ebnf
-Asm = 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
-ClobberSet = '[' idList ']'.
+Asm = 'asm' 'begin' {AsmLine} 'end'.
 AsmLine = Label | Instruction.
 Label = '.' id ':'.
 Instruction = InstrName [OpList] ';'.
@@ -712,11 +710,6 @@ rest of the language almost seamlessly. They exist mostly to:
  - Allow you to write syscalls;
  - Allow you to optimize code at the instruction level;
  - Allow you to write SIMD code (TBD);
-
-The **clobber set** is a list of registers that the current procedure
-is corrupting (clobbing), if you clob a register that is not specified
-here, the behaviour is **unspecified**, ie, the compiler may
-optimize assuming you know what you're doing.
 
 ### Instructions (asm)
 
@@ -919,11 +912,8 @@ in asm. Given a procedure P, we call it:
   call P;
 ```
 
-All arguments are passed according to the calling convention of `P`, and registers
-must be saved accordingly. If `P` is also an asm procedure with
-clobber set, then the specified clobbered registers may need
-to be saved. If the procedure is not an asm procedure, then you must
-assume all registers may be clobbered.
+All arguments are passed according to the calling convention of `P`,
+and registers must be saved accordingly. 
 
 ### Labels (asm)
 
@@ -1091,8 +1081,7 @@ Type = basicType | ProcType | Name.
 ProcType = 'proc' [CC] ProcTTList ProcTTList.
 ProcTTList = '[' [TypeList] ']'.
 
-Asm = 'asm' [ClobberSet] 'begin' {AsmLine} 'end'.
-ClobberSet = '[' idList ']'.
+Asm = 'asm' 'begin' {AsmLine} 'end'.
 AsmLine = Label | Instruction.
 Label = '.' id ':'.
 Instruction = InstrName [OpList] ';'.

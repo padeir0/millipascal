@@ -483,3 +483,22 @@ access, they are corruptible by the callee.
 
 This last line may seem strange: `ARP - (8 + #local*8 + #spill*8 + (#calleearg-1)*8)`
 but it's because `#calleearg` is a quantity, and the `N` is an index, so they're off by 1.
+
+## Asm procedure
+
+Asm procedures have no locals and no spills.
+
+```
+    Stack frame     |    Address
+|-------------------|----------------------------
+| CallerInterproc#N | <- ARP + 16 + (N*8)
+| ...               |
+| CallerInterproc#0 | <- ARP + 16
+| Return Address    |
+| Caller ARP        | <- ARP (rbp)
+| CalleeInterproc#N | <- ARP - (8 + (#calleearg-N)*8)
+| ...               |
+| CalleeInterproc#1 | <- ARP - (8 + (#calleearg-2)*8)
+| CalleeInterproc#0 | <- ARP - (8 + (#calleearg-1)*8)
+```
+

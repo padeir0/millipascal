@@ -13,7 +13,7 @@ data array {
 
 proc MIN<stack>[] i64
 var min:i64
-asm [r9, r10, r11, r12, r13] # clobber set
+asm
 begin
 .start:
     _load r9, array;

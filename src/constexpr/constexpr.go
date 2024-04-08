@@ -108,7 +108,7 @@ func evalSymbol(m *mod.Module, sf mod.SyField) *Error {
 
 	if sf.IsField() {
 		f := sf.GetField()
-		num, err := compute(m, f.Offset)
+		num, err := Compute(m, f.Offset)
 		f.Offset.Value = num
 		if err != nil {
 			return err
@@ -122,6 +122,8 @@ func evalSymbol(m *mod.Module, sf mod.SyField) *Error {
 		err = evalData(m, sf.Sy)
 	case gk.Struct:
 		err = evalStruct(m, sf.Sy)
+	case gk.Proc:
+		err = evalProc(m, sf.Sy)
 	}
 	if err != nil {
 		return err
@@ -178,7 +180,7 @@ func evalStruct(m *mod.Module, sy *mod.Global) *Error {
 }
 
 func evalConst(m *mod.Module, sy *mod.Global) *Error {
-	v, err := compute(m, sy.N.Leaves[2])
+	v, err := Compute(m, sy.N.Leaves[2])
 	if err != nil {
 		return err
 	}
@@ -201,7 +203,7 @@ func evalData(m *mod.Module, sy *mod.Global) *Error {
 	case lk.BLOB:
 		return evalBlob(m, sy, arg)
 	default:
-		v, err := compute(m, arg)
+		v, err := Compute(m, arg)
 		if err != nil {
 			return err
 		}
@@ -218,7 +220,7 @@ func evalBlob(m *mod.Module, sy *mod.Global, blob *mod.Node) *Error {
 	nums := make([]asm.DataEntry, len(blob.Leaves))
 	size := 0
 	for i, leaf := range blob.Leaves {
-		num, err := compute(m, leaf)
+		num, err := Compute(m, leaf)
 		if err != nil {
 			return err
 		}
@@ -233,7 +235,47 @@ func evalBlob(m *mod.Module, sy *mod.Global, blob *mod.Node) *Error {
 	return nil
 }
 
-func compute(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
+func evalProc(M *mod.Module, sy *mod.Global) *Error {
+	body := sy.N.Leaves[4]
+	// this code is just trying to find each
+	// const expression in the asm code :)
+	if body.Lex == lk.ASM {
+		lines := body.Leaves[0]
+		for _, line := range lines.Leaves {
+			if line.Lex == lk.INSTR {
+				opList := line.Leaves[1]
+				err := evalOpList(M, opList)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func evalOpList(M *mod.Module, opList *mod.Node) *Error {
+	for _, op := range opList.Leaves {
+		if op.Lex == lk.LEFTBRACE {
+			expr := op.Leaves[0]
+			num, err := computeExpr(M, expr)
+			if err != nil {
+				return err
+			}
+			expr.Value = num
+		}
+		if op.Lex == lk.LEFTBRACKET {
+			innerList := op.Leaves[0]
+			err := evalOpList(M, innerList)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func Compute(m *mod.Module, n *mod.Node) (*big.Int, *Error) {
 	min, max := getMinMax(n.Type)
 	res, err := computeExpr(m, n)
 	if err != nil {
