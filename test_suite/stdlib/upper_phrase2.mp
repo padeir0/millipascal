@@ -1,11 +1,11 @@
-from io import write
+from io import print
 data hello "Hello\n"
 
 proc main
 var p:ptr, c:i8
 begin
 	set p = hello;
-	write[hello, sizeof[hello]];
+	print[hello, sizeof[hello]];
 	
 	while p < hello + 6 begin
 		if p@i8 >= 'a' and p@i8 <= 'z' begin
@@ -14,5 +14,5 @@ begin
 		set p += 1;
 	end
 
-	write[hello, sizeof[hello]];
+	print[hello, sizeof[hello]];
 end

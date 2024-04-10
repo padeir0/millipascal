@@ -9,7 +9,3 @@ const EMPTY = 0ss
 
 const MAP   = 00000000_00000000_00000000_00001111ul
 const SLICE = 00000000_00000000_00000000_11110000ul
-
-proc main
-begin 
-end

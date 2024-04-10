@@ -1,14 +1,14 @@
-from io import write
+from io import print
 data buff "am i uppercase yet?\n"
 
 proc main
 begin
 	byte_map[buff, sizeof[buff]];
-	write[buff, sizeof[buff]];
+	print[buff, sizeof[buff]];
 end
 
-proc byte_map[b:ptr, bsize:i64]
-var i:i64
+proc byte_map[b:ptr, bsize:i32]
+var i:i32
 begin
 	set i = 0;
 	while i < bsize

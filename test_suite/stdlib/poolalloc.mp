@@ -1,4 +1,9 @@
 from
+	constants
+import
+	NULL
+
+from
 	ioutil
 import
 	put_ln, put_char, put_int, put_uint, debug, fatal, oom
@@ -17,7 +22,6 @@ export
 	init, alloc, free, Pool, empty, used, freed
 
 const begin
-	NULL = 0p;
 	NULLNODE = NULL:Node;
 	MIN_CHUNK_SIZE = sizeof[Node];
 end
@@ -29,8 +33,10 @@ end
 # we allocate this at the beginning of each pool
 # in a way such that, if p:Pool then p[1] is the
 # actual start of the pool, that is:
-#     p->Begin == p[1]
-#     distance[p->Begin, p->End] == heapSize
+#     p->Begin == p[1]:ptr
+# after the slots are set, and p->End properly aligned
+# then:
+#     p->Size == distance[p->Begin, p->End]
 struct Pool begin
 	Head, Tail:Node;
 	Begin, End:ptr;
@@ -45,7 +51,6 @@ data begin
 	ERR_TOOMANYPOOLS "Too many pools\n";
 end
 
-# TODO: align chunksize to 8 byte boundary
 proc init[buff:ptr, buffsize:i32, chunksize:i32] Pool
 var pool:Pool, ok:bool
 begin
@@ -63,9 +68,9 @@ begin
 	set pool->ChunkSize = chunksize;
 	set pool->Size = distance[pool->Begin, pool->End];
 
-	insert[pool];
 	clear_bytes[pool->Begin, pool->Size];
 	setList[pool];
+	insert[pool];
 
 	return pool;
 end
@@ -200,14 +205,24 @@ proc setList[pool:Pool]
 var curr:Node, End:Node
 begin
 	set curr = pool->Begin:Node;
+	# we need this because of alignment, the chunks may not align
+	# and leave a padding at the end of the buffer
 	set End = pool->End:Node - pool->ChunkSize;
 
 	set pool->Head = curr;
-	while curr < End begin # goes up to the second-to-last slot
+	while curr < End begin
 		set curr->Next = curr + pool->ChunkSize;
 		set curr = curr->Next;
 	end
-	set curr->Next = NULLNODE; # the last one is the tail
+	# curr is at the edge of the buffer, and may not be valid
+	# in case the end is not aligned, we leave padding
+	if curr:ptr + pool->ChunkSize != pool->End begin
+		set pool->End = curr:ptr;
+		set curr -= pool->ChunkSize;
+		set pool->Size = distance[pool->Begin, pool->End];
+	end
+
+	set curr->Next = NULLNODE;
 	set pool->Tail = curr;
 end
 
@@ -232,15 +247,11 @@ end
 proc empty[pool:Pool] bool
 var total:i32
 begin
-	set total = used[pool];
+	set total = freed[pool];
 	if total < pool->Size begin
 		return false;
 	end
 	if pool->Size < total begin
-		put_int[total:i64];
-		put_ln[];
-		put_int[pool->Size:i64];
-		put_ln[];
 		fatal[wtf, sizeof[wtf]];
 	end
 	return true;
