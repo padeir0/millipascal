@@ -29,7 +29,7 @@ begin
 	end
 end
 
-proc max[a, b:i64] i64
+proc max[a, b:i32] i32
 begin
 	if a >= b
 	begin
@@ -41,7 +41,7 @@ begin
 	end
 end
 
-proc min[a, b:i64] i64
+proc min[a, b:i32] i32
 begin
 	if a <= b
 	begin
@@ -55,7 +55,7 @@ end
 
 proc abs_i32[a:i32] i32
 begin
-	if a >= 0l begin
+	if a >= 0 begin
 		return a;
 	end
 	return ~a;
@@ -63,7 +63,7 @@ end
 
 proc abs[a:i64] i64
 begin
-	if a >= 0 begin
+	if a >= 0l begin
 		return a;
 	end
 	return ~a;

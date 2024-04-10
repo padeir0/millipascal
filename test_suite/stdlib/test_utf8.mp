@@ -1,4 +1,4 @@
-from io import write
+from io import print
 
 from utf8
 import
@@ -15,22 +15,21 @@ import
 proc main
 begin
     test['A':i32, 'z':i32];
-    test[0x3050l, 0x3150l];
-    test[0x56E0l, 0x57E0l];
+    test[0x3050, 0x3150];
+    test[0x56E0, 0x57E0];
 end
 
 data Test [MAX_RUNE_SIZE]
 
 proc test[testRune, upperRune:i32]
-var i:i32, p:i64, rune:i32,
-    e_size, d_size:i64
+var i:i32, rune:i32,
+    e_size, d_size:i32
 begin
-    set i = 0l;
-    set p = 0;
+    set i = 0;
     while i < (upperRune-testRune) begin
         clear_bytes[Test, sizeof[Test]];
         set e_size = utf8_encode[testRune + i, Test];
-        write[Test, e_size];
+        print[Test, e_size];
 
         set rune, d_size = utf8_decode[Test];
 
@@ -49,7 +48,7 @@ begin
             exit 2ss;
         end
 
-        set i += 1l;
+        set i += 1;
     end
     put_char['\n'];
 end

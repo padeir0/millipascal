@@ -4,7 +4,7 @@ from utf8
 import utf8_encode, MAX_RUNE_SIZE
 
 export
-    put_int, put_uint, put_u8, put_u16,
+    put_int, put_i32, put_uint, put_u8, put_u16,
     put_bool, put_char, put_ln, put_rune,
     println,
     fatal, debug, oom
@@ -22,7 +22,7 @@ end
 
 proc fatal[p:ptr, size:i32]
 begin
-	println[p, size];
+	print[p, size];
 	exit 1ss;
 end
 
@@ -30,7 +30,7 @@ data ERR_OOM "out of memory!\n"
 
 proc oom[]
 begin
-	println[ERR_OOM, sizeof[ERR_OOM]];
+	print[ERR_OOM, sizeof[ERR_OOM]];
 	exit 123ss;
 end
 
@@ -68,6 +68,11 @@ var p:ptr, size:i32
 begin
 	set p, size = i64_to_dec[n, ConvBuff, sizeof[ConvBuff]];
 	print[p, size];
+end
+
+proc put_i32[n:i32]
+begin
+	put_int[n:i64];
 end
 
 proc put_u8[b:u8]

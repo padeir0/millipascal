@@ -2,6 +2,7 @@ package constexpr
 
 import (
 	"math/big"
+
 	. "mpc/core"
 	"mpc/core/asm"
 	au "mpc/core/asm/util"
@@ -188,7 +189,7 @@ func evalConst(m *mod.Module, sy *mod.Global) *Error {
 	return nil
 }
 
-func evalData(m *mod.Module, sy *mod.Global) *Error {
+func evalData(M *mod.Module, sy *mod.Global) *Error {
 	arg := sy.N.Leaves[2]
 	if arg == nil {
 		sy.Data.Size = sy.Data.Type.Sizeof()
@@ -201,14 +202,16 @@ func evalData(m *mod.Module, sy *mod.Global) *Error {
 		sy.Data.Contents = arg.Text
 		return nil
 	case lk.BLOB:
-		return evalBlob(m, sy, arg)
+		return evalBlob(M, sy, arg)
 	default:
-		v, err := Compute(m, arg)
+		v, err := Compute(M, arg)
 		if err != nil {
 			return err
 		}
 		if T.IsStruct(sy.Data.Type) {
-			sy.Data.Size = big.NewInt(0).Mul(v, sy.Data.Type.Sizeof())
+			scratch := big.NewInt(0)
+			size := sy.Data.DataTypeSize(M)
+			sy.Data.Size = scratch.Mul(v, size)
 		} else {
 			sy.Data.Size = v
 		}

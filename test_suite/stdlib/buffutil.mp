@@ -1,15 +1,13 @@
-from io import write
 from intutil import min
 export map_buff, set_buff, comp, copy, clear_bytes, clear_words
 
 proc main
 begin
-	#TODO: Write tests
 	exit 0ss;
 end
 
-proc map_buff[p:ptr, size:i64, transform:proc[i8][i8]]
-var a:i64
+proc map_buff[p:ptr, size:i32, transform:proc[i8][i8]]
+var a:i32
 begin
 	set a = 0;
 	while a < size
@@ -19,25 +17,25 @@ begin
 	end
 end
 
-proc clear_bytes[start:ptr, size:i64]
+proc clear_bytes[start:ptr, size:i32]
 begin
 	set_buff[start, size, 0ss];
 end
 
-proc clear_words[start:ptr, size:i64]
-var p:ptr, i:i64
+proc clear_words[start:ptr, size:i32]
+var p:ptr, i:i32
 begin
 	set p = start;
 	set i = 0;
 	while i < size
 	begin
-		set (p+i)@i64 = 0;
+		set (p+i)@i32 = 0;
 		set i += 8;
 	end
 end
 
-proc set_buff[p:ptr, size:i64, b:i8]
-var a:i64
+proc set_buff[p:ptr, size:i32, b:i8]
+var a:i32
 begin
 	set a = 0;
 	while a < size
@@ -47,8 +45,8 @@ begin
 	end
 end
 
-proc comp[p1:ptr, size1:i64, p2:ptr, size2:i64] bool
-var i:i64
+proc comp[p1:ptr, size1:i32, p2:ptr, size2:i32] bool
+var i:i32
 begin
 	if size1 != size2
 	begin
@@ -67,8 +65,8 @@ begin
 	return true;
 end
 
-proc copy[source:ptr, source_size:i64, dest:ptr, dest_size:i64]
-var smallest, i:i64
+proc copy[source:ptr, source_size:i32, dest:ptr, dest_size:i32]
+var smallest, i:i32
 begin
 	set smallest = min[source_size, dest_size];
 	set i = 0;

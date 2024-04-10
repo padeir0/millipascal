@@ -1,30 +1,39 @@
 from io import print
 from ioutil import put_int, put_ln
 
-data buff1 [102]
-data buff2 [102]
-data here "here\n"
+const begin
+	size = 100;
+	pad = 2;
+	buffsize = size + pad;
+end
+
+data begin
+  buff1 [buffsize];
+  buff2 [buffsize];
+end
 
 proc main
 var gen:i32, b1:ptr, b2:ptr, b3:ptr
 begin
-	clear[buff1, sizeof[buff1]];
-	clear[buff2, sizeof[buff2]];
+	clear[buff1, buffsize];
+	clear[buff2, buffsize];
 	set gen = 0;
 	set b1 = buff1;
 	set b2 = buff2;
 
-	set (buff1+(sizeof[buff1])/2)@i8 = 'O';
+	set (buff1+(size-1))@i8 = 'O';
 
-	while gen < 1024 begin
+	do begin
+		print[b1, buffsize];
+		put_ln[];
 
-		generation[b1, b2, sizeof[buff1]];
+		generation[b1, b2, buffsize];
 		set b3 = b2;
 		set b2 = b1;
 		set b1 = b3;
 
 		set gen += 1;
-	end
+	end while gen < 128;
 end
 
 proc clear[p:ptr, size:i32]
@@ -44,7 +53,7 @@ begin
 	set a = 1;
 	while a < size -2
 	begin
-		set (b2+a)@i8 = rule110[b1, a];
+		set (b2+a)@i8 = rule[b1, a];
 		set a += 1;
 	end
 end
@@ -61,7 +70,7 @@ const begin
 	_111 = ' ';
 end
 
-proc rule110[buff:ptr, index:i32] i8
+proc rule[buff:ptr, index:i32] i8
 var left, curr, right:i8
 begin
 	set left  =  (buff + index - 1)@i8;

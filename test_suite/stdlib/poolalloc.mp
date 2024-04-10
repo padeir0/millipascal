@@ -1,158 +1,247 @@
 from
 	ioutil
 import
-	put_char, put_int, debug, fatal, oom
+	put_ln, put_char, put_int, put_uint, debug, fatal, oom
 
 from
 	buffutil
 import
 	clear_bytes, clear_words
 
+from
+	ptrutil
+import
+	distance
+
 export
-	init, alloc, free
+	init, alloc, free, Pool, empty, used, freed
 
-const NULL = 0p
-const MIN_CHUNK_SIZE = 8
-
-data Pool [1<<10] # 1KB
-data Head [sizeof[ptr]]
-data Tail [sizeof[ptr]]
-data ChunkSize [sizeof[i64]]
-
-const FULL = 1ss
-const EMPTY = 0ss
-data ByteMap [sizeof[Pool]/MIN_CHUNK_SIZE]
-
-data ERR_CHUNK "Chunk too small (minimum 8 bytes)\n"
-data ERR_BOUNDS "Pointer to be freed is out of bounds\n"
-data ERR_ALIGN "Pointer to be freed is out of alignment\n"
-
-const NUM_POINTERS = 64
-data Test [NUM_POINTERS * sizeof[ptr]]
-
-proc main
-var a:ptr, i:i64, out:ptr
-begin
-	init[16];
-	set i = 0;
-	while i < NUM_POINTERS
-	begin
-		set out = alloc[];
-		set (Test + (i*sizeof[ptr]))@ptr = out;
-		set i += 1;
-	end
-
-	set i = 0;
-	while i < NUM_POINTERS
-	begin
-		if i % 2 == 0
-		begin
-			free[(Test + (i*sizeof[ptr]))@ptr];
-		end
-		set i += 1;
-	end
-
-	set i = NUM_POINTERS-1;
-	while 0 <= i
-	begin
-		if i % 2 != 0
-		begin
-			free[(Test + (i*sizeof[ptr]))@ptr];
-		end
-		set i -= 1;
-	end
+const begin
+	NULL = 0p;
+	NULLNODE = NULL:Node;
+	MIN_CHUNK_SIZE = sizeof[Node];
 end
 
-proc init[chunksize:i64]
+struct Node begin
+	Next:Node;
+end
+
+# we allocate this at the beginning of each pool
+# in a way such that, if p:Pool then p[1] is the
+# actual start of the pool, that is:
+#     p->Begin == p[1]
+#     distance[p->Begin, p->End] == heapSize
+struct Pool begin
+	Head, Tail:Node;
+	Begin, End:ptr;
+	ChunkSize, Size:i32;
+end
+
+data begin
+	ERR_CHUNK "Chunk too small (minimum 8 bytes)\n";
+	ERR_BOUNDS "Pointer to be freed is outside all pools\n";
+	ERR_ALIGN "Pointer to be freed is out of alignment\n";
+	ERR_SMALLBUFF "Buffer too small (doesn't fit pool header)\n";
+	ERR_TOOMANYPOOLS "Too many pools\n";
+end
+
+# TODO: align chunksize to 8 byte boundary
+proc init[buff:ptr, buffsize:i32, chunksize:i32] Pool
+var pool:Pool, ok:bool
 begin
-	if chunksize < MIN_CHUNK_SIZE
-	begin
+	if chunksize < MIN_CHUNK_SIZE begin
 		fatal[ERR_CHUNK, sizeof[ERR_CHUNK]];
 	end
 
-	set ChunkSize@i64 = chunksize;
-	set Head@ptr = Pool;
-	clear_words[Pool, sizeof[Pool]];
-
-	setList[Pool, sizeof[Pool], chunksize];
-	clear_bytes[ByteMap, sizeof[ByteMap]];
-end
-
-proc alloc[] ptr
-var curr:ptr, position:i64
-begin
-	if Head@ptr == NULL
-	begin
-		oom[];
+	if buffsize < sizeof[Pool] begin
+		fatal[ERR_SMALLBUFF, sizeof[ERR_SMALLBUFF]];
 	end
 
-	set curr = Head@ptr;
-	set Head@ptr = (Head@ptr)@ptr; # get the next one
+	set pool = buff:Pool;
+	set pool->Begin = buff + sizeof[Pool];
+	set pool->End = buff+buffsize;
+	set pool->ChunkSize = chunksize;
+	set pool->Size = distance[pool->Begin, pool->End];
 
-	set position = (curr:i64 - Pool:i64) / (ChunkSize@i64);
-	set (ByteMap + position)@i8 = FULL;
+	insert[pool];
+	clear_bytes[pool->Begin, pool->Size];
+	setList[pool];
 
-	return curr;
+	return pool;
+end
+
+struct IA32 begin
+	Num:i32;
+end
+
+struct PtrPool begin
+	Pool:Pool;
+end
+
+const MAXPOOLS = 8
+
+data begin
+	Top:IA32 {0};
+	PoolTable:PtrPool [MAXPOOLS];
+end
+
+# when inserting, if the new pool overlaps with an old pool,
+# then the older one gets overwritten with the new pool
+# leave them unordered, it shouldn't matter that much.
+proc insert[p:Pool]
+var i:i32, cmp:i16
+begin
+	set i = 0;
+	while i < Top->Num begin
+		set cmp = comp[PoolTable[i]->Pool, p];
+
+		if cmp == INTERSECT begin
+			set PoolTable[i]->Pool = p;
+			return;
+		end
+
+		set i++;
+	end
+
+	if Top->Num >= MAXPOOLS begin
+		fatal[ERR_TOOMANYPOOLS, sizeof[ERR_TOOMANYPOOLS]];
+	end
+
+	set PoolTable[Top->Num]->Pool = p;
+	set Top->Num++;
+end
+
+const begin
+	PRECEED = 1s;
+	INTERSECT = 2s;
+	SUCEED = 4s;
+end
+
+data wtf "wtf!\n"
+
+proc comp[a, b:Pool] i16
+begin
+	# sanity check, can be removed :)
+	if a->Begin >= a->End or b->Begin >= b->End begin
+		fatal[wtf, sizeof[wtf]];
+		exit 1ss;
+	end
+
+	if a->End < b->Begin begin
+		return PRECEED;
+	end
+	if b->End < a->Begin begin
+		return SUCEED;
+	end
+
+	return INTERSECT;
+end
+
+proc findPool[p:ptr] Pool, bool
+var i:i32, curr:Pool
+begin
+	set i = 0;
+	while i < Top->Num begin
+		set curr = PoolTable[i]->Pool;
+		if curr->Begin <= p and p < curr->End begin
+			return curr, true;
+		end
+
+		set i++;
+	end
+	return NULL:Pool, false;
+end
+
+proc alloc[p:Pool] ptr
+var curr:Node, position:i32
+begin
+	if p->Head == NULLNODE
+	begin
+		oom[];
+		exit 1ss;
+	end
+
+	set curr = p->Head;
+	set p->Head = p->Head->Next; # get the next one
+	if p->Head == NULLNODE begin # was the last one
+		set p->Tail = NULLNODE;
+	end
+
+	return curr:ptr;
 end
 
 proc free[p:ptr]
-var position:i64
+var position:i32, new:Node, pool:Pool, ok:bool,
 begin
-	if p < Pool or p > (Pool + sizeof[Pool])
-	begin
+	set pool, ok = findPool[p];
+	if not ok begin
 		fatal[ERR_BOUNDS, sizeof[ERR_BOUNDS]];
 	end
 
-	if (p-Pool:i64):i64 % ChunkSize@i64 != 0
+	if distance[p, pool->Begin] % pool->ChunkSize != 0
 	begin
 		fatal[ERR_ALIGN, sizeof[ERR_ALIGN]];
 	end
 
-	set p@ptr = NULL;
-	set position = (p:i64 - Pool:i64) / (ChunkSize@i64);
-	set (ByteMap + position)@i8 = EMPTY;
+	set new = p:Node;
+	set new->Next = NULLNODE;
 
-	if Head@ptr == NULL
-	begin
-		set Head@ptr = p;
+	if pool->Head == NULLNODE begin
+		set pool->Head = new;
+		set pool->Tail = new;
 		return;
 	end
 
-	set (Tail@ptr)@ptr = p;
-	set Tail@ptr = p;
+	set pool->Tail->Next = new;
+	set pool->Tail = new;
 end
 
-proc print_map[]
-var i:i64
+proc setList[pool:Pool]
+var curr:Node, End:Node
 begin
-	set i = 0;
-	put_char['['];
-	while i < sizeof[Pool]/ChunkSize@i64
-	begin
-		if (ByteMap+i)@i8 == EMPTY
-		begin
-			put_char[' '];
-		end
-		if (ByteMap+i)@i8 == FULL
-		begin
-			put_char['X'];
-		end
-		set i += 1;
+	set curr = pool->Begin:Node;
+	set End = pool->End:Node - pool->ChunkSize;
+
+	set pool->Head = curr;
+	while curr < End begin # goes up to the second-to-last slot
+		set curr->Next = curr + pool->ChunkSize;
+		set curr = curr->Next;
 	end
-	put_char[']'];
-	put_char['\n'];
+	set curr->Next = NULLNODE; # the last one is the tail
+	set pool->Tail = curr;
 end
 
-proc setList[start:ptr, size, chunksize:i64]
-var i:i64
+proc used[pool:Pool] i32
 begin
-	set i = 0;
-	while i < size
-	begin
-		set (start+i)@ptr = start + (i+chunksize);
-		set i += chunksize;
+	return pool->Size - freed[pool];
+end
+
+proc freed[pool:Pool] i32
+var curr:Node, total, chunksize:i32
+begin
+	set total = 0;
+	set chunksize = pool->ChunkSize;
+	set curr = pool->Head;
+	while curr != NULLNODE begin
+		set total += chunksize;
+		set curr = curr->Next;
 	end
-	set i -= chunksize;
-	set (start+i)@ptr = NULL;
-	set Tail@ptr = (start+i);
+	return total;
+end
+
+proc empty[pool:Pool] bool
+var total:i32
+begin
+	set total = used[pool];
+	if total < pool->Size begin
+		return false;
+	end
+	if pool->Size < total begin
+		put_int[total:i64];
+		put_ln[];
+		put_int[pool->Size:i64];
+		put_ln[];
+		fatal[wtf, sizeof[wtf]];
+	end
+	return true;
 end

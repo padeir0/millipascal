@@ -402,6 +402,15 @@ type Data struct {
 	Nums []asm.DataEntry
 }
 
+func (this *Data) DataTypeSize(M *Module) *big.Int {
+	size := this.Type.Sizeof()
+	if size == nil {
+		panic("size was nil")
+	} else {
+		return size
+	}
+}
+
 // a constant can either be a integer or a symbol
 type Const struct {
 	Value  *big.Int

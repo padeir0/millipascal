@@ -213,6 +213,8 @@ func convertString(original string) string {
 			default:
 				output += string(r)
 			}
+		} else if r == '\'' {
+			output += "', 0x27, '"
 		} else {
 			output += string(r)
 		}

@@ -1,4 +1,4 @@
-from io import write
+from io import print
 from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, fatal, debug, oom
 from constants import WORD, NULL, FULL, EMPTY
@@ -343,7 +343,7 @@ begin
 		set curr = (curr+FL_NEXT_OFFSET)@ptr;
 	end
 	put_char[' '];
-	write[MSG_TOTAL_FREE, sizeof[MSG_TOTAL_FREE]];
+	print[MSG_TOTAL_FREE, sizeof[MSG_TOTAL_FREE]];
 	put_int[totalFree];
 	put_char['\n'];
 end

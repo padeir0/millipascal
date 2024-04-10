@@ -160,6 +160,8 @@ func genProc(c *context, M *mod.Module, sy *mod.Global) *Error {
 	body := proc.N.Leaves[4]
 	if body.Lex == LK.ASM {
 		if proc.Asm == nil {
+			fmt.Println(proc.Name)
+			fmt.Println(proc)
 			panic("empty asm procedure")
 		}
 		c.PirProc.Asm = proc.Asm
@@ -695,6 +697,8 @@ func globalToOperand(c *context, M *mod.Module, global *mod.Global) pir.Operand 
 			ID:    -1,
 			Num:   global.Const.Value,
 		}
+	case GK.Struct:
+		panic("structs should not be checked here")
 	}
 	panic("wht jus heppn?")
 }
@@ -850,7 +854,13 @@ func genDotAccess(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	var sy *mod.Global
 	switch obj.Lex {
 	case LK.IDENTIFIER: // data declaration
-		sy = M.GetSymbol(obj.Text)
+		text := obj.Text
+		sy = M.GetSymbol(text)
+
+		if sy == nil { // if it is not a global, then it must be a local
+			a := genExpr(M, c, obj)
+			return genOffset(M, c, a, id)
+		}
 	case LK.DOUBLECOLON: // external data declaration
 		modName := obj.Leaves[0].Text
 		symName := obj.Leaves[1].Text

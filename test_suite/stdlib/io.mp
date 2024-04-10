@@ -12,7 +12,7 @@ begin
     mov rbp, rsp;
 
     mov r0, {SYS_WRITE};
-    mov r2, [rbp, size]@qword;
+    mov r2d, [rbp, size]@dword;
     mov r6, [rbp, p]@qword;
     mov r7, {STDOUT};
     syscall;

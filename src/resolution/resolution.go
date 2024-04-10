@@ -872,7 +872,7 @@ func resData(M *mod.Module, sy *mod.Global) *Error {
 }
 
 func resBlobExpr(M *mod.Module, sy *mod.Global, n *mod.Node) *Error {
-	blobContents := n.Leaves[1]
+	blobContents := n.Leaves[0]
 	for _, leaf := range blobContents.Leaves {
 		err := resExpr(M, mod.FromSymbol(sy), leaf)
 		if err != nil {

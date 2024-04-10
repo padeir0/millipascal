@@ -31,6 +31,21 @@ import (
 )
 
 func GenAsmProcs(M *mod.Module) *Error {
+	M.ResetVisited()
+	return genMod(M)
+}
+
+func genMod(M *mod.Module) *Error {
+	if M.Visited {
+		return nil
+	}
+	M.Visited = true
+	for _, dep := range M.Dependencies {
+		err := genMod(dep.M)
+		if err != nil {
+			return err
+		}
+	}
 	for _, sy := range M.Globals {
 		switch sy.Kind {
 		case gk.Proc:

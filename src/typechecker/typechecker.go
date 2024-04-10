@@ -11,7 +11,13 @@ import (
 )
 
 func Check(M *mod.Module) *Error {
-	err := checkModule(M)
+	M.ResetVisited()
+	err := createStructTypes(M)
+	if err != nil {
+		return err
+	}
+	M.ResetVisited()
+	err = checkModule(M)
 	if err != nil {
 		return err
 	}
@@ -31,12 +37,7 @@ func checkModule(M *mod.Module) *Error {
 		}
 	}
 
-	err := createStructTypes(M)
-	if err != nil {
-		return err
-	}
-
-	err = checkSymbolsTpl(M)
+	err := checkSymbolsTpl(M)
 	if err != nil {
 		return err
 	}
@@ -81,7 +82,6 @@ type modSy struct {
 }
 
 func createStructTypes(M *mod.Module) *Error {
-	M.ResetVisited()
 	strmap := map[modSy]*T.Type{}
 	return createInternalStructs(M, strmap)
 }
@@ -92,7 +92,10 @@ func createInternalStructs(M *mod.Module, strmap map[modSy]*T.Type) *Error {
 	}
 	M.Visited = true
 	for _, dep := range M.Dependencies {
-		createInternalStructs(dep.M, strmap)
+		err := createInternalStructs(dep.M, strmap)
+		if err != nil {
+			return err
+		}
 	}
 	for _, sy := range M.Globals {
 		if sy.Kind == GK.Struct && !sy.External {
@@ -100,19 +103,22 @@ func createInternalStructs(M *mod.Module, strmap map[modSy]*T.Type) *Error {
 				Mod: sy.ModuleName,
 				Sy:  sy.Name,
 			}
-			t := T.Type{
-				Basic: T.Ptr,
-				Proc:  nil,
-				Struct: &T.Struct{
-					Module:   ms.Mod,
-					Name:     ms.Sy,
-					Fields:   []T.Field{},
-					FieldMap: map[string]int{},
-					Size:     nil,
-				},
+			_, ok := strmap[ms]
+			if !ok {
+				t := &T.Type{
+					Basic: T.Ptr,
+					Proc:  nil,
+					Struct: &T.Struct{
+						Module:   ms.Mod,
+						Name:     ms.Sy,
+						Fields:   []T.Field{},
+						FieldMap: map[string]int{},
+						Size:     nil,
+					},
+				}
+				strmap[ms] = t
+				sy.Struct.Type = t
 			}
-			strmap[ms] = &t
-			sy.Struct.Type = &t
 		}
 	}
 
@@ -1180,7 +1186,7 @@ func getSymbolType(sy *mod.Global) *T.Type {
 	case GK.Const:
 		return sy.Const.Type
 	case GK.Struct:
-		return nil
+		return sy.Struct.Type
 	default:
 		panic("unreachable 820")
 	}
@@ -1343,7 +1349,7 @@ func checkSub(M *mod.Module, proc *mod.Proc, op *mod.Node) *Error {
 		if !T.IsInteger(right.Type) {
 			return msg.ErrorInvalidTypeForExpr(M, op, right, "integer")
 		}
-		op.Type = T.T_Ptr
+		op.Type = left.Type
 		return nil
 	} else {
 		if !integer.Checker(left.Type) {

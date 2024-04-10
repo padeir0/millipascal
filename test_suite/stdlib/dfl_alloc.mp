@@ -1,4 +1,4 @@
-from io import write
+from io import print
 from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_ln, put_char, fatal, debug
 from constants import WORD, NULL, FULL, EMPTY
@@ -533,13 +533,13 @@ begin
 	end
 	put_char[' '];
 
-	write[MSG_TOTAL_FREE, sizeof[MSG_TOTAL_FREE]];
+	print[MSG_TOTAL_FREE, sizeof[MSG_TOTAL_FREE]];
 	put_int[get_total_free[]];
 
-	write[MSG_FLIMIT, sizeof[MSG_FLIMIT]];
+	print[MSG_FLIMIT, sizeof[MSG_FLIMIT]];
 	put_int[FrontLimit@i64];
 
-	write[MSG_BLIMIT, sizeof[MSG_BLIMIT]];
+	print[MSG_BLIMIT, sizeof[MSG_BLIMIT]];
 	put_int[BackLimit@i64];
 
 	put_ln[];

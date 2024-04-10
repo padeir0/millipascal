@@ -1,7 +1,7 @@
 # utf-8 string representation
 # _NEEDS_ garbage collection, since the underlying array
 # _WILL_ be referenced by multiple string headers.
-from io import write
+from io import print
 
 from
     ioutil
@@ -89,7 +89,7 @@ begin
     set start = (str+STR_START_OFFSET)@i32;
     set size = (str+STR_SIZE_OFFSET)@i32;
 
-    write[(array+start), size:i64];
+    print[(array+start), size:i64];
 end
 
 data NULL_STR "NULL"
@@ -97,7 +97,7 @@ data NULL_STR "NULL"
 proc put_str_debug[str:ptr]
 begin
     if str == NULL begin
-        write[NULL_STR, sizeof[NULL_STR]];
+        print[NULL_STR, sizeof[NULL_STR]];
         return;
     end
 
