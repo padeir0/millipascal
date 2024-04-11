@@ -590,7 +590,7 @@ Operations are described in the following table:
 |    `*`     | Multiplication                          |
 |    `/`     | Truncated Division                      |
 |    `%`     | Truncated Remainder                     |
-|    `|`     | Bitwise OR                              |
+|    `\|`    | Bitwise OR                              |
 |    `&`     | Bitwise AND                             |
 |    `!`     | Bitwise NOT                             |
 |    `^`     | Bitwise XOR                             |
