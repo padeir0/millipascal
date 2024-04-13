@@ -47,7 +47,7 @@ data begin
 	ERR_CHUNK "Chunk too small (minimum 8 bytes)\n";
 	ERR_BOUNDS "Pointer to be freed is outside all pools\n";
 	ERR_ALIGN "Pointer to be freed is out of alignment\n";
-	ERR_SMALLBUFF "Buffer too small (doesn't fit pool header)\n";
+	ERR_SMALLBUFF "Buffer too small (doesn't fit pool header plus a single chunk)\n";
 	ERR_TOOMANYPOOLS "Too many pools\n";
 end
 
@@ -58,7 +58,7 @@ begin
 		fatal[ERR_CHUNK, sizeof[ERR_CHUNK]];
 	end
 
-	if buffsize < sizeof[Pool] begin
+	if buffsize < sizeof[Pool] + chunksize begin
 		fatal[ERR_SMALLBUFF, sizeof[ERR_SMALLBUFF]];
 	end
 

@@ -33,6 +33,7 @@ proc main
 begin
 	base_test[];
 	enum_allocs[];
+	#TODO: Boundary tests
 end
 
 proc base_test

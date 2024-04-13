@@ -3,23 +3,11 @@ data hello "Hello, World!\n"
 proc main
 begin
     print[hello, sizeof[hello]];
-    print_d1[hello, sizeof[hello]];
-    print_d2[hello, sizeof[hello]];
 end
 
 const begin
     SYS_WRITE = 1;
     STDOUT = 1;
-end
-
-proc print_d2[p:ptr, size:i32]
-begin
-    print_d1[p, size];
-end
-
-proc print_d1[p:ptr, size:i32]
-begin
-    print[p, size];
 end
 
 proc print<stack>[p:ptr, size:i32] i32

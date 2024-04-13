@@ -1,5 +1,10 @@
 # Millipascal
 
+Millipascal is a language meant exclusively for amd64.
+It is low level and architecture dependent by design,
+as such, it readily provides assembly integration
+and a flexible ABI.
+
 ## Lexical Elements
 
 Millipascal source is UTF8 encoded, but only comments
@@ -292,7 +297,7 @@ Padding attributes that should be reserved are: `c_pad` and
 `align_pack`. The first computes padding just like a C struct,
 with proper internal and trailing padding, the second one allows
 the compiler to reorder fields for proper structure packing,
-without losing alignment guarantees.
+without losing alignment guarantees. (TBD)
 
 Inner fields of structs are not inlined, in the following
 struct, the field `List.Next` is only a pointer,
