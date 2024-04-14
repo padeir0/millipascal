@@ -10,6 +10,7 @@ import (
 	T "mpc/core/types"
 	eu "mpc/core/util"
 
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -583,6 +584,7 @@ func checkStore(s *state, instr mir.Instr) *Error {
 	}
 	err = checkUnary(instr, basicOrProc_imme, basicOrProc_addr)
 	if err != nil {
+		fmt.Println(s.bb)
 		return err
 	}
 

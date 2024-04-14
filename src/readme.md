@@ -466,7 +466,7 @@ the beginning of the "Local#0"
 | CallerInterproc#0 | <- ARP + 16
 | Return Address    |
 | Caller ARP        | <- ARP (rbp)
-| Local#0           |
+| Local#0           | <- ARP - 8
 | ...               |
 | Local#N           | <- ARP - (8 + N*8)
 | Spill#0           |

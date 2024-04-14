@@ -41,8 +41,8 @@ func LoadPtr(ptr, dest mir.Operand) mir.Instr {
 	}
 }
 
-func Convert(a, dest mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func Convert(a, dest mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.Convert,
 		Type: dest.Type,
 		A:    mir.OptOperand_(a),
@@ -50,8 +50,8 @@ func Convert(a, dest mir.Operand) *mir.Instr {
 	}
 }
 
-func Copy(source, destination mir.Operand) *mir.Instr {
-	return &mir.Instr{
+func Copy(source, destination mir.Operand) mir.Instr {
+	return mir.Instr{
 		T:    mik.Copy,
 		Type: source.Type,
 		A:    mir.OptOperand_(source),

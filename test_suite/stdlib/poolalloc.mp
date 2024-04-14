@@ -3,10 +3,13 @@ from
 import
 	NULL
 
+from io
+import fatal
+
 from
 	ioutil
 import
-	put_ln, put_char, put_int, put_uint, debug, fatal, oom
+	put_ln, put_char, put_int, put_uint, debug, oom
 
 from
 	buffutil

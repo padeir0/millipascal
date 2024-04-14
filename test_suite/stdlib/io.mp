@@ -1,4 +1,4 @@
-export print
+export print, fatal
 
 const begin
     SYS_WRITE = 1;
@@ -6,7 +6,13 @@ const begin
     STDOUT = 1;
 end
 
-proc print<stack>[p:ptr, size:i32] i32
+proc fatal[p:ptr, size:i32]
+begin
+    print[p, size];
+    exit 1ss;
+end
+
+proc print<stack>[p:ptr, size:i32] i64
 asm
 begin
     push rbp;

@@ -1,6 +1,6 @@
-from io import print
+from io import print, fatal
 from buffutil import clear_bytes, clear_words
-from ioutil import put_int, put_uint, put_char, put_ln, fatal, debug, oom
+from ioutil import put_bool, put_int, put_uint, put_char, put_ln, debug, oom
 from constants import WORD, NULL
 from ptrutil import distance
 
@@ -19,8 +19,8 @@ data begin
 end
 
 # object header
-struct Obj [sizeof[u16]] begin
-    Size:u16 {~sizeof[u16]};
+struct Obj [sizeof[i64]] begin
+    Size:i64 {~sizeof[i64]};
 end
 
 struct Node begin
@@ -55,7 +55,7 @@ begin
 end
 
 proc alloc[h:Heap, size:i32] ptr
-var obj:Obj, alloc_size:i64
+var p:ptr, alloc_size:i64
 begin
 	set size += sizeof[Obj];
 	# alignment
@@ -68,20 +68,20 @@ begin
 		set size = sizeof[Node];
 	end
 
-	set obj, alloc_size = get_node[h, size:i64];
-	if obj == NULLOBJ begin
+	set p, alloc_size = get_node[h, size:i64];
+	if p == NULL begin
 		return NULL;
 	end
-
-    set obj->Size = (alloc_size>>3l):u16;
-	return obj:ptr;
+	set p += sizeof[Obj];
+    set (p:Obj)->Size = alloc_size;
+	return p;
 end
 
-proc get_node[h:Heap, size:i64] Obj, i64
+proc get_node[h:Heap, size:i64] ptr, i64
 var curr, prev:Node
 begin
 	if h->Head == NULLNODE begin
-		return NULLOBJ, 0l;
+		return NULL, 0l;
 	end
 
 	set curr = h->Head;
@@ -89,7 +89,7 @@ begin
 
 	while curr != NULLNODE begin
 		if curr->Size == size begin
-			return pop[h, prev, curr], curr->Size;
+			return pop[h, prev, curr], size;
 		end
 		if curr->Size > size begin
             # if we allocate an object and the remaining
@@ -105,20 +105,20 @@ begin
 		set curr = curr->Next;
 	end
 
-	return NULLOBJ, 0l;
+	return NULL, 0l;
 end
 
-proc pop[h:Heap, prev, curr:Node] Obj
+proc pop[h:Heap, prev, curr:Node] ptr
 begin
 	if prev != NULLNODE begin
 		set prev->Next = curr->Next;
 	end else begin
         set h->Head = curr->Next;
 	end
-	return curr:Obj + sizeof[Obj];
+	return curr:ptr;
 end
 
-proc split[h:Heap, prev, curr:Node, requested_size:i64] Obj
+proc split[h:Heap, prev, curr:Node, requested_size:i64] ptr
 var newnode:Node
 begin
 	set newnode = curr + requested_size;
@@ -132,7 +132,7 @@ begin
 end
 
 proc free[p:ptr]
-var obj:Obj, size:i64,
+var size:i64,
     new, prev, curr:Node,
     h:Heap, ok:bool
 begin
@@ -141,9 +141,8 @@ begin
 		fatal[ERR_BOUNDS, sizeof[ERR_BOUNDS]];
 	end
 
-	set obj = p:Obj;
-	set size = (obj->Size):i64 << 3l;
-    set new = obj:Node;
+	set size = (p:Obj)->Size;
+    set new = (p-sizeof[Obj]):Node;
 
 	set new->Size = size;
 	set new->Next = NULLNODE;
@@ -178,6 +177,7 @@ begin
     # in this case, 'new' is the last node
 	append[prev, new];
 end
+
 proc append[prev, new:Node]
 begin
 	if prev + prev->Size== new begin
@@ -208,7 +208,7 @@ var size:i64
 begin
 	if prev + prev->Size == new begin
 		# COALESCING, append
-        set size = size + new->Size;
+        set size = prev->Size + new->Size;
 
 		if prev+size == curr begin
 			# in this case, prev, new and curr are adjacent
@@ -280,14 +280,14 @@ const begin
 	SUCEED = 4s;
 end
 
-data wtf "wtf!\n"
+data BAD_HEAP "malformed heap header\n"
 
 proc comp[a, b:Heap] i16
 begin
 	# sanity check, can be removed :)
 	if a->Begin >= a->End or b->Begin >= b->End begin
-		fatal[wtf, sizeof[wtf]];
-		exit 1ss;
+		fatal[BAD_HEAP, sizeof[BAD_HEAP]];
+		exit 2ss;
 	end
 
 	if a->End < b->Begin begin
@@ -332,6 +332,8 @@ begin
 	return total;
 end
 
+data BAD_EMPTY "freed more memory than available???\n"
+
 proc empty[h:Heap] bool
 var total:i64
 begin
@@ -340,7 +342,10 @@ begin
 		return false;
 	end
 	if h->Size < total begin
-		fatal[wtf, sizeof[wtf]];
+		put_ln[];
+		put_int[total];
+		put_ln[];
+		fatal[BAD_EMPTY, sizeof[BAD_EMPTY]];
 	end
 	return true;
 end
@@ -360,6 +365,12 @@ begin
 
 			set curr = curr->Next;
 		end else begin
+			put_uint[h->Begin:u64];
+			put_char[' '];
+			put_uint[curr:u64];
+			put_char[' '];
+			put_uint[h->End:u64];
+			put_ln[];
 			print[ERR_BOUNDS, sizeof[ERR_BOUNDS]];
 			return;
 		end

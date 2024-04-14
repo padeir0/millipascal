@@ -577,21 +577,21 @@ func allocStorePtr(s *state, instr pir.Instr, index int) {
 
 // Combination of possible Copy instructions
 // Notation is: hirc (mirc) -> hirc (mirc)
-// 	temp (spill|reg|calleeInter) -> temp (reg)
-// 	temp (spill|reg|calleeInter) -> local (reg|local)
-// 	temp (spill|reg|calleeInter) -> arg (reg|callerInter)
-// 	local (reg|local) -> temp (reg)
-// 	local (reg|local) -> local (reg|local)
-// 	local (reg|local) -> arg (reg|callerInter)
-// 	arg (reg|callerInter) -> temp (reg)
-// 	arg (reg|callerInter) -> local (reg|local)
-// 	arg (reg|callerInter) -> arg (reg|callerInter)
-// 	global (static) -> temp (reg)
-// 	global (static) -> local
-// 	global (static) -> arg (reg|callerInter)
-// 	lit (lit) -> temp (reg)
-// 	lit (lit) -> local (reg|local)
-// 	lit (lit) -> arg (reg|callerInter)
+//     temp (spill|reg|calleeInter) -> temp (reg)
+//     temp (spill|reg|calleeInter) -> local (reg|local)
+//     temp (spill|reg|calleeInter) -> arg (reg|callerInter)
+//     local (reg|local) -> temp (reg)
+//     local (reg|local) -> local (reg|local)
+//     local (reg|local) -> arg (reg|callerInter)
+//     arg (reg|callerInter) -> temp (reg)
+//     arg (reg|callerInter) -> local (reg|local)
+//     arg (reg|callerInter) -> arg (reg|callerInter)
+//     global (static) -> temp (reg)
+//     global (static) -> local
+//     global (static) -> arg (reg|callerInter)
+//     lit (lit) -> temp (reg)
+//     lit (lit) -> local (reg|local)
+//     lit (lit) -> arg (reg|callerInter)
 // c.HirC can only be Temp, Local or Arg
 func allocCopy(s *state, instr pir.Instr, index int) {
 	source := instr.Operands[0]
@@ -600,57 +600,44 @@ func allocCopy(s *state, instr pir.Instr, index int) {
 	dest := instr.Destination[0]
 	destIsAddr := isAddressable(s, dest)
 
-	outInstr := hirToMirInstr(instr)
-
 	if sourceIsAddr {
 		if destIsAddr {
-			// TODO: OPT: see if value is already in register
 			// LOAD  source -> reg
 			// STORE reg    -> dest
-			outInstr.T = mik.Load
-			outInstr.A = toMircOpt(s, source)
-			reg := _allocReg(s, toValue(source), source.Type, index)
-			outInstr.Dest = mir.OptOperand_(reg)
-			s.AddInstr(outInstr)
+			sourceOp := toMirc(s, source)
+			destOp := _allocReg(s, toValue(source), source.Type, index)
+			s.AddInstr(IRU.Load(sourceOp, destOp))
 
 			destMirc := toMirc(s, dest)
 			corruptOldVersion(s, dest)
-			s.AddInstr(IRU.Store(reg, destMirc))
+			s.AddInstr(IRU.Store(destOp, destMirc))
 		} else {
 			// LOAD source -> dest
-			outInstr.T = mik.Load
-			outInstr.A = toMircOpt(s, source)
-			outInstr.Dest = mir.OptOperand_(ensureImmediate(s, index, dest))
+			sourceOp := toMirc(s, source)
+			destOp := ensureImmediate(s, index, dest)
 			s.Mark(toValue(dest))
-
-			s.AddInstr(outInstr)
+			s.AddInstr(IRU.Load(sourceOp, destOp))
 		}
 	} else {
 		if destIsAddr {
 			// STORE source -> dest
-			outInstr.T = mik.Store
-			outInstr.A = toMircOpt(s, source)
-			outInstr.Dest = toMircOpt(s, dest)
+			sourceOp := ensureImmediate(s, index, source)
+			destOp := toMirc(s, dest)
 			corruptOldVersion(s, dest)
 
-			s.AddInstr(outInstr)
+			s.AddInstr(IRU.Store(sourceOp, destOp))
 		} else {
 			// COPY source -> dest
-			outInstr.A = toMircOpt(s, source)
-			outInstr.Dest = mir.OptOperand_(ensureImmediate(s, index, dest))
+			sourceOp := ensureImmediate(s, index, source)
+			destOp := ensureImmediate(s, index, dest)
 			s.Mark(toValue(dest))
 
-			s.AddInstr(outInstr)
+			s.AddInstr(IRU.Copy(sourceOp, destOp))
 		}
 	}
-	res, ok := freeIfNotNeeded(s, index, toValue(source))
-	if ok {
-		s.AddInstr(res)
-	}
-	res, ok = freeIfNotNeeded(s, index, toValue(dest))
-	if ok {
-		s.AddInstr(res)
-	}
+
+	freeIfNotNeededAndNotMutated(s, index, instr, toValue(source))
+	freeIfNotNeededAndNotMutated(s, index, instr, toValue(dest))
 }
 
 func corruptOldVersion(s *state, op pir.Operand) {
@@ -705,7 +692,7 @@ func allocCall(s *state, instr pir.Instr, index int) {
 		}
 	}
 	for _, op := range instr.Operands {
-		freeIfNotNeeded(s, index, toValue(op))
+		freeIfNotNeededAndNotMutated(s, index, instr, toValue(op))
 	}
 
 	s.UpdateMaxCalleeInterproc(len(instr.Operands)-1, len(instr.Destination))
@@ -742,14 +729,12 @@ func loadArguments(s *state, instr pir.Instr, index int) {
 }
 
 func isAddressable(s *state, o pir.Operand) bool {
+	info, ok := s.LiveValues[toValue(o)]
+	if ok {
+		return info.Place.IsAddressable()
+	}
 	switch o.Class {
-	case pc.Temp:
-		info, ok := s.LiveValues[toValue(o)]
-		if ok {
-			return info.Place.IsAddressable()
-		}
-		return false
-	case pc.Lit, pc.Global:
+	case pc.Temp, pc.Lit, pc.Global:
 		return false
 	case pc.Variable, pc.Arg:
 		return true
@@ -1061,32 +1046,6 @@ func freeIfNotNeededAndNotMutated(s *state, index int, instr pir.Instr, v value)
 		return
 	}
 	s.Free(v)
-}
-
-// can only insert free after current instruction
-func freeIfNotNeeded(s *state, index int, v value) (mir.Instr, bool) {
-	useInfo, ok := s.LiveValues[v]
-	if !ok {
-		return mir.Instr{}, false // already freed (i hope)
-	}
-	if isNeeded(s, index, v) {
-		return mir.Instr{}, false
-	}
-	s.Free(v)
-	if !s.hirBlock.IsTerminal() { // no need to restore if is terminal
-		if v.Class == pc.Variable && useInfo.Mutated {
-			r := reg(useInfo.Num)
-			instr := storeLocal(r, v.ID, useInfo.T)
-			return instr, true
-		}
-		if v.Class == pc.Arg && useInfo.Mutated {
-			r := reg(useInfo.Num)
-			arg := callerInterproc(v.ID)
-			instr := storeArg(r, arg, useInfo.T)
-			return instr, true
-		}
-	}
-	return mir.Instr{}, false
 }
 
 func isNeeded(s *state, index int, v value) bool {

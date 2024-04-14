@@ -773,6 +773,9 @@ func checkReturn(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 		if err != nil {
 			return err
 		}
+		if ret.MultiRet {
+			return msg.ErrorCannotUseMultipleValuesInExpr(M, n)
+		}
 		if !ret.Type.Equals(proc.Rets[i]) {
 			return msg.ErrorUnmatchingReturns(M, proc, ret, i)
 		}
