@@ -77,6 +77,7 @@ const (
 	InvalidInstr
 	InvalidTypeSize
 	InvalidOperand
+	ExpectedProc
 )
 
 func (et ErrorKind) String() string {
@@ -157,4 +158,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidInstr:                   "E070",
 	InvalidTypeSize:                "E071",
 	InvalidOperand:                 "E072",
+	ExpectedProc:                   "E073",
 }

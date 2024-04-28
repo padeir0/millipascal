@@ -48,10 +48,10 @@ end
 
 data begin
 	ERR_CHUNK "Chunk too small (minimum 8 bytes)\n";
-	ERR_BOUNDS "Pointer to be freed is outside all pools\n";
+	ERR_BOUNDS "Pointer to be freed is outside pool\n";
 	ERR_ALIGN "Pointer to be freed is out of alignment\n";
 	ERR_SMALLBUFF "Buffer too small (doesn't fit pool header plus a single chunk)\n";
-	ERR_TOOMANYPOOLS "Too many pools\n";
+	WTF "poolalloc: wtf\n";
 end
 
 proc init[buff:ptr, buffsize:i32, chunksize:i32] Pool
@@ -73,100 +73,15 @@ begin
 
 	clear_bytes[pool->Begin, pool->Size];
 	setList[pool];
-	insert[pool];
 
 	return pool;
 end
 
-struct IA32 begin
-	Num:i32;
-end
-
-struct PtrPool begin
-	Pool:Pool;
-end
-
-const MAXPOOLS = 8
-
-data begin
-	Top:IA32 {0};
-	PoolTable:PtrPool [MAXPOOLS];
-end
-
-# when inserting, if the new pool overlaps with an old pool,
-# then the older one gets overwritten with the new pool
-# leave them unordered, it shouldn't matter that much.
-proc insert[p:Pool]
-var i:i32, cmp:i16
-begin
-	set i = 0;
-	while i < Top->Num begin
-		set cmp = comp[PoolTable[i]->Pool, p];
-
-		if cmp == INTERSECT begin
-			set PoolTable[i]->Pool = p;
-			return;
-		end
-
-		set i++;
-	end
-
-	if Top->Num >= MAXPOOLS begin
-		fatal[ERR_TOOMANYPOOLS, sizeof[ERR_TOOMANYPOOLS]];
-	end
-
-	set PoolTable[Top->Num]->Pool = p;
-	set Top->Num++;
-end
-
-const begin
-	PRECEED = 1s;
-	INTERSECT = 2s;
-	SUCEED = 4s;
-end
-
-data wtf "wtf!\n"
-
-proc comp[a, b:Pool] i16
-begin
-	# sanity check, can be removed :)
-	if a->Begin >= a->End or b->Begin >= b->End begin
-		fatal[wtf, sizeof[wtf]];
-		exit 1ss;
-	end
-
-	if a->End < b->Begin begin
-		return PRECEED;
-	end
-	if b->End < a->Begin begin
-		return SUCEED;
-	end
-
-	return INTERSECT;
-end
-
-proc findPool[p:ptr] Pool, bool
-var i:i32, curr:Pool
-begin
-	set i = 0;
-	while i < Top->Num begin
-		set curr = PoolTable[i]->Pool;
-		if curr->Begin <= p and p < curr->End begin
-			return curr, true;
-		end
-
-		set i++;
-	end
-	return NULL:Pool, false;
-end
-
-proc alloc[p:Pool] ptr
+proc alloc[p:Pool] ptr, bool
 var curr:Node, position:i32
 begin
-	if p->Head == NULLNODE
-	begin
-		oom[];
-		exit 1ss;
+	if p->Head == NULLNODE begin
+		return NULL, false;
 	end
 
 	set curr = p->Head;
@@ -175,14 +90,13 @@ begin
 		set p->Tail = NULLNODE;
 	end
 
-	return curr:ptr;
+	return curr:ptr, true;
 end
 
-proc free[p:ptr]
-var position:i32, new:Node, pool:Pool, ok:bool,
+proc free[pool:Pool, p:ptr]
+var position:i32, new:Node
 begin
-	set pool, ok = findPool[p];
-	if not ok begin
+	if not (pool->Begin <= p and p < pool->End) begin
 		fatal[ERR_BOUNDS, sizeof[ERR_BOUNDS]];
 	end
 
@@ -229,33 +143,33 @@ begin
 	set pool->Tail = curr;
 end
 
-proc used[pool:Pool] i32
+proc used[pool:Pool] i64
 begin
-	return pool->Size - freed[pool];
+	return pool->Size:i64 - freed[pool];
 end
 
-proc freed[pool:Pool] i32
-var curr:Node, total, chunksize:i32
+proc freed[pool:Pool] i64
+var curr:Node, total:i64, chunksize:i32
 begin
-	set total = 0;
+	set total = 0l;
 	set chunksize = pool->ChunkSize;
 	set curr = pool->Head;
 	while curr != NULLNODE begin
-		set total += chunksize;
+		set total += chunksize:i64;
 		set curr = curr->Next;
 	end
 	return total;
 end
 
 proc empty[pool:Pool] bool
-var total:i32
+var total:i64
 begin
 	set total = freed[pool];
-	if total < pool->Size begin
+	if total < pool->Size:i64 begin
 		return false;
 	end
-	if pool->Size < total begin
-		fatal[wtf, sizeof[wtf]];
+	if pool->Size:i64 < total begin
+		fatal[WTF, sizeof[WTF]];
 	end
 	return true;
 end

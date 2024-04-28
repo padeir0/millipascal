@@ -3,6 +3,8 @@ from io import print
 from constants
 import NULL
 
+from arrays import PtrA
+
 from
 	poolalloc
 import all
@@ -22,12 +24,8 @@ data begin
 	Buff2 [1<<16];
 end 
 
-struct APtr begin
-	Ptr:ptr;
-end
-
 const NUM_POINTERS = 2048
-data Test:APtr [NUM_POINTERS]
+data Test:PtrA [NUM_POINTERS]
 
 proc main
 begin
@@ -37,14 +35,17 @@ begin
 end
 
 proc base_test
-var a:ptr, i:i32, out:ptr, pool:Pool
+var a:ptr, i:i32, out:ptr, ok:bool, pool:Pool
 begin
 	clear_bytes[Test:ptr, sizeof[Test]];
 	set pool = init[Buff1, sizeof[Buff1], 16];
 
 	set i = 0;
 	while i < NUM_POINTERS begin
-		set out = alloc[pool];
+		set out, ok = alloc[pool];
+		if not ok begin
+			oom[];
+		end
 		set out@i64 = 0xDEADBEEFl;
 		set (out+sizeof[i64])@i64 = 0xDEADBEEFl;
 		set Test[i]->Ptr = out;
@@ -54,7 +55,7 @@ begin
 	set i = 0;
 	while i < NUM_POINTERS begin
 		if i % 2 == 0 begin
-			free[Test[i]->Ptr];
+			free[pool, Test[i]->Ptr];
 		end
 		set i += 1;
 	end
@@ -62,7 +63,7 @@ begin
 	set i = NUM_POINTERS-1;
 	while 0 <= i begin
 		if i % 2 != 0 begin
-			free[Test[i]->Ptr];
+			free[pool, Test[i]->Ptr];
 		end
 		set i -= 1;
 	end
@@ -102,40 +103,38 @@ begin
 end
 
 proc param_allocs[n1, n2, n3:i32]
-var i:i32, pool1, pool2:Pool, a:ptr
+var i:i32, pool1:Pool, a:ptr, ok:bool
 begin
 	set pool1 = init[Buff1, sizeof[Buff1], SIZE1*n3];
-	set pool2 = init[Buff2, sizeof[Buff2], SIZE2*n3];
 
 	set i = 0;
 	do begin
 		set a = NULL;
 		if i % 2 == 0 begin
-			set a = alloc[pool1];
-		end else begin
-			set a = alloc[pool2];
+			set a, ok = alloc[pool1];
+			if not ok begin
+				oom[];
+			end
 		end
 
 		if a != NULL begin
 			corrupt[a, SIZE1*n3]; # SIZE1 < SIZE2 :)
 			set Test[i]->Ptr = a;
- 		end else begin
-			oom[];
-		end
+ 		end
 
 		if i % n1 == 0 begin
-			free_n[n2];
+			free_n[pool1, n2];
 		end
 		set i += 1;
 	end while i < NUM_POINTERS;
 
-	free_n[NUM_POINTERS];
-	if not empty[pool1] or not empty[pool2] begin
+	free_n[pool1, NUM_POINTERS];
+	if not empty[pool1] begin
 		failed[12ss];
 	end
 end
 
-proc free_n[n:i32]
+proc free_n[pool1:Pool, n:i32]
 var i:i32, a:ptr
 begin
 	set i = 0;
@@ -145,7 +144,7 @@ begin
 		end
 		set a = Test[i]->Ptr;
 		if a != NULL begin
-			free[a];
+			free[pool1, a];
 			set Test[i]->Ptr = NULL;
 			set n -= 1;
 		end

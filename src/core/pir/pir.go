@@ -2,6 +2,7 @@ package pir
 
 import (
 	"fmt"
+	. "mpc/core"
 	"mpc/core/asm"
 	hirc "mpc/core/pir/class"
 	FT "mpc/core/pir/flowkind"
@@ -52,6 +53,8 @@ func NewProgram() *Program {
 type Symbol struct {
 	Proc *Procedure
 	Mem  *DataDecl
+
+	SourceFile string // for warn/error messages
 }
 
 func (this *Symbol) String() string {
@@ -234,6 +237,8 @@ type Flow struct {
 	V     []Operand
 	True  BlockID
 	False BlockID
+
+	Range *Range
 }
 
 func (this *Flow) String() string {
@@ -293,6 +298,8 @@ type Instr struct {
 	Type        *T.Type
 	Operands    []Operand
 	Destination []Operand
+
+	Range *Range
 }
 
 func (this *Instr) String() string {

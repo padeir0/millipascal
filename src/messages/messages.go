@@ -93,13 +93,13 @@ func ErrorExpectedData(M *ir.Module, n *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedData, n, "is not a data region")
 }
 
-func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *ir.Global, n *ir.Node, left *ir.Node) *Error {
+func ErrorMismatchedMultiRetAssignment(M *ir.Module, proc *T.Type, n *ir.Node, left *ir.Node) *Error {
 	has := strconv.Itoa(len(left.Leaves))
 	expected := strconv.Itoa(len(proc.Proc.Rets))
 	return NewSemanticError(M, et.MismatchedMultiRetAssignment, n, "invalid number of assignments: "+has+", expected: "+expected)
 }
 
-func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *ir.Global, assignee *ir.Node, i int) *Error {
+func ErrorMismatchedTypesInMultiAssignment(M *ir.Module, proc *T.Type, assignee *ir.Node, i int) *Error {
 	ret := proc.Proc.Rets[i]
 	return NewSemanticError(M, et.MismatchedTypeInMultiRetAssign, assignee, "mismatched type in assignment, has type: "+assignee.Type.String()+", expected type: "+ret.String())
 }
@@ -286,4 +286,8 @@ func InvalidTypeSize(M *ir.Module, op *ir.Node) *Error {
 
 func InvalidOperand(M *ir.Module, op *ir.Node) *Error {
 	return NewSemanticError(M, et.InvalidOperand, op, "invalid operand")
+}
+
+func ErrorExpectedProc(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.ExpectedProc, op, "expected procedure")
 }

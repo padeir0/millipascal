@@ -3,20 +3,16 @@ from buffutil import clear_bytes, clear_words
 from ioutil import put_int, put_char, debug, oom
 from io import fatal
 from constants import WORD, NULL
+from arrays import PtrA
 
 const SIZEBUFF = 1<<16;
 
 data begin
     buff1 [SIZEBUFF];
-    buff2 [SIZEBUFF];
-end
-
-struct APtr begin
-	Ptr:ptr;
 end
 
 const TOTAL_TEST_PTRS = 256
-data Test:APtr [TOTAL_TEST_PTRS]
+data Test:PtrA [TOTAL_TEST_PTRS]
 
 proc main
 var i:i32, h:Heap
@@ -39,7 +35,7 @@ begin
 end
 
 proc _alloc[n:i32]
-var i:i32, a:ptr, h:Heap, size:i32
+var i:i32, a:ptr, ok:bool, h:Heap, size:i32
 begin
 	clear_bytes[Test:ptr, sizeof[Test]];
 	set h = init[buff1, sizeof[buff1]];
@@ -57,22 +53,23 @@ begin
 			set size = 33*n;
 		end
 
-		set a = alloc[h, size];
-		if a != NULL begin
-			corrupt[a, size];
-			set Test[i]->Ptr = a;
-		end else begin
+		set a, ok = alloc[h, size];
+
+		if not ok begin
 			oom[];
 		end
 
+		corrupt[a, size];
+		set Test[i]->Ptr = a;
+
 		if i % 4 == 0 begin
-			free_n[1*n];
+			free_n[h, 1*n];
 		end elseif i % 4 == 3 begin
-			free_n[2*n];
+			free_n[h, 2*n];
 		end
 		set i += 1;
 	end
-	free_n[TOTAL_TEST_PTRS];
+	free_n[h, TOTAL_TEST_PTRS];
 
 	if not empty[h] begin
 		print_list[h];
@@ -80,7 +77,7 @@ begin
 	end
 end
 
-proc free_n[n:i32]
+proc free_n[h:Heap, n:i32]
 var i:i32, a:ptr
 begin
 	set i = 0;
@@ -90,7 +87,7 @@ begin
 		end
 		set a = Test[i]->Ptr;
 		if a != NULL begin
-			free[a];
+			free[h, a];
 			set Test[i]->Ptr = NULL;
 			set n -= 1;
 		end

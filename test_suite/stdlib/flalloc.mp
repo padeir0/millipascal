@@ -8,14 +8,13 @@ export init, alloc, free, Heap, used, freed, empty, print_list
 
 const begin
     NULLNODE = NULL:Node;
-	NULLOBJ = NULL:Obj;
+    NULLOBJ = NULL:Obj;
 end
 
 data begin
-	ERR_BOUNDS "Pointer is outside all heaps\n";
-	ERR_ALIGN "Pointer is out of alignment\n";
-	ERR_SMALLBUFF "Buffer too small (doesn't fit header plus a single node)\n";
-	ERR_TOOMANYHEAPS "Too many heaps\n";
+    ERR_BOUNDS "Pointer is outside heap\n";
+    ERR_ALIGN "Pointer is out of alignment\n";
+    ERR_SMALLBUFF "Buffer too small (doesn't fit header plus a single node)\n";
 end
 
 # object header
@@ -50,11 +49,10 @@ begin
     set h->End = buff+buff_size;
     
     set h->Size = distance[h->Begin, h->End]:i64;
-	insert[h];
     return h;
 end
 
-proc alloc[h:Heap, size:i32] ptr
+proc alloc[h:Heap, size:i32] ptr, bool
 var p:ptr, alloc_size:i64
 begin
 	set size += sizeof[Obj];
@@ -70,11 +68,11 @@ begin
 
 	set p, alloc_size = get_node[h, size:i64];
 	if p == NULL begin
-		return NULL;
+		return NULL, false;
 	end
 	set p += sizeof[Obj];
     set (p:Obj)->Size = alloc_size;
-	return p;
+	return p, true;
 end
 
 proc get_node[h:Heap, size:i64] ptr, i64
@@ -131,13 +129,12 @@ begin
 	return pop[h, prev, curr];
 end
 
-proc free[p:ptr]
+proc free[h:Heap, p:ptr]
 var size:i64,
     new, prev, curr:Node,
-    h:Heap, ok:bool
+	ok:bool
 begin
-    set h, ok = findHeap[p];
-	if not ok begin
+	if not (h->Begin <= p and p < h->End) begin
 		fatal[ERR_BOUNDS, sizeof[ERR_BOUNDS]];
 	end
 
@@ -231,88 +228,6 @@ begin
 
     set prev->Next = new;
     set new->Next = curr;
-end
-
-struct IA32 begin
-	Num:i32;
-end
-
-struct PtrHeap begin
-	Heap:Heap;
-end
-
-const MAXHEAPS = 8
-
-data begin
-	Top:IA32 {0};
-	HeapTable:PtrHeap [MAXHEAPS];
-end
-
-# when inserting, if the new heap overlaps with an old heap,
-# then the older one gets overwritten with the new heap
-# leave them unordered, it shouldn't matter that much.
-proc insert[h:Heap]
-var i:i32, cmp:i16
-begin
-	set i = 0;
-	while i < Top->Num begin
-		set cmp = comp[HeapTable[i]->Heap, h];
-
-		if cmp == INTERSECT begin
-			set HeapTable[i]->Heap = h;
-			return;
-		end
-
-		set i++;
-	end
-
-	if Top->Num >= MAXHEAPS begin
-		fatal[ERR_TOOMANYHEAPS, sizeof[ERR_TOOMANYHEAPS]];
-	end
-
-	set HeapTable[Top->Num]->Heap = h;
-	set Top->Num++;
-end
-
-const begin
-	PRECEED = 1s;
-	INTERSECT = 2s;
-	SUCEED = 4s;
-end
-
-data BAD_HEAP "malformed heap header\n"
-
-proc comp[a, b:Heap] i16
-begin
-	# sanity check, can be removed :)
-	if a->Begin >= a->End or b->Begin >= b->End begin
-		fatal[BAD_HEAP, sizeof[BAD_HEAP]];
-		exit 2ss;
-	end
-
-	if a->End < b->Begin begin
-		return PRECEED;
-	end
-	if b->End < a->Begin begin
-		return SUCEED;
-	end
-
-	return INTERSECT;
-end
-
-proc findHeap[p:ptr] Heap, bool
-var i:i32, curr:Heap
-begin
-	set i = 0;
-	while i < Top->Num begin
-		set curr = HeapTable[i]->Heap;
-		if curr->Begin <= p and p < curr->End begin
-			return curr, true;
-		end
-
-		set i++;
-	end
-	return NULL:Heap, false;
 end
 
 proc used[h:Heap] i64

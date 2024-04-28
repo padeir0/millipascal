@@ -859,7 +859,7 @@ func checkSet(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 	}
 
 	if right.MultiRet {
-		err := checkMultiAssignment(M, left, right)
+		err := checkMultiAssignment(M, proc, left, right)
 		if err != nil {
 			return err
 		}
@@ -952,15 +952,22 @@ func checkIdAssignee(M *mod.Module, proc *mod.Proc, assignee *mod.Node) *Error {
 	return msg.ErrorNameNotDefined(M, assignee)
 }
 
-func checkMultiAssignment(M *mod.Module, left *mod.Node, n *mod.Node) *Error {
-	procName := n.Leaves[1].Text
-	proc := M.GetSymbol(procName)
-	if len(proc.Proc.Rets) != len(left.Leaves) {
-		return msg.ErrorMismatchedMultiRetAssignment(M, proc, n.Leaves[1], left)
+func checkMultiAssignment(M *mod.Module, proc *mod.Proc, left *mod.Node, n *mod.Node) *Error {
+	err := checkCall(M, proc, n)
+	if err != nil {
+		return err
+	}
+	callee := n.Leaves[1]
+	procType := callee.Type
+	if !T.IsProc(procType) {
+		return msg.ErrorExpectedProc(M, callee)
+	}
+	if len(procType.Proc.Rets) != len(left.Leaves) {
+		return msg.ErrorMismatchedMultiRetAssignment(M, procType, n.Leaves[1], left)
 	}
 	for i, assignee := range left.Leaves {
-		if !assignee.Type.Equals(proc.Proc.Rets[i]) {
-			return msg.ErrorMismatchedTypesInMultiAssignment(M, proc, assignee, i)
+		if !assignee.Type.Equals(procType.Proc.Rets[i]) {
+			return msg.ErrorMismatchedTypesInMultiAssignment(M, procType, assignee, i)
 		}
 	}
 	return nil
@@ -1078,6 +1085,9 @@ func conversion(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
 }
 
 func checkCall(M *mod.Module, proc *mod.Proc, n *mod.Node) *Error {
+	if n.Lex != LxK.CALL {
+		panic("internal error: was not a call node")
+	}
 	callee := n.Leaves[1]
 	err := checkExpr(M, proc, callee)
 	if err != nil {
