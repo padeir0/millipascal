@@ -54,25 +54,25 @@ data begin
 	WTF "poolalloc: wtf\n";
 end
 
-proc init[buff:ptr, buffsize:i32, chunksize:i32] Pool
+proc init[buff:ptr, buff_size:i32, chunk_size:i32] Pool
 var pool:Pool, ok:bool
 begin
-	if chunksize < MIN_CHUNK_SIZE begin
+	if chunk_size < MIN_CHUNK_SIZE begin
 		fatal[ERR_CHUNK, sizeof[ERR_CHUNK]];
 	end
 
-	if buffsize < sizeof[Pool] + chunksize begin
+	if buff_size < sizeof[Pool] + chunk_size begin
 		fatal[ERR_SMALLBUFF, sizeof[ERR_SMALLBUFF]];
 	end
 
 	set pool = buff:Pool;
 	set pool->Begin = buff + sizeof[Pool];
-	set pool->End = buff+buffsize;
-	set pool->ChunkSize = chunksize;
+	set pool->End = buff+buff_size;
+	set pool->ChunkSize = chunk_size;
 	set pool->Size = distance[pool->Begin, pool->End];
 
 	clear_bytes[pool->Begin, pool->Size];
-	setList[pool];
+	set_list[pool];
 
 	return pool;
 end
@@ -118,7 +118,7 @@ begin
 	set pool->Tail = new;
 end
 
-proc setList[pool:Pool]
+proc set_list[pool:Pool]
 var curr:Node, End:Node
 begin
 	set curr = pool->Begin:Node;

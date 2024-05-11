@@ -4,6 +4,8 @@
 # a way that new heaps can be added at any point in execution
 # and old heaps can be removed.
 #
+# THIS IS NOT THREAD SAFE.
+#
 # In reality, you'd have no more than a few heaps,
 # something like 3 pools and a backup free-list,
 # with size ranges:
@@ -11,10 +13,10 @@
 #     (16, 32] second pool
 #     (32, 64] third pool
 #     (0, 2^16] backup free-list heap
-# order matters, so the first region begin set has priority
+# order matters, so the first region has priority
 # over a region set later.
 from io import fatal
-from ioutil import put_char, put_int
+from ioutil import put_char, put_int, put_ln
 from constants import NULL
 from arrays import I32A
 
@@ -22,7 +24,8 @@ import
     flalloc as fl,
     poolalloc as pool
 
-export malloc, free, setPool, setHeap, used, freed, empty
+export malloc, free, set_pool, set_heap,
+       used, freed, empty, print_region_use
 
 const begin
     NO_KIND = 0ss;
@@ -41,11 +44,11 @@ struct Region begin
     Pool:pool::Pool;
 end
 
-const MAXREGIONS = 8
+const MAX_REGIONS = 8
 
 data begin
-    Top:I32A {0};
-    RegionTable:Region [MAXREGIONS];
+    top:I32A {0};
+    region_table:Region [MAX_REGIONS];
 end
 
 data begin
@@ -61,10 +64,10 @@ proc malloc[size:i32] ptr, bool
 var i:i32, r:Region, p:ptr, ok:bool
 begin
     set i = 0;
-    while i < Top->Num begin
-        set r = RegionTable[i];
-        if r->Min:i32 <= size and size <= r->Max:i32 begin
-            set p, ok = regionAlloc[r, size];
+    while i < top->Num begin
+        set r = region_table[i];
+        if r->Min:i32 < size and size <= r->Max:i32 begin
+            set p, ok = region_alloc[r, size];
             # If we have two regions with overlapping sizes,
             # this ensures if one is full, we can use the other.
             # This is useful for backup heaps.
@@ -77,7 +80,7 @@ begin
     return NULL, false;
 end
 
-proc regionAlloc[r:Region, size:i32] ptr, bool
+proc region_alloc[r:Region, size:i32] ptr, bool
 var p:ptr, ok:bool
 begin
     if r->Kind == POOL begin
@@ -91,7 +94,7 @@ begin
         return p, ok;
     end else begin
         put_char['a'];
-        badKind[];
+        bad_kind[];
     end
     return NULL, false;
 end
@@ -99,7 +102,7 @@ end
 proc free[p:ptr]
 var r:Region, ok:bool
 begin
-    set r, ok = findRegion[p];
+    set r, ok = find_region[p];
     if not ok begin
         fatal[OUTSIDE_REGIONS, sizeof[OUTSIDE_REGIONS]];
     end
@@ -109,77 +112,77 @@ begin
         fl::free[r->Heap, p];
     end else begin
         put_char['\n'];
-        badKind[];
+        bad_kind[];
     end
 end
 
 # chunkSize will be equal max
-proc setPool[buff:ptr, buffsize:i32, min, max:i16]
+proc set_pool[buff:ptr, buffsize:i32, min, max:i16]
 var p:pool::Pool
 begin
     set p = pool::init[buff, buffsize, max:i32];
-    insertRegion[POOL, min, max, p->Begin, p->End, p:ptr];
+    insert_region[POOL, min, max, p->Begin, p->End, p:ptr];
 end
 
-proc setHeap[buff:ptr, buffsize:i32, min, max:i16]
+proc set_heap[buff:ptr, buffsize:i32, min, max:i16]
 var h:fl::Heap
 begin
     set h = fl::init[buff, buffsize];
-    insertRegion[HEAP, min, max, h->Begin, h->End, h:ptr];
+    insert_region[HEAP, min, max, h->Begin, h->End, h:ptr];
 end
 
 # When inserting, if the new heap overlaps with an old heap,
 # then the older one gets overwritten with the new heap.
 # Leave them unordered, it shouldn't matter that much.
-proc insertRegion[kind:i8, min,max:i16, Beg,End:ptr, r:ptr]
+proc insert_region[kind:i8, min,max:i16, beg,_end:ptr, r:ptr]
 var i:i32, cmp:i16, reg:Region
 begin
     set i = 0;
-    while i < Top->Num begin
-        set reg = RegionTable[i];
+    while i < top->Num begin
+        set reg = region_table[i];
         if reg->Kind == POOL begin
-            set cmp = comp[Beg, End, reg->Pool->Begin, reg->Pool->End];
+            set cmp = comp[beg, _end, reg->Pool->Begin, reg->Pool->End];
         end elseif reg->Kind == HEAP begin
-            set cmp = comp[Beg, End, reg->Heap->Begin, reg->Heap->End];
+            set cmp = comp[beg, _end, reg->Heap->Begin, reg->Heap->End];
         end else begin
             put_char['c'];
-            badKind[];
+            bad_kind[];
         end
 
         if cmp == INTERSECT begin
-            setTable[i, kind, min, max, r];
+            set_table[i, kind, min, max, r];
             return;
         end
 
         set i++;
     end
 
-    if Top->Num >= MAXREGIONS begin
+    if top->Num >= MAX_REGIONS begin
         fatal[ERR_TOOMANYHEAPS, sizeof[ERR_TOOMANYHEAPS]];
     end
 
-    setTable[Top->Num, kind, min, max, r];
-    set Top->Num++;
+    set_table[top->Num, kind, min, max, r];
+    set top->Num++;
 end
 
-proc setTable[i:i32, kind:i8, min,max:i16, r:ptr]
+proc set_table[i:i32, kind:i8, min,max:i16, r:ptr]
 begin
-    set RegionTable[i]->Kind = kind;
-    set RegionTable[i]->Min = min;
-    set RegionTable[i]->Max = max;
+    set region_table[i]->Kind = kind;
+    set region_table[i]->Min = min;
+    set region_table[i]->Max = max;
     if kind == POOL begin
-        set RegionTable[i]->Heap = NULL:fl::Heap;
-        set RegionTable[i]->Pool = r:pool::Pool;
+        set region_table[i]->Heap = NULL:fl::Heap;
+        set region_table[i]->Pool = r:pool::Pool;
     end elseif kind == HEAP begin
-        set RegionTable[i]->Heap = r:fl::Heap;
-        set RegionTable[i]->Pool = NULL:pool::Pool;
+        set region_table[i]->Heap = r:fl::Heap;
+        set region_table[i]->Pool = NULL:pool::Pool;
     end else begin
-            put_char['d'];
-        badKind[];
+        put_char['d'];
+        bad_kind[];
     end
 end
 
-proc badKind[]
+proc bad_kind[]
 begin
     fatal[ERR_BADKIND, sizeof[ERR_BADKIND]];
 end
@@ -190,30 +193,30 @@ const begin
     SUCEED = 4s;
 end
 
-proc comp[aBegin, aEnd, bBegin, bEnd:ptr] i16
+proc comp[a_begin, a_end, b_begin, b_end:ptr] i16
 begin
     # sanity check, can be removed :)
-    if aBegin >= aEnd or bBegin >= bEnd begin
+    if a_begin >= a_end or b_begin >= b_end begin
         fatal[BAD_REGION, sizeof[BAD_REGION]];
         exit 2ss;
     end
 
-    if aEnd < bBegin begin
+    if a_end < b_begin begin
         return PRECEED;
     end
-    if bEnd < aBegin begin
+    if b_end < a_begin begin
         return SUCEED;
     end
 
     return INTERSECT;
 end
 
-proc findRegion[p:ptr] Region, bool
+proc find_region[p:ptr] Region, bool
 var i:i32, r:Region
 begin
     set i = 0;
-    while i < Top->Num begin
-        set r = RegionTable[i];
+    while i < top->Num begin
+        set r = region_table[i];
         if r->Kind == POOL begin
             if r->Pool->Begin <= p and p < r->Pool->End begin
                 return r, true;
@@ -224,7 +227,7 @@ begin
             end
         end else begin
             put_char['e'];
-            badKind[];
+            bad_kind[];
         end
 
         set i++;
@@ -232,14 +235,40 @@ begin
     return NULL:Region, false;
 end
 
-proc totalAndFreed[] i64, i64
+proc print_region_use[]
+var i:i32, total, tot_freed:i64, r:Region
+begin
+    set i = 0;
+    while i < top->Num begin
+        set r = region_table[i];
+        if r->Kind == POOL begin
+            set tot_freed = pool::freed[r->Pool];
+            set total = r->Pool->Size:i64;
+        end elseif r->Kind == HEAP begin
+            set tot_freed = fl::freed[r->Heap];
+            set total = r->Heap->Size;
+        end else begin
+            put_char['f'];
+            bad_kind[];
+        end
+        put_int[i:i64];
+        put_char[':'];
+        put_int[total-tot_freed];
+        put_char['/'];
+        put_int[total];
+        put_ln[];
+        set i++;
+    end
+end
+
+proc total_and_freed[] i64, i64
 var i:i32, total, tot_freed:i64, r:Region
 begin
     set i = 0;
     set total = 0l;
     set tot_freed = 0l;
-    while i < Top->Num begin
-        set r = RegionTable[i];
+    while i < top->Num begin
+        set r = region_table[i];
         if r->Kind == POOL begin
             set tot_freed += pool::freed[r->Pool];
             set total += r->Pool->Size:i64;
@@ -248,7 +277,7 @@ begin
             set total += r->Heap->Size;
         end else begin
             put_char['f'];
-            badKind[];
+            bad_kind[];
         end
         set i++;
     end
@@ -258,21 +287,21 @@ end
 proc used[] i64
 var total, freed:i64
 begin
-    set total, freed = totalAndFreed[];
+    set total, freed = total_and_freed[];
     return total-freed;
 end
 
 proc freed[] i64
 var total, freed:i64
 begin
-    set total, freed = totalAndFreed[];
+    set total, freed = total_and_freed[];
     return freed;
 end
 
 proc empty[] bool
 var total, freed:i64
 begin
-    set total, freed = totalAndFreed[];
+    set total, freed = total_and_freed[];
 	if freed < total begin
 		return false;
 	end

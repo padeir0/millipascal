@@ -1,12 +1,11 @@
 # Style
 
 Although the language is deceptively simple, it's good to keep a 
-consistent style. If something is not listed here, just try to follow
-the style of `./test_suite/runtime/bigint.mp`.
+consistent style.
 
 ## Identifiers
 
-Constants and string data should be in ALL_CAPS_SNAKE_CASE:
+Constants and read-only string data should be in ALL_CAPS_SNAKE_CASE:
 
 ```millipascal
 const OBJ_SIZE_OFFSET 8
@@ -18,39 +17,41 @@ data ERR_NAT_NEGATIVE "number subtraction went negative\n"
 data ERR_DIVISION_BY_ZERO "division by zero\n"
 ```
 
-Procedures should be in lower_snake_case:
+Procedures, variables, modules and writable data
+should be in lower_snake_case:
 
 ```millipascal
+data pool [_1KB]
+
 proc test_guess[
-    natIDD:ptr,
+    nat_IDD:ptr,
     scratch:ptr,
-    natB:ptr,
+    nat_B:ptr,
     guess:i32
 ] i64
 begin
 	...
 end
 
-proc slow_div[natA, natB, natQ, natRem:ptr]
+proc slow_div[nat_A, nat_B, nat_Q, nat_Rem:ptr]
 begin
 	...
 end
 ```
 
-Reserved data should follow UpperCammelCase,
-while local variables and arguments should follow lowerCamelCase:
+While structs and fields should be in UpperCamelCase;
 
 ```millipascal
-data NatIDD 40
-data Scratch 40
+struct BigInt begin
+    Array:I32A;
+    Cap,Len:i16;
+    Neg:bool;
 
-proc div[natA:ptr, natB:ptr, natQ:ptr, natRem:ptr]
-var sizeA, sizeB, i, j:i64,
-    low:i32, high:i32, guess:i32,
-    res:i64,
-begin
+    _pad1:u8; _pad2:u16;
 end
 ```
+
+Except unusable padding.
 
 ## Block delimiters
 

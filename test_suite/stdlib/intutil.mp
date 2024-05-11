@@ -1,4 +1,4 @@
-export min, max, abs, abs_i32
+export min, min_i16, max, max_i16, abs, abs_i64
 
 proc main
 begin
@@ -31,39 +31,51 @@ end
 
 proc max[a, b:i32] i32
 begin
-	if a >= b
-	begin
+	if a >= b begin
 		return a;
-	end 
-	else
-	begin
+	end else begin
+		return b;
+	end
+end
+
+proc max_i16[a, b:i16] i16
+begin
+	if a >= b begin
+		return a;
+	end else begin
 		return b;
 	end
 end
 
 proc min[a, b:i32] i32
 begin
-	if a <= b
-	begin
+	if a <= b begin
 		return a;
-	end 
-	else
-	begin
+	end else begin
 		return b;
 	end
 end
 
-proc abs_i32[a:i32] i32
+proc min_i16[a, b:i16] i16
 begin
-	if a >= 0 begin
+	if a <= b begin
+		return a;
+	end else begin
+		return b;
+	end
+end
+
+proc abs_i64[a:i64] i64
+begin
+	if a >= 0l begin
 		return a;
 	end
 	return ~a;
 end
 
-proc abs[a:i64] i64
+proc abs[a:i32] i32
 begin
-	if a >= 0l begin
+	if a >= 0 begin
 		return a;
 	end
 	return ~a;

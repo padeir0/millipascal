@@ -1,4 +1,4 @@
-# defines arrays for built-in types
+# defines arrays and utils for built-in types
 export all
 
 struct I8A begin
@@ -39,4 +39,16 @@ end
 
 struct BoolA begin
 	Bool:bool;
+end
+
+proc copy_I32A[dest, source:I32A, size:i32]
+var i:i32
+begin
+    set i = 0;
+    while i < size begin
+		set dest->Num = source->Num;
+		set dest++;
+		set source++;
+        set i += 1;
+    end
 end
