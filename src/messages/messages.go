@@ -291,3 +291,7 @@ func InvalidOperand(M *ir.Module, op *ir.Node) *Error {
 func ErrorExpectedProc(M *ir.Module, op *ir.Node) *Error {
 	return NewSemanticError(M, et.ExpectedProc, op, "expected procedure")
 }
+
+func ErrorExportingExternalName(M *ir.Module, op *ir.Node) *Error {
+	return NewSemanticError(M, et.ExportExternal, op, "exported external symbol")
+}

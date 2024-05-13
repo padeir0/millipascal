@@ -12,14 +12,14 @@ export
     println, debug, oom
 
 data DEBUG_MSG "debug: "
-data Debug [sizeof[i64]] # inits as zero
+data _debug [sizeof[i64]] # inits as zero
 
 proc debug[]
 begin
 	print[DEBUG_MSG, sizeof[DEBUG_MSG]];
-	put_int[Debug@i64];
+	put_int[_debug@i64];
 	put_char['\n'];
-	set Debug@i64 += 1l;
+	set _debug@i64 += 1l;
 end
 
 data ERR_OOM "out of memory!\n"
@@ -31,22 +31,22 @@ begin
 end
 
 data begin
-	PutCharBuff [sizeof[i8]];
-	ConvBuff [128];
-	PutRuneBuff [MAX_RUNE_SIZE];
+	put_char_buff [sizeof[i8]];
+	conv_buff [128];
+	put_rune_buff [MAX_RUNE_SIZE];
 end
 
 proc put_rune[r:i32]
 var size:i32
 begin
-	set size = utf8_encode[r, PutRuneBuff];
-	print[PutRuneBuff, size];
+	set size = utf8_encode[r, put_rune_buff];
+	print[put_rune_buff, size];
 end
 
 proc put_char[n:i8]
 begin
-	set PutCharBuff@i8 = n;
-	print[PutCharBuff, sizeof[PutCharBuff]];
+	set put_char_buff@i8 = n;
+	print[put_char_buff, sizeof[put_char_buff]];
 end
 
 proc put_ln[]
@@ -57,14 +57,14 @@ end
 proc put_uint[n:u64]
 var p:ptr, size:i32
 begin
-	set p, size = u64_to_dec[n, ConvBuff, sizeof[ConvBuff]];
+	set p, size = u64_to_dec[n, conv_buff, sizeof[conv_buff]];
 	print[p, size];
 end
 
 proc put_int[n:i64]
 var p:ptr, size:i32
 begin
-	set p, size = i64_to_dec[n, ConvBuff, sizeof[ConvBuff]];
+	set p, size = i64_to_dec[n, conv_buff, sizeof[conv_buff]];
 	print[p, size];
 end
 
@@ -76,14 +76,14 @@ end
 proc put_u8[b:u8]
 var p:ptr, size:i32
 begin
-	set p, size = u8_to_bin[b, ConvBuff, sizeof[ConvBuff]];
+	set p, size = u8_to_bin[b, conv_buff, sizeof[conv_buff]];
 	print[p, size];
 end
 
 proc put_u16[b:u16]
 var p:ptr, size:i32
 begin
-	set p, size = u16_to_bin[b, ConvBuff, sizeof[ConvBuff]];
+	set p, size = u16_to_bin[b, conv_buff, sizeof[conv_buff]];
 	print[p, size];
 end
 

@@ -78,6 +78,7 @@ const (
 	InvalidTypeSize
 	InvalidOperand
 	ExpectedProc
+	ExportExternal
 )
 
 func (et ErrorKind) String() string {
@@ -159,4 +160,5 @@ var ErrorCodeMap = map[ErrorKind]string{
 	InvalidTypeSize:                "E071",
 	InvalidOperand:                 "E072",
 	ExpectedProc:                   "E073",
+	ExportExternal:                 "E074",
 }

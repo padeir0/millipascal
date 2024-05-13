@@ -533,6 +533,9 @@ func checkExports(M *mod.Module) *Error {
 		if !ok {
 			return msg.ErrorExportingUndefName(M, exp.node)
 		}
+		if sy.External {
+			return msg.ErrorExportingExternalName(M, exp.node)
+		}
 		M.Exported[name] = sy
 	}
 	return nil

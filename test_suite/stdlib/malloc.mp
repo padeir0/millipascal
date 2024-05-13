@@ -6,7 +6,7 @@
 #
 # THIS IS NOT THREAD SAFE.
 #
-# In reality, you'd have no more than a few heaps,
+# In reality, you'd have no more than a few regions,
 # something like 3 pools and a backup free-list,
 # with size ranges:
 #     (0, 16] first pool
@@ -16,7 +16,7 @@
 # order matters, so the first region has priority
 # over a region set later.
 from io import fatal
-from ioutil import put_char, put_int, put_ln
+from ioutil import put_char, put_int, put_ln, oom
 from constants import NULL
 from arrays import I32A
 
@@ -24,7 +24,7 @@ import
     flalloc as fl,
     poolalloc as pool
 
-export malloc, free, set_pool, set_heap,
+export malloc, malloc_panic, free, set_pool, set_heap,
        used, freed, empty, print_region_use
 
 const begin
@@ -58,6 +58,16 @@ data begin
     BAD_EMPTY "freed more memory than available???\n";
     ERR_BADKIND "internal error: bad region kind\n";
     ERR_DOESNTFIT "internal error: obj size doesn't fit in pool\n";
+end
+
+proc malloc_panic[size:i32] ptr
+var p:ptr, ok:bool
+begin
+    set p, ok = malloc[size];
+    if not ok begin
+        oom[];
+    end
+    return p;
 end
 
 proc malloc[size:i32] ptr, bool

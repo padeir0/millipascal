@@ -1,20 +1,24 @@
 # Here be dragons.
+# BigInt arguments are usually uppercase here: A, B, C, ...
+# instead of following the usual style for arguments. While
+# i32 arguments are normally lowercase.
 from io import print, fatal
 from arrays import I32A, copy_I32A
-from malloc import malloc as _malloc, free as _free
+from malloc import malloc_panic as malloc, free as _free
 from buffutil import set_buff
 from ptrutil import distance
 from intutil import abs, min_i16, max_i16
 from ioutil import put_char, put_int, put_uint, put_bool, oom
+from constants import EQ, MORE, LESS
 
 export
     BigInt,
     new_BigInt, set_zero, set_BigInt,
     put_BigInt, copy_BigInt, free_BigInt,
-    push_digit,
+    push_digit, is_zero,
 
     put_BigInt_header,
-    BASE, EQ, MORE, LESS,
+    BASE,
     put_res,
 
     abs_comp_digit,
@@ -23,16 +27,13 @@ export
     abs_comp,
     abs_add, abs_sub, abs_mult, abs_div,
 
-    mult_base, neg,
-
     comp_i32,
-    div_i32, mult_i32, add_i32, sub_i32,
+    add_i32, sub_i32, mult_i32, div_i32,
 
     comp,
+    add, sub, mult, div,
 
-    # TODO: finish these and fix -0 +0 bug
-    # div, mult, add, sub
-
+    mult_base, neg,
 
 data begin
     ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n";
@@ -57,16 +58,6 @@ struct BigInt begin
 end
 
 ######################################## $ALLOCATION
-
-proc malloc[size:i32] ptr
-var p:ptr, ok:bool
-begin
-    set p, ok = _malloc[size];
-    if not ok begin
-        oom[];
-    end
-    return p;
-end
 
 proc alloc_header[] BigInt
 begin
@@ -333,119 +324,113 @@ end
 
 ######################################## $ABSOLUTE ARITHMETIC
 
-const begin
-    EQ = 0;
-    MORE = 1;
-    LESS = 2;
-end
-
-proc abs_comp_digit[iA:BigInt, digit:i32] i32
-var lenA, digitA:i32
+proc abs_comp_digit[A:BigInt, digit:i32] i32
+var digit_A:i32
 begin
     verify_digit[digit];
 
-    if digit == 0 and iA->Len == 0s begin
+    if digit == 0 and A->Len == 0s begin
         return EQ; # both are zero
     end
 
-    if iA->Len > 1s begin
+    if A->Len > 1s begin
         return MORE;
     end
 
-    set digitA = iA->Array->Num;
+    set digit_A = A->Array->Num;
 
-    if digit < digitA begin
+    if digit < digit_A begin
         return MORE;
-    end elseif digitA < digit begin
+    end elseif digit_A < digit begin
         return LESS;
     end
     return EQ;
 end
 
-# iA and iC need not to be different objects
-proc abs_add_digit[iA:BigInt, digit:i32, iC:BigInt]
+# A and C need not to be different objects
+proc abs_add_digit[A:BigInt, digit:i32, C:BigInt]
 var i:i16,
-    currDigitC:I32A,
+    curr_digit_C:I32A,
     carry, res:i32
 begin
     verify_digit[digit];
 
-    if iA->Len == 0s begin
-        set_BigInt[iC, digit];
+    if A->Len == 0s begin
+        set_BigInt[C, digit];
         return;
     end
-    if iC->Len == 0s begin
-        push_digit[iC, 0];
+    if C->Len == 0s begin
+        push_digit[C, 0];
     end
 
     set i = 0s;
     set carry = 0;
-    set currDigitC = iC->Array;
+    set curr_digit_C = C->Array;
     do begin
-        if i == iC->Len begin
+        if i == C->Len begin
             # push_digit may alter the pointer at arraySlot
-            push_digit[iC, 0];
+            push_digit[C, 0];
         end
-        set currDigitC = iC->Array[i];
+        set curr_digit_C = C->Array[i];
 
         set res = carry;
         if i == 0s begin
             set res += digit;
         end
-        if i < iA->Len begin
-            set res += iA->Array[i]->Num;
+        if i < A->Len begin
+            set res += A->Array[i]->Num;
         end
         if BASE <= res begin
             set carry = 1;
-            set currDigitC->Num = res - BASE;
+            set curr_digit_C->Num = res - BASE;
         end else begin
             set carry = 0;
-            set currDigitC->Num = res;
+            set curr_digit_C->Num = res;
         end
         set i += 1s;
     end while carry > 0;
 end
 
-proc abs_sub_digit[iA:BigInt, digit:i32, iC:BigInt]
+proc abs_sub_digit[A:BigInt, digit:i32, C:BigInt]
 var i:i16,
     carry, res:i32,
-    currDigitA, currDigitC:I32A,
+    curr_digit_A, curr_digit_C:I32A,
 begin
-    set res = abs_comp_digit[iA, digit];
+    set res = abs_comp_digit[A, digit];
 
     if res == LESS begin
         # in this case, lenA <= 1
-        # and we do sub_digit[iC, iA] -> iC instead
-        set_abs_BigInt[iC, digit - iA->Array->Num];
+        # and we do sub_digit[C, A] -> C instead
+        set_abs_BigInt[C, digit - A->Array->Num];
         return;
     end elseif res == EQ begin
-        set_zero[iC];
+        set_zero[C];
         return;
     end
     # for now on, we know that 1 <= lenA
-    # and that iA > digit
+    # and that A > digit
     set carry = 0;
     set i = 0s;
     do begin
-        if i == iC->Len begin
-            push_digit[iC, 0];
+        if i == C->Len begin
+            push_digit[C, 0];
         end
-        set currDigitA = iA->Array[i];
-        set currDigitC = iC->Array[i];
+        set curr_digit_A = A->Array[i];
+        set curr_digit_C = C->Array[i];
 
-        if i < iA->Len begin
-            set res = currDigitA->Num;
+        if i < A->Len begin
+            set res = curr_digit_A->Num;
         end else begin
             set res = 0;
         end
         if i == 0s begin
             set res -= digit;
         end
-        set currDigitC->Num = res - carry;
+        set curr_digit_C->Num = res - carry;
 
-        if currDigitC->Num < 0 begin
+        if curr_digit_C->Num < 0 begin
             set carry = 1;
-            set currDigitC->Num += BASE;
+            set curr_digit_C->Num += BASE;
         end else begin
             set carry = 0;
         end
@@ -453,40 +438,40 @@ begin
         set i += 1s;
     end while carry > 0;
     
-    remove_trailing_zeros[iC];
+    remove_trailing_zeros[C];
 end
 
-# iA may be the same object as iC
-proc abs_mult_digit[iA:BigInt, digit:i32, iC:BigInt]
+# A may be the same object as C
+proc abs_mult_digit[A:BigInt, digit:i32, C:BigInt]
 var carry:i32,
     i:i16,
     res:i64,
-    currDigitA, currDigitC:I32A
+    curr_digit_A, curr_digit_C:I32A
 begin
     verify_digit[digit];
 
-    set iC->Len = min_i16[iC->Len, iA->Len];
+    set C->Len = min_i16[C->Len, A->Len];
 
     set i = 0s;
     set carry = 0;
-    while i < iA->Len or carry > 0 begin
-        if i == iC->Len begin
-            push_digit[iC, 0];
+    while i < A->Len or carry > 0 begin
+        if i == C->Len begin
+            push_digit[C, 0];
         end
-        set currDigitA = iA->Array[i];
-        set currDigitC = iC->Array[i];
+        set curr_digit_A = A->Array[i];
+        set curr_digit_C = C->Array[i];
 
         set res = carry:i64;
-        if i < iA->Len begin
-            set res += currDigitA->Num:i64 * digit:i64;
+        if i < A->Len begin
+            set res += curr_digit_A->Num:i64 * digit:i64;
         end
-        set currDigitC->Num = (res % BASE:i64):i32;
+        set curr_digit_C->Num = (res % BASE:i64):i32;
         set carry = (res / BASE:i64):i32;
        
         set i += 1s;
     end
 
-    remove_trailing_zeros[iC];
+    remove_trailing_zeros[C];
 end
 
 # since 0 <= rem < B
@@ -496,7 +481,7 @@ end
 # furthermore,
 # IDD (intermediate dividend) will have at most 2 digits,
 # because B has only 1, so we can store it in an i64
-proc abs_div_digit[iA:BigInt, b:i32, iQ:BigInt] i32
+proc abs_div_digit[A:BigInt, b:i32, iQ:BigInt] i32
 var idd, q, b64:i64,
     i:i16,
 begin
@@ -508,10 +493,10 @@ begin
     set b64 = b:i64;
 
     set idd = 0l;
-    set i = iA->Len -1s;
+    set i = A->Len -1s;
     while 0s <= i begin
         set idd *= BASE:i64;
-        set idd += iA->Array[i]->Num:i64;
+        set idd += A->Array[i]->Num:i64;
 
         set q = idd / b64;
         set idd -= q*b64;
@@ -521,30 +506,31 @@ begin
         
         set i -= 1s;
     end
+    remove_trailing_zeros[iQ];
     # at the end of the loop, idd will be less than BASE,
     # so we can safely cast it
     return idd:i32;
 end
 
-# iA and iB need not to be different objects
-proc abs_comp[iA, iB:BigInt] i32
+# A and B need not to be different objects
+proc abs_comp[A, B:BigInt] i32
 var i:i16,
-    currDigitA, currDigitB:I32A
+    curr_digit_A, curr_digit_B:I32A
 begin
-    if iB->Len < iA->Len begin
+    if B->Len < A->Len begin
         return MORE;
-    end elseif iA->Len < iB->Len begin
+    end elseif A->Len < B->Len begin
         return LESS;
     end
 
-    set i = iA->Len - 1s; # we go backwards (MSD -> LSD)
+    set i = A->Len - 1s; # we go backwards (MSD -> LSD)
     while 0s <= i begin
-        set currDigitA = iA->Array[i];
-        set currDigitB = iB->Array[i];
+        set curr_digit_A = A->Array[i];
+        set curr_digit_B = B->Array[i];
         
-        if currDigitB->Num < currDigitA->Num begin
+        if curr_digit_B->Num < curr_digit_A->Num begin
             return MORE;
-        end elseif currDigitA->Num < currDigitB->Num begin
+        end elseif curr_digit_A->Num < curr_digit_B->Num begin
             return LESS;
         end
         
@@ -554,29 +540,29 @@ begin
     return EQ;
 end
 
-# abs_adds iA to iB and stores in iC
+# abs_adds A to B and stores in C
 #
-# iA, iB and iC need not to be different objects
-proc abs_add[iA, iB, iC:BigInt]
-var maxLen, i:i16,
+# A, B and C need not to be different objects
+proc abs_add[A, B, C:BigInt]
+var max_len, i:i16,
     carry:i32, curr_digit:I32A,
     res:i32
 begin
-    set maxLen = max_i16[iA->Len, iB->Len];
+    set max_len = max_i16[A->Len, B->Len];
 
     set i = 0s;
     set carry = 0;
-    while i < maxLen or carry > 0 begin
-        if i == iC->Len begin
-            push_digit[iC, 0];
+    while i < max_len or carry > 0 begin
+        if i == C->Len begin
+            push_digit[C, 0];
         end
-        set curr_digit = iC->Array[i];
+        set curr_digit = C->Array[i];
         set res = carry;
-        if i < iA->Len begin
-            set res += iA->Array[i]->Num;
+        if i < A->Len begin
+            set res += A->Array[i]->Num;
         end
-        if i < iB->Len begin
-            set res += iB->Array[i]->Num;
+        if i < B->Len begin
+            set res += B->Array[i]->Num;
         end
         set curr_digit->Num = res;
         if BASE <= curr_digit->Num begin
@@ -589,53 +575,53 @@ begin
     end
 end
 
-# iA, iB and iC need not to be different objects
-proc abs_sub[iA, iB, iC:BigInt]
+# A, B and C need not to be different objects
+proc abs_sub[A, B, C:BigInt]
 var i:i16,
     carry, res:i32,
-    currDigitA, currDigitB, currDigitC:I32A,
+    curr_digit_A, curr_digit_B, curr_digit_C:I32A,
     hold:BigInt
 begin
-    set res = abs_comp[iA, iB];
+    set res = abs_comp[A, B];
     if res == LESS begin
-        set hold = iA;
-        set iA = iB;
-        set iB = hold;
+        set hold = A;
+        set A = B;
+        set B = hold;
     end elseif res == EQ begin
-        set_zero[iC];
+        set_zero[C];
         return;
     end
     # for now on, we know that lenB <= lenA
 
-    # if iB and iC are the same object set to zero
-    # then iC will not be set to iA, so we do a separate check
-    if abs_comp_digit[iB, 0] == EQ begin
-        copy_BigInt[iC, iA];
+    # if B and C are the same object set to zero
+    # then C will not be set to A, so we do a separate check
+    if abs_comp_digit[B, 0] == EQ begin
+        copy_BigInt[C, A];
         return;
     end
 
     set carry = 0;
     set i = 0s;
-    while i < iB->Len or carry > 0 begin
-        if i == iC->Len begin
-            push_digit[iC, 0];
+    while i < B->Len or carry > 0 begin
+        if i == C->Len begin
+            push_digit[C, 0];
         end
-        set currDigitA = iA->Array[i];
-        set currDigitB = iB->Array[i];
-        set currDigitC = iC->Array[i];
+        set curr_digit_A = A->Array[i];
+        set curr_digit_B = B->Array[i];
+        set curr_digit_C = C->Array[i];
 
         set res = ~carry;
-        if i < iA->Len begin
-            set res += currDigitA->Num;
+        if i < A->Len begin
+            set res += curr_digit_A->Num;
         end
-        if i < iB->Len begin
-            set res -= currDigitB->Num;
+        if i < B->Len begin
+            set res -= curr_digit_B->Num;
         end
-        set currDigitC->Num = res;
+        set curr_digit_C->Num = res;
 
-        if currDigitC->Num < 0 begin
+        if curr_digit_C->Num < 0 begin
             set carry = 1;
-            set currDigitC->Num += BASE;
+            set curr_digit_C->Num += BASE;
         end else begin
             set carry = 0;
         end
@@ -643,39 +629,39 @@ begin
         set i += 1s;
     end
     
-    remove_trailing_zeros[iC];
+    remove_trailing_zeros[C];
 end
 
-# iC must be a different object from iA and iB
-proc abs_mult[iA, iB, iC:BigInt]
+# C must be a different object from A and B
+proc abs_mult[A, B, C:BigInt]
 var i, j:i16,
     res:i64,
     carry:i32,
-    currDigitA, currDigitB, currDigitC:I32A,
+    curr_digit_A, curr_digit_B, curr_digit_C:I32A,
 begin
-    set_zero[iC];
+    set_zero[C];
 
-    # we might realloc iC's array
+    # we might realloc C's array
     set i = 0s;
-    while i < iA->Len begin
-        set currDigitA = iA->Array[i];
+    while i < A->Len begin
+        set curr_digit_A = A->Array[i];
         set j = 0s;
         set carry = 0;
-        while j < iB->Len or carry > 0 begin
-            if i+j == iC->Len begin
-                push_digit[iC, 0];
+        while j < B->Len or carry > 0 begin
+            if i+j == C->Len begin
+                push_digit[C, 0];
             end
-            set currDigitB = iB->Array[j];
-            set currDigitC = iC->Array[i+j];
-            if j < iB->Len begin
-                set res = currDigitC->Num:i64 +
+            set curr_digit_B = B->Array[j];
+            set curr_digit_C = C->Array[i+j];
+            if j < B->Len begin
+                set res = curr_digit_C->Num:i64 +
                           carry:i64 +
-                          currDigitA->Num:i64 * currDigitB->Num:i64;
+                          curr_digit_A->Num:i64 * curr_digit_B->Num:i64;
             end else begin
-                set res = currDigitC->Num:i64 + carry:i64;
+                set res = curr_digit_C->Num:i64 + carry:i64;
             end
 
-            set currDigitC->Num = (res % BASE:i64):i32;
+            set curr_digit_C->Num = (res % BASE:i64):i32;
             set carry = (res / BASE:i64):i32;
             
             set j += 1s;
@@ -683,7 +669,7 @@ begin
         set i += 1s;
     end
 
-    remove_trailing_zeros[iC];
+    remove_trailing_zeros[C];
 end
 
 
@@ -695,32 +681,32 @@ const MAXITER = 33s
 #
 # bintQ, bintRem must be different objects from bintA and bintB, although
 # bintA may be the same as bintB
-proc abs_div[iA, iB, iQ, iRem:BigInt]
+proc abs_div[A, B, Q, Rem:BigInt]
 var i, j:i16,
     low, high, guess, res:i32,
-    iIDD, iScratch:BigInt
+    idd, scratch:BigInt
 begin
-    if abs_comp_digit[iB, 0] == EQ begin
+    if abs_comp_digit[B, 0] == EQ begin
         fatal[ERR_DIVISION_BY_ZERO, sizeof[ERR_DIVISION_BY_ZERO]];
     end
-    set_zero[iQ];
-    set_zero[iRem];
-    set iIDD = new_BigInt[0]; # TODO: remove these allocations
-    set iScratch = new_BigInt[0];
+    set_zero[Q];
+    set_zero[Rem];
+    set idd = new_BigInt[0]; # TODO: remove these allocations
+    set scratch = new_BigInt[0];
 
-    set i = iA->Len - 1s;
+    set i = A->Len - 1s;
 
     while 0s <= i begin
-        mult_base[iIDD];
-        abs_add_digit[iIDD, iA->Array[i]->Num, iIDD];
+        mult_base[idd];
+        abs_add_digit[idd, A->Array[i]->Num, idd];
 
         # find quotient digit
-        if abs_comp[iIDD, iB] == MORE begin
+        if abs_comp[idd, B] == MORE begin
             set low = 1;
             set guess = BASE/2;
             set high = BASE;
             set j = 0s;
-            set res = test_guess[iIDD, iScratch, iB, guess];
+            set res = test_guess[idd, scratch, B, guess];
             while res != EQ and j < MAXITER begin
                 if res == LESS begin
                     set low = guess;
@@ -728,46 +714,46 @@ begin
                     set high = guess;
                 end
                 set guess = (low + high)/2;
-                set res = test_guess[iIDD, iScratch, iB, guess];
+                set res = test_guess[idd, scratch, B, guess];
                 set j += 1s;
             end
             if j >= MAXITER begin
                 exit 4ss;
             end
 
-            copy_BigInt[iScratch, iB];
-            abs_mult_digit[iScratch, guess, iScratch];
-            abs_sub[iIDD, iScratch, iIDD];
-            mult_base[iQ];
-            abs_add_digit[iQ, guess, iQ];
-        end elseif abs_comp[iIDD, iB] == EQ begin
-            set_zero[iIDD];
-            mult_base[iQ];
-            abs_add_digit[iQ, 1, iQ];
+            copy_BigInt[scratch, B];
+            abs_mult_digit[scratch, guess, scratch];
+            abs_sub[idd, scratch, idd];
+            mult_base[Q];
+            abs_add_digit[Q, guess, Q];
+        end elseif abs_comp[idd, B] == EQ begin
+            set_zero[idd];
+            mult_base[Q];
+            abs_add_digit[Q, 1, Q];
         end else begin
-            if abs_comp_digit[iQ, 0] != EQ begin
-                mult_base[iQ];
+            if abs_comp_digit[Q, 0] != EQ begin
+                mult_base[Q];
             end
         end
         set i -= 1s;
     end
-    copy_BigInt[iRem, iIDD];
-    free_BigInt[iIDD];
-    free_BigInt[iScratch];
+    copy_BigInt[Rem, idd];
+    free_BigInt[idd];
+    free_BigInt[scratch];
 end
 
-proc test_guess[iIDD, iScratch, iB:BigInt, guess:i32] i32
+proc test_guess[idd, scratch, B:BigInt, guess:i32] i32
 var res:i32
 begin
-    copy_BigInt[iScratch, iB];
-    abs_mult_digit[iScratch, guess, iScratch];
-    set res = abs_comp[iScratch, iIDD];
+    copy_BigInt[scratch, B];
+    abs_mult_digit[scratch, guess, scratch];
+    set res = abs_comp[scratch, idd];
     if res == EQ begin
         return EQ;
     end
     if res == LESS begin 
-        abs_add[iScratch, iB, iScratch];
-        set res = abs_comp[iScratch, iIDD];
+        abs_add[scratch, B, scratch];
+        set res = abs_comp[scratch, idd];
         if res == MORE begin # guess*B < IDD and (guess+1)*B > IDD
             return EQ;
         end
@@ -786,35 +772,17 @@ end
 
 ######################################## $INTEGER ARITHMETIC
 
-proc mult_base[bint:BigInt]
-var len, i:i16, array:I32A
+proc comp_i32[A:BigInt, b:i32] i32
+var neg_A, neg_B:bool, res:i32
 begin
-    push_digit[bint, 0];
-    set array = bint->Array;
-    set i = bint->Len - 1s;
-    while 0s < i begin
-        set array[i]->Num = array[i - 1s]->Num;
-        set i -= 1s;
-    end
-    set array->Num = 0; # zeroes the first one
-end
-
-proc neg[bint:BigInt]
-begin
-    set bint->Neg = not bint->Neg;
-end
-
-proc comp_i32[iA:BigInt, b:i32] i32
-var negA, negB:bool, res:i32
-begin
-    set negA = iA->Neg;
-    set negB = b < 0;
+    set neg_A = A->Neg;
+    set neg_B = b < 0;
     set b = abs[b];
 
-    if not negA and not negB begin
-        return abs_comp_digit[iA, b];
-    end elseif negA and negB begin
-        set res = abs_comp_digit[iA, b];
+    if not neg_A and not neg_B begin
+        return abs_comp_digit[A, b];
+    end elseif neg_A and neg_B begin
+        set res = abs_comp_digit[A, b];
         # invert the result
         if res == MORE begin
             return LESS;
@@ -823,92 +791,106 @@ begin
         end else begin
             return EQ;
         end
-    end elseif not negA and negB begin
+    end elseif not neg_A and neg_B begin
         return MORE;
-    end elseif negA and not negB begin
+    end elseif neg_A and not neg_B begin
         return LESS;
     end
     fatal[WTF, sizeof[WTF]];
     return ~1;
 end
 
-proc sub_i32[iA:BigInt, b:i32, iC:BigInt]
-var negA, negB, res:bool
+proc sub_i32[A:BigInt, b:i32, C:BigInt]
+var neg_A, neg_B, res:bool
 begin
-    set negA = iA->Neg;
-    set negB = b < 0;
+    set neg_A = A->Neg;
+    set neg_B = b < 0;
     set b = abs[b];
 
-    if not negA and not negB begin
+    if not neg_A and not neg_B begin
     	# (1 * a) - (1 * b) = a-b
-        set res = pos_sub_digit_sign[iA, b, iC];
-        set iC->Neg = res;
-    end elseif negA and negB begin
+        set res = pos_sub_digit_sign[A, b, C];
+        set C->Neg = res;
+    end elseif neg_A and neg_B begin
     	# (-1 * a) - (-1 * b) = (-1)*(a-b)
-        set res = pos_sub_digit_sign[iA, b, iC];
-        set iC->Neg = not res;
-    end elseif negA and not negB begin
+        set res = pos_sub_digit_sign[A, b, C];
+        set C->Neg = not res;
+    end elseif neg_A and not neg_B begin
 	    # (-1 * a) - (1 * b)  = (-1)*((1*b) - (-1*a)) = (-1)*(b+a)
-        abs_add_digit[iA, b, iC];
-        set iC->Neg = true;
-    end elseif not negA and negB begin
+        abs_add_digit[A, b, C];
+        set C->Neg = true;
+    end elseif not neg_A and neg_B begin
     	# (1 * a) - (-1 * b)  = a+b
-        abs_add_digit[iA, b, iC];
-        set iC->Neg = false;
+        abs_add_digit[A, b, C];
+        set C->Neg = false;
+    end
+    if is_zero[C] begin # +0 -0 bug
+        set C->Neg = false;
     end
 end
 
-proc add_i32[iA:BigInt, b:i32, iC:BigInt]
-var negA, negB, res:bool
+proc add_i32[A:BigInt, b:i32, C:BigInt]
+var neg_A, neg_B, res:bool
 begin
-    set negA = iA->Neg;
-    set negB = b < 0;
+    set neg_A = A->Neg;
+    set neg_B = b < 0;
     set b = abs[b];
 
-    if not negA and not negB begin
+    if not neg_A and not neg_B begin
         # (1 * a) + (1 * b)   = a+b
-        abs_add_digit[iA, b, iC];
-        set iC->Neg = false;
-    end elseif negA and negB begin
+        abs_add_digit[A, b, C];
+        set C->Neg = false;
+    end elseif neg_A and neg_B begin
     	# (-1 * a) + (-1 * b) = (-1)*(a+b)
-        abs_add_digit[iA, b, iC];
-        set iC->Neg = true;
-    end elseif negA and not negB begin
+        abs_add_digit[A, b, C];
+        set C->Neg = true;
+    end elseif neg_A and not neg_B begin
     	# (-1 * a) + (1 * b)  = b-a = (-1)*(a-b)
-        set res = pos_sub_digit_sign[iA, b, iC];
-        set iC->Neg = not res;
-    end elseif not negA and negB begin
+        set res = pos_sub_digit_sign[A, b, C];
+        set C->Neg = not res;
+    end elseif not neg_A and neg_B begin
     	# (1 * a) + (-1 * b)  = a-b
-        set res = pos_sub_digit_sign[iA, b, iC];
-        set iC->Neg = res;
+        set res = pos_sub_digit_sign[A, b, C];
+        set C->Neg = res;
+    end
+    if is_zero[C] begin # +0 -0 bug
+        set C->Neg = false;
     end
 end
 
-proc mult_i32[iA:BigInt, b:i32, iC:BigInt]
-var neg, negA, negB:bool
+proc mult_i32[A:BigInt, b:i32, C:BigInt]
+var neg, neg_A, neg_B:bool
 begin
-    set negA = iA->Neg;
-    set negB = b < 0;
-    set neg = mult_signal[negA, negB];
+    set neg_A = A->Neg;
+    set neg_B = b < 0;
+    set neg = mult_signal[neg_A, neg_B];
     set b = abs[b];
-    abs_mult_digit[iA, b, iC];
-    set iC->Neg = neg;
+    abs_mult_digit[A, b, C];
+
+    if is_zero[C] begin
+        set C->Neg = false;
+    end else begin
+        set C->Neg = neg;
+    end
 end
 
-proc div_i32[iA:BigInt, b:i32, iQ:BigInt] i32
-var neg, negA, negB:bool, rem:i32
+proc div_i32[A:BigInt, b:i32, Q:BigInt] i32
+var neg, neg_A, neg_B:bool, rem:i32
 begin
-    set negA = iA->Neg;
-    set negB = b < 0;
-    set neg = mult_signal[negA, negB];
+    set neg_A = A->Neg;
+    set neg_B = b < 0;
+    set neg = mult_signal[neg_A, neg_B];
     set b = abs[b];
 
-    set rem = abs_div_digit[iA, b, iQ];
-    if abs_comp_digit[iQ, 0] != EQ begin
-        set iQ->Neg = neg;
+    set rem = abs_div_digit[A, b, Q];
+
+    if is_zero[Q] begin
+        set Q->Neg = false;
+    end else begin
+        set Q->Neg = neg;
     end
 
-    if rem != 0 and negA != (rem < 0) begin
+    if rem != 0 and neg_A != (rem < 0) begin
         set rem = ~rem;
     end
     return rem;
@@ -929,11 +911,11 @@ end
 
 # subtracts two positive numbers
 # then returns a sign based on magnitude
-proc pos_sub_sign[iA, iB, iC:BigInt] bool
+proc pos_sub_sign[A, B, C:BigInt] bool
 var res:i32
 begin
-    set res = abs_comp[iA, iB];
-    abs_sub[iA, iB, iC];
+    set res = abs_comp[A, B];
+    abs_sub[A, B, C];
     if res == MORE begin
         # if a > b then a-b > 0
         return false;
@@ -945,11 +927,11 @@ begin
 end
 
 # same as above, but second number may is an i32
-proc pos_sub_digit_sign[iA:BigInt, b:i32, iC:BigInt] bool
+proc pos_sub_digit_sign[A:BigInt, b:i32, C:BigInt] bool
 var res:i32
 begin
-    set res = abs_comp_digit[iA, b];
-    abs_sub_digit[iA, b, iC];
+    set res = abs_comp_digit[A, b];
+    abs_sub_digit[A, b, C];
     if res == MORE begin
         return false;
     end elseif res == LESS begin
@@ -958,15 +940,38 @@ begin
     return false;
 end
 
-proc comp[iA, iB:BigInt] i32
-var negA, negB:bool, res:i32
+proc is_zero[bint:BigInt] bool
 begin
-    set negA = iA->Neg;
-    set negB = iB->Neg;
-    if not negA and not negB begin
-        return abs_comp[iA, iB];
-    end elseif negA and negB begin
-        set res = abs_comp[iA, iB];
+    return bint->Len == 0s;
+end
+
+proc mult_base[bint:BigInt]
+var len, i:i16, array:I32A
+begin
+    push_digit[bint, 0];
+    set array = bint->Array;
+    set i = bint->Len - 1s;
+    while 0s < i begin
+        set array[i]->Num = array[i - 1s]->Num;
+        set i -= 1s;
+    end
+    set array->Num = 0; # zeroes the first one
+end
+
+proc neg[bint:BigInt]
+begin
+    set bint->Neg = not bint->Neg;
+end
+
+proc comp[A, B:BigInt] i32
+var neg_A, neg_B:bool, res:i32
+begin
+    set neg_A = A->Neg;
+    set neg_B = B->Neg;
+    if not neg_A and not neg_B begin
+        return abs_comp[A, B];
+    end elseif neg_A and neg_B begin
+        set res = abs_comp[A, B];
         # invert the result
         if res == MORE begin
             return LESS;
@@ -975,11 +980,103 @@ begin
         end else begin
             return EQ;
         end
-    end elseif not negA and negB begin
+    end elseif not neg_A and neg_B begin
         return MORE;
-    end elseif negA and not negB begin
+    end elseif neg_A and not neg_B begin
         return LESS;
     end
     fatal[WTF, sizeof[WTF]];
     return ~1;
+end
+
+proc add[A, B, C:BigInt]
+var neg_A, neg_B, res:bool
+begin
+    set neg_A = A->Neg;
+    set neg_B = B->Neg;
+
+    if not neg_A and not neg_B begin
+        # (1 * a) + (1 * b)   = 1*(a+b)
+        abs_add[A, B, C];
+        set C->Neg = false;
+    end elseif neg_A and neg_B begin
+    	# (-1 * a) + (-1 * b) = -1*(a+b)
+        abs_add[A, B, C];
+        set C->Neg = true;
+    end elseif neg_A and not neg_B begin
+    	# (-1 * a) + (1 * b)  = b-a
+        set res = pos_sub_sign[B, A, C];
+        set C->Neg = res;
+    end elseif not neg_A and neg_B begin
+    	# (1 * a) + (-1 * b)  = a-b
+        set res = pos_sub_sign[A, B, C];
+        set C->Neg = res;
+    end
+
+    if is_zero[C] begin
+        set C->Neg = false;
+    end
+end
+
+proc sub[A, B, C:BigInt]
+var neg_A:bool, neg_B:bool, res:bool
+begin
+    set neg_A = A->Neg;
+    set neg_B = B->Neg;
+    if not neg_A and not neg_B begin
+    	# (1 * a) - (1 * b) = a-b
+        set res = pos_sub_sign[A, B, C];
+        set C->Neg = res;
+    end elseif neg_A and neg_B begin
+    	# (-1 * a) - (-1 * b) = (-1)*(a-b)
+        set res = pos_sub_sign[A, B, C];
+        set C->Neg = not res;
+    end elseif neg_A and not neg_B begin
+	    # (-1 * a) - (1 * b)  = (-1)*((1*b) - (-1*a)) = (-1)*(b+a)
+        abs_add[A, B, C];
+        set C->Neg = true;
+    end elseif not neg_A and neg_B begin
+    	# (1 * a) - (-1 * b)  = a+b
+        abs_add[A, B, C];
+        set C->Neg = false;
+    end
+
+    if is_zero[C] begin
+        set C->Neg = false;
+    end
+end
+
+proc mult[A, B, C:BigInt]
+var neg, neg_A, neg_B:bool
+begin
+    set neg_A = A->Neg;
+    set neg_B = B->Neg;
+    set neg = mult_signal[neg_A, neg_B];
+    abs_mult[A, B, C];
+    if is_zero[C] begin
+        set C->Neg = false;
+    end else begin
+        set C->Neg = neg;
+    end
+end
+
+proc div[A, B, Q, Rem:BigInt]
+var neg, neg_A, neg_B:bool
+begin
+    set neg_A = A->Neg;
+    set neg_B = B->Neg;
+    set neg = mult_signal[neg_A, neg_B];
+    abs_div[A, B, Q, Rem];
+
+    if is_zero[Q] begin
+        set Q->Neg = false;
+    end else begin
+        set Q->Neg = neg;
+    end
+
+    if is_zero[Rem] begin
+        set Rem->Neg = false;
+    end else begin
+        set Rem->Neg = neg_A;
+    end
 end

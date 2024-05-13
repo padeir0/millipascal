@@ -5,6 +5,7 @@ from intutil import abs, max
 from malloc import set_pool, set_heap, empty
 from memsizes import _1KB
 from conv import I16MAX, I32MAX
+from constants import EQ, MORE, LESS
 
 data begin
     pool1  [1 * _1KB];
@@ -56,16 +57,29 @@ begin
 
     # [a-z]+_i32
     test_add_i32[~50, 50, 1];
-    # test_add_i32_carry[];
+    test_add_i32_carry[];
 
-    # test_sub_i32[~50, 50, 1];
-    # test_sub_i32_carry[];
+    test_sub_i32[~50, 50, 1];
+    test_sub_i32_carry[];
 
-    # test_mult_i32[~50, 50, 1];
-    # test_mult_i32_carry[];
+    test_mult_i32[~50, 50, 1];
+    test_mult_i32_carry[];
 
-    # test_div_i32[~50, 50, 1];
-    # test_div_i32_carry[];
+    test_div_i32[~50, 50, 1];
+    test_div_i32_carry[];
+
+    # full functions
+    test_add[~50, 50, 1];
+    test_add_carry[];
+
+    test_sub[~50, 50, 1];
+    test_sub_carry[];
+
+    test_mult[~50, 50, 1];
+    test_mult_carry[];
+
+    test_div[~50, 50, 1];
+    test_div_carry[];
 end
 
 proc test_abs_add_digit[low, high, pace:i32]
@@ -723,6 +737,10 @@ begin
                 set_BigInt[a, i];
                 div_i32[a, j, b];
                 if comp_i32[b, i/j] != EQ begin
+                    put_BigInt[b];
+                    put_char[' '];
+                    put_i32[i/j];
+                    put_ln[];
                     went_wrong[];
                 end
             end
@@ -766,3 +784,251 @@ begin
     end
 end
 
+proc test_add[low, high, pace:i32]
+var a, b:BigInt, i, j:i32
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+
+    set i = low;
+    while i < high begin
+        set j = low;
+        while j < high begin
+            set_BigInt[a, i];
+            set_BigInt[b, j];
+            add[a, b, a];
+            if comp_i32[a, i+j] != EQ begin
+                went_wrong[];
+            end
+            set j += pace;
+        end
+        set i += pace;
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    if not empty[] begin
+        exit 54ss;
+    end
+end
+
+proc test_add_carry[]
+var a, b, c:BigInt
+begin
+    set a = new_BigInt[BASE-1];
+    set b = new_BigInt[1];
+    set c = new_BigInt[1];
+    mult_base[c];
+    add[a, b, a];
+    if comp[a, c] != EQ begin
+        went_wrong[];
+    end
+
+    set_BigInt[a, BASE-1];
+    push_digit[a, BASE-1];
+    mult_base[c];
+    add[a, b, a];
+    if comp[a, c] != EQ begin
+        went_wrong[];
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[c];
+    if not empty[] begin
+        exit 55ss;
+    end
+end
+
+proc test_sub[low, high, pace:i32]
+var a, b:BigInt, i, j:i32
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+
+    set i = low;
+    while i < high begin
+        set j = low;
+        while j < high begin
+            set_BigInt[a, i];
+            set_BigInt[b, j];
+            sub[a, b, a];
+            if comp_i32[a, i-j] != EQ begin
+                went_wrong[];
+            end
+            set j += pace;
+        end
+        set i += pace;
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    if not empty[] begin
+        exit 56ss;
+    end
+end
+
+proc test_sub_carry[]
+var a, b, c:BigInt
+begin
+    set a = new_BigInt[1];
+    mult_base[a];
+    set b = new_BigInt[1];
+    set c = new_BigInt[BASE-1];
+    sub[a, b, a];
+    if comp[a, c] != EQ begin
+        went_wrong[];
+    end
+
+    set_BigInt[a, 1];
+    mult_base[a];
+    mult_base[a];
+    set_BigInt[c, BASE-1];
+    push_digit[c, BASE-1];
+    sub[a, b, a];
+    if comp[a, c] != EQ begin
+        went_wrong[];
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[c];
+    if not empty[] begin
+        exit 57ss;
+    end
+end
+
+proc test_mult[low, high, pace:i32]
+var a, b, c:BigInt, i, j:i32
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+    set c = new_BigInt[0];
+
+    set i = low;
+    while i < high begin
+        set j = low;
+        while j < high begin
+            set_BigInt[a, i];
+            set_BigInt[b, j];
+            mult[a, b, c];
+            if comp_i32[c, i*j] != EQ begin
+                went_wrong[];
+            end
+            set j += pace;
+        end
+        set i += pace;
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[c];
+    if not empty[] begin
+        exit 58ss;
+    end
+end
+
+proc test_mult_carry[]
+var a, b, c, d:BigInt, i:i32
+begin
+    set a = new_BigInt[1];
+    set b = new_BigInt[~2];
+    set c = new_BigInt[0];
+
+    set d = new_BigInt[709_551_616];
+    push_digit[d, 446_744_073];
+    push_digit[d, 18];
+    # b == 18__446_744_073__709_551_616 == (~2)^64
+
+    set i = 0;
+    while i < 64 begin
+        mult[a, b, c];
+        copy_BigInt[a, c];
+        set i += 1;
+    end
+
+    if comp[a, d] != EQ begin
+        went_wrong[];
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[c];
+    free_BigInt[d];
+    if not empty[] begin
+        exit 59ss;
+    end
+end
+
+proc test_div[low, high, pace:i32]
+var a, b, q, r:BigInt, i, j:i32
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+    set q = new_BigInt[0];
+    set r = new_BigInt[0];
+
+    set i = low;
+    while i < high begin
+        set j = low;
+        while j < high begin
+            if j != 0 begin
+                set_BigInt[a, i];
+                set_BigInt[b, j];
+                div[a, b, q, r];
+                if comp_i32[q, i/j] != EQ or
+                   comp_i32[r, i%j] != EQ
+                begin
+                    went_wrong[];
+                end
+            end
+            set j += pace;
+        end
+        set i += pace;
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[q];
+    free_BigInt[r];
+    if not empty[] begin
+        exit 60ss;
+    end
+end
+
+proc test_div_carry[]
+var a,b,q,r, res:BigInt, i:i32
+begin
+    # a == 18__446_744_073__709_551_616 == 2^64
+    set a = new_BigInt[709_551_616];
+    push_digit[a, 446_744_073];
+    push_digit[a, 18];
+    set b = new_BigInt[~2];
+    set q = new_BigInt[0];
+    set r = new_BigInt[0];
+
+    set res = new_BigInt[1];
+
+    set i = 0;
+    while i < 64 begin
+        div[a, b, q, r];
+        if comp_i32[r, 0] != EQ begin
+            went_wrong[];
+        end
+        copy_BigInt[a, q];
+        set i += 1;
+    end
+
+    if comp[a, res] != EQ begin
+        went_wrong[];
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[q];
+    free_BigInt[r];
+    free_BigInt[res];
+    if not empty[] begin
+        exit 61ss;
+    end
+end

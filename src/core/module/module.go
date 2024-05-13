@@ -132,6 +132,8 @@ func (M *Module) GetSymbol(name string) *Global {
 	if sy.External {
 		dep, ok := M.Dependencies[sy.ModuleName]
 		if !ok {
+			fmt.Println(sy.ModuleName)
+			fmt.Println(M.Globals)
 			panic("use of unknown dependency")
 		}
 		sy, ok := dep.M.Exported[sy.Name]

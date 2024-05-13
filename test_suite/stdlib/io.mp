@@ -30,8 +30,6 @@ begin
     ret;
 end
 
-# type FD = u64
-
 proc open[filename:ptr, flags:i32, mode:i32] u64, bool
 var fd:u64
 begin
