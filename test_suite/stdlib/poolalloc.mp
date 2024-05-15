@@ -1,25 +1,8 @@
-from
-	constants
-import
-	NULL
-
-from io
-import fatal
-
-from
-	ioutil
-import
-	put_ln, put_char, put_int, put_uint, debug, oom
-
-from
-	buffutil
-import
-	clear_bytes, clear_words
-
-from
-	ptrutil
-import
-	distance
+from constants import NULL
+from io import fatal
+from ioutil import put_ln, put_char, put_int, put_uint, oom
+from buffutil import clear_bytes, clear_words
+from ptrutil import distance
 
 export
 	init, alloc, free, Pool, empty, used, freed

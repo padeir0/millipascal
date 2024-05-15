@@ -6,14 +6,16 @@ from constants import EQ, MORE, LESS
 
 export
     BigRat,
-    new_BigRat, free_BigRat, put_BigRat,
+    new_BigRat, free_BigRat, put_BigRat, copy_BigRat,
 
     norm,
     comp_norm,
     add, sub, mult, div, neg, inv,
+    minimize,
 
 data begin
     NOT_NORMALIZED "rationals not normalized!\n";
+    ERR_SCRATCHTOOSMALL "scratch buffer too small!\n";
 end
 
 struct BigRat begin
@@ -27,6 +29,12 @@ begin
     set out->Num = bint::new_BigInt[num];
     set out->Den = bint::new_BigInt[den];
     return out;
+end
+
+proc copy_BigRat[dest, source:BigRat]
+begin
+    bint::copy_BigInt[dest->Num, source->Num];
+    bint::copy_BigInt[dest->Den, source->Den];
 end
 
 proc free_BigRat[rat:BigRat]
@@ -115,4 +123,23 @@ begin
         fatal[NOT_NORMALIZED, sizeof[NOT_NORMALIZED]];
     end
     return bint::comp[A->Num, B->Num];
+end
+
+proc minimize[A:BigRat, scratch:bint::BigIntArray, size:i32]
+var scr_int, scr_q, scr_r, scr_div:bint::BigInt
+begin
+    if size < 5 begin # non-overlapping: 1 here, 4 in gcd
+        fatal[ERR_SCRATCHTOOSMALL, sizeof[ERR_SCRATCHTOOSMALL]];
+    end
+
+    set scr_int = scratch[0]->Int;
+    bint::gcd[A->Num, A->Den, scr_int, scratch[1], size-1];
+
+    set scr_q = scratch[1]->Int;
+    set scr_r = scratch[2]->Int;
+    set scr_div = scratch[3]->Int;
+    bint::_div[A->Num, scr_int, scr_q, scr_r, scr_div];
+    bint::copy_BigInt[A->Num, scr_q];
+    bint::_div[A->Den, scr_int, scr_q, scr_r, scr_div];
+    bint::copy_BigInt[A->Den, scr_q];
 end

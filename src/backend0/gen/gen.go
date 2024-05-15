@@ -417,15 +417,26 @@ func genShift(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Line {
 func genMul(P *mir.Program, proc *mir.Procedure, instr mir.Instr) []asm.Line {
 	newInstr := genInstrName(instr)
 	if instr.Type.Size() == 1 {
-		newOp1 := convertOperandProc(P, proc, instr.A.Op())
-		newOp2 := convertOperandProc(P, proc, instr.B.Op())
-		newDest := convertOperandProc(P, proc, instr.Dest.Op())
-		rax := _genReg(RAX, instr.Type)
+		signed := T.IsSigned(instr.Type)
+		var line1, line2 asm.Line
+		if instr.A.Class == mirc.Lit || instr.A.Class == mirc.Static {
+			op := genImmediate(P, instr.A.Op())
+			line1 = Bin(Mov, RAX.Word, op)
+		} else {
+			line1 = mov_t(RAX, getReg(instr.A.Op()), 2, 1, signed, signed)
+		}
+		if instr.B.Class == mirc.Lit || instr.B.Class == mirc.Static {
+			op := genImmediate(P, instr.B.Op())
+			line2 = Bin(Mov, RCX.Word, op)
+		} else {
+			line2 = mov_t(RCX, getReg(instr.B.Op()), 2, 1, signed, signed)
+		}
+		line3 := mov_t(getReg(instr.Dest.Op()), RAX, 1, 2, signed, signed)
 		return []asm.Line{
-			Bin(Xor, RAX.QWord, RAX.QWord),
-			Bin(Mov, rax, newOp1),
-			Unary(newInstr, newOp2),
-			Bin(Mov, newDest, rax),
+			line1,
+			line2,
+			Bin(newInstr, RAX.Word, RCX.Word),
+			line3,
 		}
 	}
 	dest, op, ok := convertToTwoAddr(instr)
@@ -785,6 +796,30 @@ func convertOperand(P *mir.Program, op mir.Operand, NumOfVars, NumOfSpills, NumO
 		return LabelOp(sy.Mem.Label)
 	}
 	panic("unimplemented: " + op.String())
+}
+
+func genImmediate(P *mir.Program, op mir.Operand) asm.Operand {
+	switch op.Class {
+	case mirc.Lit:
+		if op.Num == nil {
+			panic("bignum was nil")
+		}
+		return Const(op.Num)
+	case mirc.Static:
+		sy := P.FindSymbol(mir.SymbolID(op.ID))
+		if sy == nil {
+			panic("symbol was nil")
+		}
+		if sy.Proc != nil {
+			return LabelOp(sy.Proc.Label)
+		}
+		if sy.Mem == nil && sy.Proc == nil {
+			panic("Mem and Proc were nil")
+		}
+		return LabelOp(sy.Mem.Label)
+	default:
+		panic("invalid use-case for genImmediate")
+	}
 }
 
 func genReg(num int64, t *T.Type) asm.Operand {

@@ -834,9 +834,15 @@ func genIndexing(M *mod.Module, c *context, op *mod.Node) pir.Operand {
 	a := genExpr(M, c, callee)
 
 	iOp := genExpr(M, c, index)
-	size := newNumLit(callee.Type.Sizeof(), index.Type)
+	if iOp.Type.Size() < T.T_I32.Size() {
+		indexOp := c.AllocTemp(T.T_I32)
+		instr := RIU.Convert(iOp, indexOp)
+		c.CurrBlock.AddInstr(instr)
+		iOp = indexOp
+	}
 
-	dest1 := c.AllocTemp(index.Type)
+	size := newNumLit(callee.Type.Sizeof(), iOp.Type)
+	dest1 := c.AllocTemp(iOp.Type)
 	mult := RIU.Bin(IK.Mult, iOp, size, dest1)
 	c.CurrBlock.AddInstr(mult)
 

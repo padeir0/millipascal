@@ -11,8 +11,10 @@ from intutil import abs, min_i16, max_i16
 from ioutil import put_char, put_int, put_uint, put_bool, oom
 from constants import EQ, MORE, LESS
 
+import debug_util as debug
+
 export
-    BigInt,
+    BigInt, BigIntArray,
     new_BigInt, set_zero, set_BigInt,
     put_BigInt, copy_BigInt, free_BigInt,
     push_digit, is_zero,
@@ -25,27 +27,32 @@ export
     abs_add_digit, abs_sub_digit, abs_mult_digit, abs_div_digit,
 
     abs_comp,
-    abs_add, abs_sub, abs_mult, abs_div,
+    abs_add, abs_sub, abs_mult, abs_div, _abs_div,
 
     comp_i32,
     add_i32, sub_i32, mult_i32, div_i32,
 
     comp,
-    add, sub, mult, div,
+    add, sub, mult, div, _div,
 
-    mult_base, neg,
+    mult_base, neg, gcd, pow,
 
 data begin
     ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n";
     ERR_SET_INVALID_I32 "setting bigint to invalid i32\n";
     ERR_TOO_BIG "bigint got too big\n";
     ERR_DIVISION_BY_ZERO "division by zero\n";
+    ERR_SCRATCH_TOO_SMALL "scratch space too small\n";
     WTF "wtf\n";
 end
 
 const begin
     BASE = 1_000_000_000; # 10^9, 9 digits for each i32
     DIGITS_PER_INT = 9;
+end
+
+struct BigIntArray begin
+    Int:BigInt;
 end
 
 # maximum of I16MAX * 9 = 294903 digits
@@ -155,7 +162,8 @@ end
 
 data ERR_STR_OVERFLOW "overflow of string buffer\n"
 
-data str_buff [1_000]
+# this can be improved :)
+data str_buff [2_048]
 
 proc put_BigInt[bint:BigInt]
 var size:i32,
@@ -672,41 +680,30 @@ begin
     remove_trailing_zeros[C];
 end
 
-
 const MAXITER = 33s
 
-# abs_div computes the solution to A = Q*B + Rem
-# (where A, B are given and Q, Rem are output pointers)
-# by long division
-#
-# bintQ, bintRem must be different objects from bintA and bintB, although
-# bintA may be the same as bintB
-proc abs_div[A, B, Q, Rem:BigInt]
+proc _abs_div[A, B, Q, Rem, scratch:BigInt]
 var i, j:i16,
     low, high, guess, res:i32,
-    idd, scratch:BigInt
 begin
     if abs_comp_digit[B, 0] == EQ begin
         fatal[ERR_DIVISION_BY_ZERO, sizeof[ERR_DIVISION_BY_ZERO]];
     end
     set_zero[Q];
     set_zero[Rem];
-    set idd = new_BigInt[0]; # TODO: remove these allocations
-    set scratch = new_BigInt[0];
 
     set i = A->Len - 1s;
-
     while 0s <= i begin
-        mult_base[idd];
-        abs_add_digit[idd, A->Array[i]->Num, idd];
+        mult_base[Rem];
+        abs_add_digit[Rem, A->Array[i]->Num, Rem];
 
         # find quotient digit
-        if abs_comp[idd, B] == MORE begin
+        if abs_comp[Rem, B] == MORE begin
             set low = 1;
             set guess = BASE/2;
             set high = BASE;
             set j = 0s;
-            set res = test_guess[idd, scratch, B, guess];
+            set res = test_guess[Rem, scratch, B, guess];
             while res != EQ and j < MAXITER begin
                 if res == LESS begin
                     set low = guess;
@@ -714,7 +711,7 @@ begin
                     set high = guess;
                 end
                 set guess = (low + high)/2;
-                set res = test_guess[idd, scratch, B, guess];
+                set res = test_guess[Rem, scratch, B, guess];
                 set j += 1s;
             end
             if j >= MAXITER begin
@@ -723,11 +720,11 @@ begin
 
             copy_BigInt[scratch, B];
             abs_mult_digit[scratch, guess, scratch];
-            abs_sub[idd, scratch, idd];
+            abs_sub[Rem, scratch, Rem];
             mult_base[Q];
             abs_add_digit[Q, guess, Q];
-        end elseif abs_comp[idd, B] == EQ begin
-            set_zero[idd];
+        end elseif abs_comp[Rem, B] == EQ begin
+            set_zero[Rem];
             mult_base[Q];
             abs_add_digit[Q, 1, Q];
         end else begin
@@ -737,8 +734,20 @@ begin
         end
         set i -= 1s;
     end
-    copy_BigInt[Rem, idd];
-    free_BigInt[idd];
+end
+
+
+# abs_div computes the solution to A = Q*B + Rem
+# (where A, B are given and Q, Rem are output pointers)
+# by long division
+#
+# bintQ, bintRem must be different objects from bintA and bintB, although
+# bintA may be the same as bintB
+proc abs_div[A, B, Q, Rem:BigInt]
+var scratch:BigInt
+begin
+    set scratch = new_BigInt[0];
+    _abs_div[A, B, Q, Rem, scratch];
     free_BigInt[scratch];
 end
 
@@ -1060,13 +1069,13 @@ begin
     end
 end
 
-proc div[A, B, Q, Rem:BigInt]
+proc _div[A, B, Q, Rem, scratch:BigInt]
 var neg, neg_A, neg_B:bool
 begin
     set neg_A = A->Neg;
     set neg_B = B->Neg;
     set neg = mult_signal[neg_A, neg_B];
-    abs_div[A, B, Q, Rem];
+    _abs_div[A, B, Q, Rem, scratch];
 
     if is_zero[Q] begin
         set Q->Neg = false;
@@ -1078,5 +1087,46 @@ begin
         set Rem->Neg = false;
     end else begin
         set Rem->Neg = neg_A;
+    end
+end
+
+proc div[A, B, Q, Rem:BigInt]
+var scratch:BigInt
+begin
+    set scratch = new_BigInt[0];
+    _div[A, B, Q, Rem, scratch];
+    free_BigInt[scratch];
+end
+
+proc gcd[A, B, out:BigInt, scratch:BigIntArray, size:i32]
+var scr_a, scr_b, scr_q, scr_t, scr_div:BigInt
+begin
+    if size < 4 begin
+        fatal[ERR_SCRATCH_TOO_SMALL, sizeof[ERR_SCRATCH_TOO_SMALL]];
+    end
+    set scr_a = scratch[0]->Int; set_zero[scr_a];
+    set scr_b = scratch[1]->Int; set_zero[scr_b];
+    set scr_q = scratch[2]->Int; set_zero[scr_q];
+    set scr_div = scratch[3]->Int; set_zero[scr_div];
+
+    copy_BigInt[scr_a, A];
+    copy_BigInt[scr_b, B];
+
+    while not is_zero[scr_b] begin
+        _div[scr_a, scr_b, scr_q, out, scr_div];
+        copy_BigInt[scr_a, scr_b];
+        copy_BigInt[scr_b, out];
+    end
+    copy_BigInt[out, scr_a];
+    set out->Neg = false;
+end
+
+proc pow[A:BigInt, b:i32, C:BigInt, scratch:BigInt]
+begin
+    copy_BigInt[C, A];
+    while 1 < b begin
+        mult[C, A, scratch];
+        copy_BigInt[C, scratch];
+        set b--;
     end
 end

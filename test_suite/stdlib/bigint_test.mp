@@ -18,6 +18,29 @@ begin
     set_heap[backup, sizeof[backup], 0s, I16MAX];
 end
 
+const scratch_size = 5
+data scratch:BigIntArray [scratch_size]
+
+proc alloc_scratch[]
+var i:i32
+begin
+    set i = 0;
+    while i < scratch_size begin
+        set scratch[i]->Int = new_BigInt[0];
+        set i++;
+    end
+end
+
+proc free_scratch[]
+var i:i32
+begin
+    set i = 0;
+    while i < scratch_size begin
+        free_BigInt[scratch[i]->Int];
+        set i++;
+    end
+end
+
 data bad "test went wrong!\n"
 proc went_wrong[]
 begin
@@ -80,6 +103,12 @@ begin
 
     test_div[~50, 50, 1];
     test_div_carry[];
+
+    # miscelaneous
+    test_gcd[12, 18, 6];
+    test_gcd[15, 7, 1];
+    test_gcd[3, 6, 3];
+    test_gcd[144, 12, 12];
 end
 
 proc test_abs_add_digit[low, high, pace:i32]
@@ -1030,5 +1059,37 @@ begin
     free_BigInt[res];
     if not empty[] begin
         exit 61ss;
+    end
+end
+
+proc test_gcd[num1, num2, num3:i32]
+var a,b,res:BigInt, i:i32
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+    set res = new_BigInt[0];
+    alloc_scratch[];
+
+    set i = 1;
+    while i < 100 begin
+        set_BigInt[a, i*num1];
+        set_BigInt[b, i*num2];
+
+        gcd[a, b, res, scratch, scratch_size];
+
+        if comp_i32[res, i*num3] != EQ begin
+            went_wrong[];
+        end
+        
+        set i++;
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    free_BigInt[res];
+    free_scratch[];
+
+    if not empty[] begin
+        exit 62ss;
     end
 end

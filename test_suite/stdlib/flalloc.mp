@@ -1,6 +1,6 @@
 from io import print, fatal
 from buffutil import clear_bytes, clear_words
-from ioutil import put_bool, put_int, put_uint, put_char, put_ln, debug, oom
+from ioutil import put_bool, put_int, put_uint, put_char, put_ln, oom
 from constants import WORD, NULL
 from ptrutil import distance
 
