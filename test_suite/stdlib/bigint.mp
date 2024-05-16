@@ -16,7 +16,8 @@ import debug_util as debug
 export
     BigInt, BigIntArray,
     new_BigInt, set_zero, set_BigInt,
-    put_BigInt, copy_BigInt, free_BigInt,
+    put_BigInt, _put_BigInt,
+    copy_BigInt, free_BigInt,
     push_digit, is_zero,
 
     put_BigInt_header,
@@ -166,14 +167,19 @@ data ERR_STR_OVERFLOW "overflow of string buffer\n"
 data str_buff [2_048]
 
 proc put_BigInt[bint:BigInt]
+begin
+    _put_BigInt[bint, false, true];
+end
+
+proc _put_BigInt[bint:BigInt, pad_left, pad_right:bool]
 var size:i32,
 begin
-    set size = write_BigInt[bint, str_buff, sizeof[str_buff]];
+    set size = write_BigInt[bint, str_buff, sizeof[str_buff], pad_left, pad_right];
     print[str_buff, size];
     set_buff[str_buff, size, 0ss];
 end
 
-proc write_BigInt[bint:BigInt, buff:ptr, buff_size:i32] i32
+proc write_BigInt[bint:BigInt, buff:ptr, buff_size:i32, pad_left, pad_right:bool] i32
 var i:i32, curr_digit:I32A,
     block:ptr, first:bool,
     size:i32,
@@ -186,7 +192,7 @@ begin
     set size = 0;
     set i = bint->Len:i32 -1;
     set block = buff;
-    set first = true;
+    set first = not pad_left;
     if bint->Neg begin
         set block@i8 = '~';
         set block += 1;
@@ -202,6 +208,11 @@ begin
         set block += DIGITS_PER_INT;
         set size += DIGITS_PER_INT;
         set i -= 1;
+    end
+    if not pad_right begin
+        while 0 < size and (buff+size-1)@i8 == '0' begin
+            set size--;
+        end
     end
     return size;
 end
@@ -718,8 +729,7 @@ begin
                 exit 4ss;
             end
 
-            copy_BigInt[scratch, B];
-            abs_mult_digit[scratch, guess, scratch];
+            abs_mult_digit[B, guess, scratch];
             abs_sub[Rem, scratch, Rem];
             mult_base[Q];
             abs_add_digit[Q, guess, Q];
@@ -754,8 +764,7 @@ end
 proc test_guess[idd, scratch, B:BigInt, guess:i32] i32
 var res:i32
 begin
-    copy_BigInt[scratch, B];
-    abs_mult_digit[scratch, guess, scratch];
+    abs_mult_digit[B, guess, scratch];
     set res = abs_comp[scratch, idd];
     if res == EQ begin
         return EQ;
@@ -1099,7 +1108,8 @@ begin
 end
 
 proc gcd[A, B, out:BigInt, scratch:BigIntArray, size:i32]
-var scr_a, scr_b, scr_q, scr_t, scr_div:BigInt
+var scr_a, scr_b, scr_q, scr_t, scr_div:BigInt,
+    actual_out, hold:BigInt
 begin
     if size < 4 begin
         fatal[ERR_SCRATCH_TOO_SMALL, sizeof[ERR_SCRATCH_TOO_SMALL]];
@@ -1108,16 +1118,19 @@ begin
     set scr_b = scratch[1]->Int; set_zero[scr_b];
     set scr_q = scratch[2]->Int; set_zero[scr_q];
     set scr_div = scratch[3]->Int; set_zero[scr_div];
+    set actual_out = out;
 
     copy_BigInt[scr_a, A];
     copy_BigInt[scr_b, B];
 
     while not is_zero[scr_b] begin
         _div[scr_a, scr_b, scr_q, out, scr_div];
-        copy_BigInt[scr_a, scr_b];
-        copy_BigInt[scr_b, out];
+        set hold = scr_a;
+        set scr_a = scr_b;
+        set scr_b = out;
+        set out = hold;
     end
-    copy_BigInt[out, scr_a];
+    copy_BigInt[actual_out, scr_a];
     set out->Neg = false;
 end
 

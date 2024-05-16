@@ -1,7 +1,10 @@
 from ioutil import put_int, put_char, put_ln, put_i32
-from arrays import I32A
 
 export setup, count, print_counts
+
+struct I32A begin
+    Num:i32;
+end
 
 const total_counters = 127ss;
 data counters:I32A [total_counters];

@@ -1078,6 +1078,13 @@ begin
         gcd[a, b, res, scratch, scratch_size];
 
         if comp_i32[res, i*num3] != EQ begin
+            put_char['('];
+            put_BigInt[a];
+            put_char[','];
+            put_BigInt[b];
+            put_char[')'];
+            put_char['='];
+            put_BigInt[res];
             went_wrong[];
         end
         

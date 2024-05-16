@@ -5,17 +5,22 @@ from malloc import malloc_panic as malloc, free
 from constants import EQ, MORE, LESS
 
 export
-    BigRat,
-    new_BigRat, free_BigRat, put_BigRat, copy_BigRat,
+    BigRat, BigRatArray,
+    new_BigRat, free_BigRat, copy_BigRat, set_BigRat,
+    put_decimal, put_BigRat,
 
     norm,
     comp_norm,
     add, sub, mult, div, neg, inv,
-    minimize,
+    minimize, sqrt2,
 
 data begin
     NOT_NORMALIZED "rationals not normalized!\n";
     ERR_SCRATCHTOOSMALL "scratch buffer too small!\n";
+end
+
+struct BigRatArray begin
+    Num:BigRat;
 end
 
 struct BigRat begin
@@ -49,6 +54,42 @@ begin
     bint::put_BigInt[rat->Num];
     put_char['/'];
     bint::put_BigInt[rat->Den];
+end
+
+proc set_BigRat[rat:BigRat, num, den:i32]
+begin
+    bint::set_BigInt[rat->Num, num];
+    bint::set_BigInt[rat->Den, den];
+end
+
+# prints (9*digits) decimal places
+proc put_decimal[rat:BigRat, digits:i32, scratch:bint::BigIntArray, scratch_size:i32]
+var q, r, t, scr:bint::BigInt, i:i32
+begin
+    if scratch_size < 4 begin
+        fatal[ERR_SCRATCHTOOSMALL, sizeof[ERR_SCRATCHTOOSMALL]];
+    end
+    set q = scratch[0]->Int;
+    set r = scratch[1]->Int;
+    set t = scratch[2]->Int;
+    set scr = scratch[3]->Int;
+
+    bint::_abs_div[rat->Num, rat->Den, q, r, scr];
+    bint::_put_BigInt[q, false, true];
+    put_char['.'];
+    set i = 0;
+    while i < digits begin
+        bint::copy_BigInt[t, r];
+        bint::mult_base[t];
+        bint::_abs_div[t, rat->Den, q, r, scr];
+
+        if bint::is_zero[r] begin
+            bint::_put_BigInt[q, true, false];
+            return;
+        end
+        bint::_put_BigInt[q, true, true];
+        set i++;
+    end
 end
 
 # A, B, C must be different objects
@@ -142,4 +183,33 @@ begin
     bint::copy_BigInt[A->Num, scr_q];
     bint::_div[A->Den, scr_int, scr_q, scr_r, scr_div];
     bint::copy_BigInt[A->Den, scr_q];
+end
+
+proc sqrt2[
+    out:BigRat,
+    n:i32,
+    scratch:BigRatArray,
+    scratch_size:i32,
+]
+var i:i32,
+    a_0, a_1, a_2:BigRat
+begin
+    if scratch_size < 3 begin
+        fatal[ERR_SCRATCHTOOSMALL, sizeof[ERR_SCRATCHTOOSMALL]];
+    end
+
+    set a_0 = scratch[0]->Num;
+    set a_1 = scratch[1]->Num;
+    set a_2 = scratch[2]->Num;
+
+    set_BigRat[out, 1, 1];
+    set i = 0;
+    while i < n begin
+        bint::mult_i32[out->Den, 2, a_0->Den];
+        bint::copy_BigInt[a_0->Num, out->Num];
+        inv[out, a_1];
+        add[a_0, a_1, a_2];
+        copy_BigRat[out, a_2];
+        set i++;
+    end
 end

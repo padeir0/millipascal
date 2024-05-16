@@ -1,4 +1,7 @@
 # defines arrays and utils for built-in types
+
+import debug_util as debug
+
 export all
 
 struct I8A begin
