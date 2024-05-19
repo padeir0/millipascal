@@ -6,7 +6,7 @@ from constants import EQ, MORE, LESS
 
 export
     BigRat, BigRatArray,
-    new_BigRat, free_BigRat, copy_BigRat, set_BigRat,
+    new_BigRat, free_BigRat, copy_BigRat, set_BigRat, set_BigRat_B,
     put_decimal, put_BigRat,
 
     norm,
@@ -60,6 +60,12 @@ proc set_BigRat[rat:BigRat, num, den:i32]
 begin
     bint::set_BigInt[rat->Num, num];
     bint::set_BigInt[rat->Den, den];
+end
+
+proc set_BigRat_B[rat:BigRat, num, den:bint::BigInt]
+begin
+    bint::copy_BigInt[rat->Num, num];
+    bint::copy_BigInt[rat->Den, den];
 end
 
 # prints (9*digits) decimal places

@@ -14,8 +14,8 @@ end
 
 proc setup[]
 begin
-    set_pool[pool1, sizeof[pool1], 0s, sizeof[BigInt]:i16];
-    set_heap[backup, sizeof[backup], 0s, I16MAX];
+    set_pool[pool1, sizeof[pool1], 0, sizeof[BigInt]];
+    set_heap[backup, sizeof[backup], 0, I32MAX];
 end
 
 const scratch_size = 5
@@ -109,6 +109,9 @@ begin
     test_gcd[15, 7, 1];
     test_gcd[3, 6, 3];
     test_gcd[144, 12, 12];
+
+    test_fact[];
+    test_pow_i32[];
 end
 
 proc test_abs_add_digit[low, high, pace:i32]
@@ -1098,5 +1101,87 @@ begin
 
     if not empty[] begin
         exit 62ss;
+    end
+end
+
+proc test_fact[]
+var a, b:BigInt
+begin
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
+
+    fact[1, a];
+    if comp_i32[a, 1] != EQ begin
+        went_wrong[];
+    end
+
+    fact[2, a];
+    if comp_i32[a, 2] != EQ begin
+        went_wrong[];
+    end
+    
+    fact[3, a];
+    if comp_i32[a, 6] != EQ begin
+        went_wrong[];
+    end
+
+    fact[4, a];
+    if comp_i32[a, 24] != EQ begin
+        went_wrong[];
+    end
+
+    fact[5, a];
+    if comp_i32[a, 120] != EQ begin
+        went_wrong[];
+    end
+
+    fact[6, a];
+    if comp_i32[a, 720] != EQ begin
+        went_wrong[];
+    end
+
+    fact[10, a];
+    if comp_i32[a, 3628800] != EQ begin
+        went_wrong[];
+    end
+
+    # 10__888_869_450__418_352_160__768_000_000
+    set_BigInt[b, 768_000_000];
+    push_digit[b, 418_352_160];
+    push_digit[b, 888_869_450];
+    push_digit[b, 10];
+
+    fact[27, a];
+
+    if comp[a, b] != EQ begin
+        went_wrong[];
+    end
+
+    free_BigInt[a];
+    free_BigInt[b];
+    if not empty[] begin
+        exit 63ss;
+    end
+end
+
+proc test_pow_i32[]
+var a:BigInt, i, j:i32
+begin
+    set a = new_BigInt[0];
+
+    set i = 1;
+    while i < 29 begin
+        set j = 1<<i;
+        pow_i32[2, i, a];
+
+        if comp_i32[a, j] != EQ begin
+            went_wrong[];
+        end
+        set i++;
+    end
+
+    free_BigInt[a];
+    if not empty[] begin
+        exit 64ss;
     end
 end

@@ -16,7 +16,7 @@
 # order matters, so the first region has priority
 # over a region set later.
 from io import fatal
-from ioutil import put_char, put_int, put_ln, oom
+from ioutil import put_char, put_int, put_ln, oom, put_i32
 from constants import NULL
 from arrays import I32A
 
@@ -37,8 +37,9 @@ struct Region begin
     Kind:i8;
     _pad1:i8;
     _pad2:i16;
+    _pad3:i32;
 
-    Min, Max:i16;
+    Min, Max:i32;
 
     Heap:fl::Heap;
     Pool:pool::Pool;
@@ -65,6 +66,12 @@ var p:ptr, ok:bool
 begin
     set p, ok = malloc[size];
     if not ok begin
+        put_ln[];
+        put_i32[size];
+        put_ln[];
+        print_region_lists[];
+        put_ln[];
+        print_region_use[];
         oom[];
     end
     return p;
@@ -127,14 +134,14 @@ begin
 end
 
 # chunkSize will be equal max
-proc set_pool[buff:ptr, buffsize:i32, min, max:i16]
+proc set_pool[buff:ptr, buffsize:i32, min, max:i32]
 var p:pool::Pool
 begin
     set p = pool::init[buff, buffsize, max:i32];
     insert_region[POOL, min, max, p->Begin, p->End, p:ptr];
 end
 
-proc set_heap[buff:ptr, buffsize:i32, min, max:i16]
+proc set_heap[buff:ptr, buffsize:i32, min, max:i32]
 var h:fl::Heap
 begin
     set h = fl::init[buff, buffsize];
@@ -144,7 +151,7 @@ end
 # When inserting, if the new heap overlaps with an old heap,
 # then the older one gets overwritten with the new heap.
 # Leave them unordered, it shouldn't matter that much.
-proc insert_region[kind:i8, min,max:i16, beg,_end:ptr, r:ptr]
+proc insert_region[kind:i8, min,max:i32, beg,_end:ptr, r:ptr]
 var i:i32, cmp:i16, reg:Region
 begin
     set i = 0;
@@ -175,7 +182,7 @@ begin
     set top->Num++;
 end
 
-proc set_table[i:i32, kind:i8, min,max:i16, r:ptr]
+proc set_table[i:i32, kind:i8, min,max:i32, r:ptr]
 begin
     set region_table[i]->Kind = kind;
     set region_table[i]->Min = min;
@@ -266,6 +273,25 @@ begin
         put_int[total-tot_freed];
         put_char['/'];
         put_int[total];
+        put_ln[];
+        set i++;
+    end
+end
+
+proc print_region_lists[]
+var i:i32, r:Region
+begin
+    set i = 0;
+    while i < top->Num begin
+        set r = region_table[i];
+        if r->Kind == POOL begin
+            put_char['!'];
+        end elseif r->Kind == HEAP begin
+            fl::print_list[r->Heap];
+        end else begin
+            put_char['f'];
+            bad_kind[];
+        end
         put_ln[];
         set i++;
     end

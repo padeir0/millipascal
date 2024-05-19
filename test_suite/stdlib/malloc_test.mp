@@ -1,7 +1,7 @@
 from io import fatal
 from ioutil import oom, put_i32, put_ln
 from malloc import all
-from conv import I16MAX
+from conv import I32MAX
 from arrays import PtrA
 from constants import NULL
 from memsizes import _1KB
@@ -15,10 +15,10 @@ end
 
 proc setup[]
 begin
-    set_pool[pool1, sizeof[pool1], 0s, 16s];
-    set_pool[pool2, sizeof[pool2], 16s, 32s];
-    set_pool[pool3, sizeof[pool3], 32s, 64s];
-    set_heap[backup, sizeof[backup], 0s, I16MAX];
+    set_pool[pool1, sizeof[pool1], 0, 16];
+    set_pool[pool2, sizeof[pool2], 16, 32];
+    set_pool[pool3, sizeof[pool3], 32, 64];
+    set_heap[backup, sizeof[backup], 0, I32MAX];
 end
 
 proc main

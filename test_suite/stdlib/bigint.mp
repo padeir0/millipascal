@@ -36,7 +36,7 @@ export
     comp,
     add, sub, mult, div, _div,
 
-    mult_base, neg, gcd, pow,
+    mult_base, neg, gcd, pow, pow_i32, fact,
 
 data begin
     ERR_SET_INVALID_DIGIT "setting bigint to invalid digit\n";
@@ -1136,10 +1136,33 @@ end
 
 proc pow[A:BigInt, b:i32, C:BigInt, scratch:BigInt]
 begin
-    copy_BigInt[C, A];
+    set_BigInt[C, 1];
     while 1 < b begin
         mult[C, A, scratch];
         copy_BigInt[C, scratch];
         set b--;
+    end
+end
+
+proc pow_i32[a, b:i32, C:BigInt]
+begin
+    verify_i32[a];
+    verify_i32[b];
+
+    set_BigInt[C, 1];
+    while 0 < b begin
+        mult_i32[C, a, C];
+        set b--;
+    end
+end
+
+proc fact[a:i32, out:BigInt]
+begin
+    verify_i32[a];
+
+    set_BigInt[out, 1];
+    while 0 < a begin
+        mult_i32[out, a, out];
+        set a--;
     end
 end

@@ -1,24 +1,24 @@
 from io import print, fatal
 from ioutil import put_ln, put_char, put_i32
 from intutil import max
-from bigrat import BigRat, BigRatArray, new_BigRat, free_BigRat, copy_BigRat, put_BigRat, minimize, add, put_decimal, sqrt2
-from bigint import BigInt, BigIntArray, new_BigInt, free_BigInt, put_BigInt, set_BigInt, pow, div, add_i32, mult_i32
+from bigrat import BigRat, BigRatArray, new_BigRat, free_BigRat, copy_BigRat, put_BigRat, minimize, add as add_rat, put_decimal, sqrt2, set_BigRat_B, mult as mult_rat, inv, div as div_rat
+from bigint import BigInt, BigIntArray, new_BigInt, free_BigInt, put_BigInt, set_BigInt, pow, div, add_i32, mult, mult_i32, fact, pow_i32
 from memsizes import _1KB, _1MB
-from malloc import set_pool, set_heap, empty
-from conv import I16MAX
+from malloc import set_pool, set_heap, empty, print_region_use
+from conv import I32MAX
 import debug_util as debug
 
 data begin
     pool1  [1 * _1KB];
-    backup [1 * _1MB];
+    backup [8 * _1MB];
 end
 
 proc setup[]
 var size:i32
 begin
     set size = max[sizeof[BigInt], sizeof[BigRat]];
-    set_pool[pool1, sizeof[pool1], 0s, size:i16];
-    set_heap[backup, sizeof[backup], 0s, I16MAX];
+    set_pool[pool1, sizeof[pool1], 0, size];
+    set_heap[backup, sizeof[backup], 0, I32MAX];
     debug::setup[];
 end
 
@@ -62,6 +62,7 @@ begin
     BENCH2[];
     BENCH3[];
     BENCH4[];
+    BENCH5[];
     debug::print_counts[];
 end
 
@@ -78,7 +79,7 @@ begin
 
     set i = 0;
     while i <= 100_000 begin
-        add[A, B, C];
+        add_rat[A, B, C];
         copy_BigRat[A, C];
         minimize[A, scratch, scratch_size];
         
@@ -91,7 +92,7 @@ begin
     free_scratch[];
 
     if not empty[] begin
-        exit 1ss; # test is not implemented yet
+        exit 1ss;
     end
 end
 
@@ -99,14 +100,14 @@ end
 proc BENCH2
 var a, b, out1, out2, scratch:BigInt
 begin
-    set a = new_BigInt[2];
-    set b = new_BigInt[3];
+    set a = new_BigInt[0];
+    set b = new_BigInt[0];
     set out1 = new_BigInt[0];
     set out2 = new_BigInt[0];
     set scratch = new_BigInt[0];
 
-    pow[a, 4096, out1, scratch];
-    pow[b, 2048, out2, scratch];
+    pow_i32[2, 4096, out1];
+    pow_i32[3, 2048, out2];
     div[out1, out2, a, b];
 
     free_BigInt[a];
@@ -114,8 +115,9 @@ begin
     free_BigInt[out1];
     free_BigInt[out2];
     free_BigInt[scratch];
+
     if not empty[] begin
-        exit 1ss;
+        exit 2ss;
     end
 end
 
@@ -136,7 +138,7 @@ begin
             set rat->Num->Neg = true;
         end
 
-        add[out, rat, scr];
+        add_rat[out, rat, scr];
         set out <> scr;
 
         if i % 100 == 0 begin
@@ -155,11 +157,14 @@ begin
     put_decimal[scr, 4, scratch, scratch_size];
     put_ln[];
 
-    put_ln[];
     free_scratch[];
     free_BigRat[out];
     free_BigRat[rat];
     free_BigRat[scr];
+
+    if not empty[] begin
+        exit 3ss;
+    end
 end
 
 # computes and prints 10 thousand digits of sqrt(2)
@@ -171,12 +176,79 @@ begin
     set out = new_BigRat[0, 1];
     sqrt2[out, 15, scratch_rat, scratch_size];
 
-    put_ln[];
     put_decimal[out, 1111, scratch, scratch_size];
     put_ln[];
     free_scratch[];
     free_BigRat[out];
+
     if not empty[] begin
-        exit 1ss;
+        exit 4ss;
     end
+end
+
+const N = 200
+
+# computes and prints 60 digits of pi
+proc BENCH5
+var k:i32, t, scr, out:BigRat
+begin
+    alloc_scratch[];
+    set t = new_BigRat[0,1];
+    set scr = new_BigRat[0,1];
+    set out = new_BigRat[0,1];
+
+    set k = 0;
+    while k < N begin
+        if k == 50 or k == 100 begin
+            minimize[out, scratch, scratch_size];
+            minimize[t, scratch, scratch_size];
+            minimize[scr, scratch, scratch_size];
+            free_scratch[];
+            alloc_scratch[];
+        end
+
+        term[k, t];
+        add_rat[out, t, scr];
+        copy_BigRat[out, scr];
+
+        set k++;
+    end
+
+    put_char['p'];
+    put_char['i'];
+    put_char['~'];
+    mult_i32[out->Num, 2, out->Num];
+    put_decimal[out, 7, scratch, scratch_size];
+    put_ln[];
+
+    free_scratch[];
+    free_BigRat[t];
+    free_BigRat[scr];
+    free_BigRat[out];
+
+    if not empty[] begin
+        exit 5ss;
+    end
+end
+
+# out = ((2^k)*((k!)^2)) / (2k+1)!
+proc term[k:i32, out:BigRat]
+var a,b,c:BigInt
+begin
+    if scratch_size < 4 begin
+        exit 57ss;
+    end
+
+    set a = scratch[0]->Int;
+    set b = scratch[1]->Int;
+    set c = scratch[2]->Int;
+
+    fact[k, a];
+    mult[a, a, b];
+    pow_i32[2, k, a];
+    mult[a, b, c];
+
+    fact[2*k+1, a];
+
+    set_BigRat_B[out, c, a];
 end
