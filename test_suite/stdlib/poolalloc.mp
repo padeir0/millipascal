@@ -61,7 +61,7 @@ begin
 end
 
 proc alloc[p:Pool] ptr, bool
-var curr:Node, position:i32
+var curr:Node
 begin
 	if p->Head == NULLNODE begin
 		return NULL, false;
@@ -77,7 +77,7 @@ begin
 end
 
 proc free[pool:Pool, p:ptr]
-var position:i32, new:Node
+var new:Node
 begin
 	if not (pool->Begin <= p and p < pool->End) begin
 		fatal[ERR_BOUNDS, sizeof[ERR_BOUNDS]];

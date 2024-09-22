@@ -48,9 +48,8 @@ type Lexer struct {
 	BeginLine, BeginCol int
 	EndLine, EndCol     int
 
-	Start, End   int
-	LastRuneSize int
-	Input        string
+	Start, End int
+	Input      string
 
 	Peeked *ir.Node
 }
@@ -158,7 +157,6 @@ func nextRune(l *Lexer) rune {
 		panic("Invalid UTF8 rune in string")
 	}
 	l.End += size
-	l.LastRuneSize = size
 
 	if r == '\n' {
 		l.EndLine++
@@ -184,7 +182,6 @@ func ignore(l *Lexer) {
 	l.Start = l.End
 	l.BeginLine = l.EndLine
 	l.BeginCol = l.EndCol
-	l.LastRuneSize = 0
 }
 
 func acceptRun(l *Lexer, s string) {

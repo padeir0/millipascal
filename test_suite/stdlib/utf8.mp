@@ -26,26 +26,26 @@ begin
         if (p+1)@u8 & TOP_2_BITS != TOP_BIT begin
             return ~1, 0;
         end
-        return ((p@u8 & LOWEST_5_BITS):i32 << 6) |
+        return ((p@u8    & LOWEST_5_BITS):i32 << 6) |
                ((p+1)@u8 & LOWEST_6_BITS):i32, 2;
     end elseif p@u8 & 0b1111_0000uss == 0b1110_0000uss begin # 3 byte sequence
         if (p+1)@u8 & TOP_2_BITS != TOP_BIT or
            (p+2)@u8 & TOP_2_BITS != TOP_BIT begin
             return ~1, 0;
         end
-        return ((p@u8 & LOWEST_4_BITS):i32 << 12) |
+        return ((p@u8     & LOWEST_4_BITS):i32 << 12) |
                (((p+1)@u8 & LOWEST_6_BITS):i32 << 6) |
-               ((p+2)@u8 & LOWEST_6_BITS):i32, 3;
+               ((p+2)@u8  & LOWEST_6_BITS):i32, 3;
     end elseif p@u8 & 0b1111_1000uss == 0b1111_0000uss begin # 4 byte sequence
         if (p+1)@u8 & TOP_2_BITS != TOP_BIT or
            (p+2)@u8 & TOP_2_BITS != TOP_BIT or
            (p+3)@u8 & TOP_2_BITS != TOP_BIT begin
             return ~1, 0;
         end
-        return ((p@u8 & LOWEST_4_BITS):i32 << 18) |
+        return ((p@u8     & LOWEST_3_BITS):i32 << 18) |
                (((p+1)@u8 & LOWEST_6_BITS):i32 << 12) |
                (((p+2)@u8 & LOWEST_6_BITS):i32 << 6) |
-               ((p+3)@u8 & LOWEST_6_BITS):i32, 4;
+               ((p+3)@u8  & LOWEST_6_BITS):i32, 4;
     end
     fatal[ERR_OUT_OF_RANGE, sizeof[ERR_OUT_OF_RANGE]];
     return ~1, 0;
@@ -99,7 +99,7 @@ begin
 end
 
 # returns the size of a rune in bytes
-# it that rune were to be encoded
+# if that rune were to be encoded
 proc rune_size[rune:i32] i32
 begin
     if RANGE_S_1 <= rune and rune <= RANGE_E_1 begin # ascii

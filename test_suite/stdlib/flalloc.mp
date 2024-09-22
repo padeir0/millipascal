@@ -123,7 +123,7 @@ begin
 	set newnode->Size = curr->Size - requested_size;
 	set newnode->Next = curr->Next;
 
-	set curr->Size =  requested_size;
+	set curr->Size = requested_size;
 	set curr->Next = newnode;
 
 	return pop[h, prev, curr];

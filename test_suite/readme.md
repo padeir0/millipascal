@@ -2,7 +2,7 @@
 
 Tests in the `base` folder do not use asm procedures.
 
-Tests in `linux` should work on linux.
+Tests in `asm` test the asm procedures.
 
-Tests in `stdlib` are also meant to work on linux,
-but are much larger programs.
+Tests in `stdlib` are meant to work on linux,
+and are much larger programs.
